@@ -59,7 +59,7 @@ void Scene::render(Renderer* renderer) {
     
     // Update camera to follow player
     if (m_player && renderer->getCamera()) {
-        renderer->getCamera()->followTarget(m_player->getPosition(), 5.0f, 0.016f);
+        renderer->getCamera()->followTarget(m_player->getPosition());
     }
     
     // Render roads first (bottom layer)

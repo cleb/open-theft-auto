@@ -24,8 +24,7 @@ bool Renderer::initialize(int windowWidth, int windowHeight) {
     // Initialize projection matrix (orthographic for 2.5D)
     float aspectRatio = static_cast<float>(windowWidth) / static_cast<float>(windowHeight);
     float viewSize = 20.0f; // World units visible on screen
-    m_projectionMatrix = glm::ortho(-viewSize * aspectRatio, viewSize * aspectRatio, 
-                                   -viewSize, viewSize, 0.1f, 100.0f);
+    m_projectionMatrix = glm::perspective(35.0f,1.0f, 0.1f, 16.0f);
     
     // Initialize camera
     m_camera = std::make_unique<Camera>();

@@ -21,7 +21,7 @@ public:
     void lookAt(const glm::vec3& target);
     
     void move(const glm::vec3& offset);
-    void followTarget(const glm::vec3& targetPos, float followSpeed, float deltaTime);
+    void followTarget(const glm::vec3& targetPos);
     
     void update(float deltaTime);
     
