@@ -29,7 +29,7 @@ bool Renderer::initialize(int windowWidth, int windowHeight) {
     
     // Initialize camera
     m_camera = std::make_unique<Camera>();
-    m_camera->setPosition(glm::vec3(0.0f, -15.0f, 15.0f));
+    m_camera->setPosition(glm::vec3(0.0f, -8.0f, 12.0f));
     m_camera->lookAt(glm::vec3(0.0f, 0.0f, 0.0f));
     
     // Initialize sprite rendering data
@@ -88,16 +88,17 @@ void Renderer::endFrame() {
 }
 
 void Renderer::initializeSpriteData() {
-    // Sprite quad vertices (for 2D sprites)
+    // Sprite quad vertices (for 2D sprites in XY plane)
+    // Centered at origin, will be transformed by model matrix
     float vertices[] = {
-        // Positions    // Texture coords
-        0.0f, 1.0f,     0.0f, 1.0f,
-        1.0f, 0.0f,     1.0f, 0.0f,
-        0.0f, 0.0f,     0.0f, 0.0f,
+        // Positions        // Texture coords
+        -0.5f, -0.5f,       0.0f, 0.0f,
+         0.5f,  0.5f,       1.0f, 1.0f,
+        -0.5f,  0.5f,       0.0f, 1.0f,
         
-        0.0f, 1.0f,     0.0f, 1.0f,
-        1.0f, 1.0f,     1.0f, 1.0f,
-        1.0f, 0.0f,     1.0f, 0.0f
+        -0.5f, -0.5f,       0.0f, 0.0f,
+         0.5f, -0.5f,       1.0f, 0.0f,
+         0.5f,  0.5f,       1.0f, 1.0f
     };
     
     glGenVertexArrays(1, &m_spriteVAO);
@@ -149,20 +150,19 @@ void Renderer::renderSprite(const Texture& texture, const glm::vec2& position, c
     
     shader->use();
     
-    // Create model matrix for sprite
+    // Create model matrix for sprite (positioned in XY plane, facing up for top-down view)
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3(position, 0.0f));
-    model = glm::translate(model, glm::vec3(0.5f * size.x, 0.5f * size.y, 0.0f));
+    model = glm::translate(model, glm::vec3(position.x, position.y, 0.1f)); // Slightly above ground
     model = glm::rotate(model, glm::radians(rotation), glm::vec3(0.0f, 0.0f, 1.0f));
-    model = glm::translate(model, glm::vec3(-0.5f * size.x, -0.5f * size.y, 0.0f));
-    model = glm::scale(model, glm::vec3(size, 1.0f));
+    model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
     
     shader->setMat4("model", model);
     shader->setMat4("view", m_viewMatrix);
     shader->setMat4("projection", m_projectionMatrix);
     shader->setVec3("spriteColor", color);
+    shader->setInt("sprite", 0);
     
-    texture.bind();
+    texture.bind(0);
     
     glBindVertexArray(m_spriteVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
