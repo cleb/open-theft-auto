@@ -127,6 +127,9 @@ void Scene::addGameObject(std::unique_ptr<GameObject> object) {
 }
 
 void Scene::addVehicle(std::unique_ptr<Vehicle> vehicle) {
+    if (vehicle && m_tileGrid) {
+        vehicle->setTileGrid(m_tileGrid.get());
+    }
     m_vehicles.push_back(std::move(vehicle));
 }
 

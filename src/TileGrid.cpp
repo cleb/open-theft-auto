@@ -183,6 +183,27 @@ bool TileGrid::canOccupy(const glm::vec3& startPos, const glm::vec3& endPos) con
     return hasGroundSupport(endTile);
 }
 
+bool TileGrid::isRoadTile(const glm::vec3& worldPos) const {
+    glm::ivec3 gridPos = worldToGrid(worldPos);
+    if (!isValidPosition(gridPos)) {
+        return false;
+    }
+    return isRoadTile(gridPos);
+}
+
+bool TileGrid::isRoadTile(const glm::ivec3& gridPos) const {
+    if (!isValidPosition(gridPos)) {
+        return false;
+    }
+
+    const Tile* tile = getTile(gridPos);
+    if (!tile) {
+        return false;
+    }
+
+    return tile->getCarDirection() != CarDirection::None;
+}
+
 void TileGrid::createTestGrid() {
     // Ground level (z = 0): Mix of roads and grass
     // With the z offset, these tiles render from world z=-3.0 to z=0.0 (top surface at z=0)

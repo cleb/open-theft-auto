@@ -40,6 +40,8 @@ public:
     glm::vec3 gridToWorld(const glm::ivec3& gridPos) const;
     glm::ivec3 worldToGrid(const glm::vec3& worldPos) const;
     bool canOccupy(const glm::vec3& startPos, const glm::vec3& endPos) const;
+    bool isRoadTile(const glm::vec3& worldPos) const;
+    bool isRoadTile(const glm::ivec3& gridPos) const;
     
     // Configuration helpers
     void createTestGrid();  // Create a test configuration

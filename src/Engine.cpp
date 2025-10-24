@@ -122,10 +122,10 @@ void Engine::processInput() {
                 vehicle->brake(m_deltaTime);
             }
             if (m_inputManager->isKeyDown(GLFW_KEY_A) || m_inputManager->isKeyDown(GLFW_KEY_LEFT)) {
-                vehicle->turnLeft(m_deltaTime);
+                vehicle->turnRight(m_deltaTime);
             }
             if (m_inputManager->isKeyDown(GLFW_KEY_D) || m_inputManager->isKeyDown(GLFW_KEY_RIGHT)) {
-                vehicle->turnRight(m_deltaTime);
+                vehicle->turnLeft(m_deltaTime);
             }
         }
         m_inputManager->clearPressed();
