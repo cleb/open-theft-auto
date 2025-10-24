@@ -12,12 +12,16 @@ Vehicle::Vehicle()
 }
 
 bool Vehicle::initialize(const std::string& texturePath) {
-    m_texture = std::make_unique<Texture>();
-    // m_texture->loadFromFile(texturePath);
+    if (!texturePath.empty()) {
+        m_texture = std::make_shared<Texture>();
+        if (!m_texture->loadFromFile(texturePath)) {
+            std::cerr << "Failed to load vehicle texture: " << texturePath << std::endl;
+        }
+    } else {
+        m_texture.reset();
+    }
     
     setPosition(glm::vec3(0.0f, 0.0f, 0.1f)); // Slightly above ground
-    
-    (void)texturePath; // Suppress unused parameter warning
     return true;
 }
 
@@ -39,7 +43,7 @@ void Vehicle::render(Renderer* renderer) {
     if (!m_active || !renderer) return;
     
     // Create a simple car mesh if we don't have one
-    static std::unique_ptr<Mesh> carMesh = nullptr;
+    static std::shared_ptr<Mesh> carMesh = nullptr;
     if (!carMesh) {
         std::vector<Vertex> vertices;
         std::vector<GLuint> indices;
@@ -92,7 +96,10 @@ void Vehicle::render(Renderer* renderer) {
             indices.push_back(face_indices[i]);
         }
         
-        carMesh = std::make_unique<Mesh>(vertices, indices);
+        carMesh = std::make_shared<Mesh>(vertices, indices);
+    }
+    if (m_texture) {
+        carMesh->setTexture(m_texture);
     }
     
     glm::mat4 modelMatrix = getModelMatrix();

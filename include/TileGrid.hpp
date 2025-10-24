@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Tile.hpp"
+#include "Texture.hpp"
 #include <vector>
 #include <memory>
 #include <glm/glm.hpp>
@@ -10,6 +11,11 @@ private:
     glm::ivec3 m_gridSize;      // Grid dimensions (width, height, depth)
     float m_tileSize;           // Size of each tile
     std::vector<std::unique_ptr<Tile>> m_tiles;
+    
+    // Shared textures
+    std::shared_ptr<Texture> m_grassTexture;
+    std::shared_ptr<Texture> m_roadTexture;
+    std::shared_ptr<Texture> m_wallTexture;
     
 public:
     TileGrid(const glm::ivec3& gridSize = glm::ivec3(16, 16, 4), float tileSize = 3.0f);

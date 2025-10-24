@@ -30,6 +30,13 @@ void Tile::setWall(WallDirection dir, bool walkable, const std::string& textureP
     m_meshesGenerated = false;  // Regenerate meshes
 }
 
+void Tile::setWall(WallDirection dir, bool walkable, std::shared_ptr<Texture> texture) {
+    int index = static_cast<int>(dir);
+    m_walls[index].walkable = walkable;
+    m_walls[index].texture = texture;
+    m_meshesGenerated = false;  // Regenerate meshes
+}
+
 void Tile::setWallWalkable(WallDirection dir, bool walkable) {
     int index = static_cast<int>(dir);
     m_walls[index].walkable = walkable;
@@ -39,6 +46,12 @@ void Tile::setWallTexture(WallDirection dir, const std::string& texturePath) {
     int index = static_cast<int>(dir);
     m_walls[index].texturePath = texturePath;
     m_walls[index].texture = nullptr;  // Will be loaded when needed
+    m_meshesGenerated = false;  // Regenerate meshes
+}
+
+void Tile::setWallTexture(WallDirection dir, std::shared_ptr<Texture> texture) {
+    int index = static_cast<int>(dir);
+    m_walls[index].texture = texture;
     m_meshesGenerated = false;  // Regenerate meshes
 }
 
@@ -58,6 +71,13 @@ void Tile::setTopSurface(bool solid, const std::string& texturePath, CarDirectio
     m_meshesGenerated = false;  // Regenerate meshes
 }
 
+void Tile::setTopSurface(bool solid, std::shared_ptr<Texture> texture, CarDirection carDir) {
+    m_topSurface.solid = solid;
+    m_topSurface.texture = texture;
+    m_topSurface.carDirection = carDir;
+    m_meshesGenerated = false;  // Regenerate meshes
+}
+
 void Tile::setTopSolid(bool solid) {
     m_topSurface.solid = solid;
 }
@@ -65,6 +85,11 @@ void Tile::setTopSolid(bool solid) {
 void Tile::setTopTexture(const std::string& texturePath) {
     m_topSurface.texturePath = texturePath;
     m_topSurface.texture = nullptr;  // Will be loaded when needed
+    m_meshesGenerated = false;  // Regenerate meshes
+}
+
+void Tile::setTopTexture(std::shared_ptr<Texture> texture) {
+    m_topSurface.texture = texture;
     m_meshesGenerated = false;  // Regenerate meshes
 }
 
@@ -138,15 +163,19 @@ void Tile::createWallMesh(WallDirection dir) {
     indices.push_back(3);
     indices.push_back(0);
     
+    auto& wallData = m_walls[static_cast<int>(dir)];
     m_wallMeshes[static_cast<int>(dir)] = std::make_unique<Mesh>(vertices, indices);
-    
+
     // Load texture if specified
-    const std::string& texPath = m_walls[static_cast<int>(dir)].texturePath;
-    if (!texPath.empty() && !m_walls[static_cast<int>(dir)].texture) {
-        m_walls[static_cast<int>(dir)].texture = std::make_shared<Texture>();
-        if (!m_walls[static_cast<int>(dir)].texture->loadFromFile(texPath)) {
+    const std::string& texPath = wallData.texturePath;
+    if (!texPath.empty() && !wallData.texture) {
+        wallData.texture = std::make_shared<Texture>();
+        if (!wallData.texture->loadFromFile(texPath)) {
             std::cerr << "Failed to load wall texture: " << texPath << std::endl;
         }
+    }
+    if (wallData.texture) {
+        m_wallMeshes[static_cast<int>(dir)]->setTexture(wallData.texture);
     }
 }
 
@@ -171,13 +200,16 @@ void Tile::createTopMesh() {
     indices.push_back(0);
     
     m_topMesh = std::make_unique<Mesh>(vertices, indices);
-    
+
     // Load texture if specified
     if (!m_topSurface.texturePath.empty() && !m_topSurface.texture) {
         m_topSurface.texture = std::make_shared<Texture>();
         if (!m_topSurface.texture->loadFromFile(m_topSurface.texturePath)) {
             std::cerr << "Failed to load top surface texture: " << m_topSurface.texturePath << std::endl;
         }
+    }
+    if (m_topSurface.texture) {
+        m_topMesh->setTexture(m_topSurface.texture);
     }
 }
 

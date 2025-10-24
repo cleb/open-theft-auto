@@ -64,15 +64,19 @@ public:
     
     // Wall configuration
     void setWall(WallDirection dir, bool walkable, const std::string& texturePath = "");
+    void setWall(WallDirection dir, bool walkable, std::shared_ptr<Texture> texture);
     void setWallWalkable(WallDirection dir, bool walkable);
     void setWallTexture(WallDirection dir, const std::string& texturePath);
+    void setWallTexture(WallDirection dir, std::shared_ptr<Texture> texture);
     const WallData& getWall(WallDirection dir) const;
     bool isWallWalkable(WallDirection dir) const;
     
     // Top surface configuration
     void setTopSurface(bool solid, const std::string& texturePath = "", CarDirection carDir = CarDirection::None);
+    void setTopSurface(bool solid, std::shared_ptr<Texture> texture, CarDirection carDir = CarDirection::None);
     void setTopSolid(bool solid);
     void setTopTexture(const std::string& texturePath);
+    void setTopTexture(std::shared_ptr<Texture> texture);
     void setCarDirection(CarDirection dir);
     const TopSurfaceData& getTopSurface() const { return m_topSurface; }
     bool isTopSolid() const { return m_topSurface.solid; }

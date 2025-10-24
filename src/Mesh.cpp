@@ -1,4 +1,5 @@
 #include "Mesh.hpp"
+#include "Texture.hpp"
 
 Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<GLuint>& indices)
     : m_vertices(vertices), m_indices(indices), m_VAO(0), m_VBO(0), m_EBO(0), m_setupDone(false) {
@@ -49,4 +50,8 @@ void Mesh::render() const {
     glBindVertexArray(m_VAO);
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(m_indices.size()), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
+}
+
+void Mesh::setTexture(const std::shared_ptr<Texture>& texture) {
+    m_texture = texture;
 }

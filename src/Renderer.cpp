@@ -125,19 +125,20 @@ void Renderer::renderMesh(const Mesh& mesh, const glm::mat4& modelMatrix, const 
     // Set lighting uniforms
     shader->setVec3("lightPos", glm::vec3(10.0f, 10.0f, 10.0f));
     shader->setVec3("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
-    
-    // Set object-specific colors
-    if (shaderName == "player") {
-        shader->setVec3("objectColor", glm::vec3(1.0f, 0.3f, 0.3f)); // Red player
-    } else if (shaderName == "vehicle") {
-        shader->setVec3("objectColor", glm::vec3(0.2f, 0.5f, 1.0f)); // Blue car
-    } else if (shaderName == "road") {
-        shader->setVec3("objectColor", glm::vec3(0.3f, 0.3f, 0.35f)); // Dark gray road
-    } else {
-        shader->setVec3("objectColor", glm::vec3(0.7f, 0.7f, 0.8f)); // Default building color
+
+    const auto& texture = mesh.getTexture();
+    const bool hasTexture = static_cast<bool>(texture);
+    shader->setInt("useTexture", hasTexture ? 1 : 0);
+    if (hasTexture) {
+        shader->setInt("texture_diffuse1", 0);
+        texture->bind(0);
+        shader->setVec3("objectColor", glm::vec3(1.0f));
     }
     
     mesh.render();
+    if (hasTexture) {
+        texture->unbind();
+    }
     
     shader->unuse();
 }

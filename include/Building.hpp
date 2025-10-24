@@ -6,7 +6,7 @@
 class Building : public GameObject {
 private:
     std::unique_ptr<Mesh> m_mesh;
-    std::unique_ptr<Texture> m_texture;
+    std::shared_ptr<Texture> m_texture;
     glm::vec3 m_size;
 
 public:

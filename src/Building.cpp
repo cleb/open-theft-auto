@@ -11,8 +11,16 @@ bool Building::initialize(const glm::vec3& size, const std::string& texturePath)
     createBuildingMesh(size);
     
     if (!texturePath.empty()) {
-        m_texture = std::make_unique<Texture>();
-        // m_texture->loadFromFile(texturePath);
+        m_texture = std::make_shared<Texture>();
+        if (!m_texture->loadFromFile(texturePath)) {
+            std::cerr << "Failed to load building texture: " << texturePath << std::endl;
+        }
+        if (m_mesh) {
+            m_mesh->setTexture(m_texture);
+        }
+    } else if (m_texture) {
+        // Reapply existing texture if we already have one
+        m_mesh->setTexture(m_texture);
     }
     
     return true;
@@ -90,4 +98,7 @@ void Building::createBuildingMesh(const glm::vec3& size) {
     }
     
     m_mesh = std::make_unique<Mesh>(vertices, indices);
+    if (m_texture) {
+        m_mesh->setTexture(m_texture);
+    }
 }

@@ -7,6 +7,22 @@ TileGrid::TileGrid(const glm::ivec3& gridSize, float tileSize)
 }
 
 bool TileGrid::initialize() {
+    // Load shared textures once
+    m_grassTexture = std::make_shared<Texture>();
+    if (!m_grassTexture->loadFromFile("assets/textures/grass.png")) {
+        std::cerr << "Failed to load grass texture" << std::endl;
+    }
+    
+    m_roadTexture = std::make_shared<Texture>();
+    if (!m_roadTexture->loadFromFile("assets/textures/road.png")) {
+        std::cerr << "Failed to load road texture" << std::endl;
+    }
+    
+    m_wallTexture = std::make_shared<Texture>();
+    if (!m_wallTexture->loadFromFile("assets/textures/wall.png")) {
+        std::cerr << "Failed to load wall texture" << std::endl;
+    }
+    
     // Create all tiles
     m_tiles.clear();
     m_tiles.reserve(m_gridSize.x * m_gridSize.y * m_gridSize.z);
@@ -105,7 +121,7 @@ void TileGrid::createTestGrid() {
             
             if (isRoad) {
                 // Road tile - solid top surface at z=0
-                tile->setTopSurface(true, "", CarDirection::EastWest);
+                tile->setTopSurface(true, m_roadTexture, CarDirection::EastWest);
                 
                 // Vertical roads
                 if (x == 5 || x == 10) {
@@ -113,7 +129,7 @@ void TileGrid::createTestGrid() {
                 }
             } else {
                 // Grass/ground tile - solid top surface at z=0
-                tile->setTopSurface(true, "", CarDirection::None);
+                tile->setTopSurface(true, m_grassTexture, CarDirection::None);
             }
             
             // All walls are walkable at ground level
@@ -144,13 +160,13 @@ void TileGrid::createTestGrid() {
                     if (!tile) continue;
                     
                     // Solid walls on building edges
-                    tile->setWall(WallDirection::North, dy < 1, "");
-                    tile->setWall(WallDirection::South, dy > 0, "");
-                    tile->setWall(WallDirection::East, dx < 1, "");
-                    tile->setWall(WallDirection::West, dx > 0, "");
+                    tile->setWall(WallDirection::North, dy < 1, m_wallTexture);
+                    tile->setWall(WallDirection::South, dy > 0, m_wallTexture);
+                    tile->setWall(WallDirection::East, dx < 1, m_wallTexture);
+                    tile->setWall(WallDirection::West, dx > 0, m_wallTexture);
                     
                     // Solid roof
-                    tile->setTopSurface(true, "", CarDirection::None);
+                    tile->setTopSurface(true, m_grassTexture, CarDirection::None);
                 }
             }
         }
@@ -182,13 +198,13 @@ void TileGrid::createTestGrid() {
                 if (!tile) continue;
                 
                 // Building walls - solid on outer edges
-                tile->setWall(WallDirection::North, y < 8, "");   // Solid when y == 8 (top edge)
-                tile->setWall(WallDirection::South, y > 7, "");   // Solid when y == 7 (bottom edge)
-                tile->setWall(WallDirection::East, x < 8, "");    // Solid when x == 8 (right edge)
-                tile->setWall(WallDirection::West, x > 7, "");    // Solid when x == 7 (left edge)
+                tile->setWall(WallDirection::North, y < 8, m_wallTexture);   // Solid when y == 8 (top edge)
+                tile->setWall(WallDirection::South, y > 7, m_wallTexture);   // Solid when y == 7 (bottom edge)
+                tile->setWall(WallDirection::East, x < 8, m_wallTexture);    // Solid when x == 8 (right edge)
+                tile->setWall(WallDirection::West, x > 7, m_wallTexture);    // Solid when x == 7 (left edge)
                 
                 // Solid floor/ceiling
-                tile->setTopSurface(true, "", CarDirection::None);
+                tile->setTopSurface(true, m_grassTexture, CarDirection::None);
             }
         }
     }

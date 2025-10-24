@@ -5,7 +5,7 @@
 
 class Vehicle : public GameObject {
 private:
-    std::unique_ptr<Texture> m_texture;
+    std::shared_ptr<Texture> m_texture;
     float m_speed;
     float m_maxSpeed;
     float m_acceleration;
