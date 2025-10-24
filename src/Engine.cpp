@@ -56,13 +56,13 @@ bool Engine::initialize(int width, int height, const std::string& title) {
 
 void Engine::run() {
     while (m_running && !m_window->shouldClose()) {
+        m_window->pollEvents();
         calculateDeltaTime();
         processInput();
         update(m_deltaTime);
         render();
         
         m_window->swapBuffers();
-        m_window->pollEvents();
     }
 }
 
@@ -103,10 +103,37 @@ void Engine::processInput() {
         m_running = false;
     }
     
+    if (!m_scene) {
+        m_inputManager->clearPressed();
+        return;
+    }
+
+    if (m_inputManager->isKeyPressed(GLFW_KEY_ENTER) ||
+        m_inputManager->isKeyPressed(GLFW_KEY_KP_ENTER)) {
+        m_scene->tryEnterNearestVehicle();
+    }
+
+    if (m_scene->isPlayerInVehicle()) {
+        if (Vehicle* vehicle = m_scene->getActiveVehicle()) {
+            if (m_inputManager->isKeyDown(GLFW_KEY_W) || m_inputManager->isKeyDown(GLFW_KEY_UP)) {
+                vehicle->accelerate(m_deltaTime);
+            }
+            if (m_inputManager->isKeyDown(GLFW_KEY_S) || m_inputManager->isKeyDown(GLFW_KEY_DOWN)) {
+                vehicle->brake(m_deltaTime);
+            }
+            if (m_inputManager->isKeyDown(GLFW_KEY_A) || m_inputManager->isKeyDown(GLFW_KEY_LEFT)) {
+                vehicle->turnLeft(m_deltaTime);
+            }
+            if (m_inputManager->isKeyDown(GLFW_KEY_D) || m_inputManager->isKeyDown(GLFW_KEY_RIGHT)) {
+                vehicle->turnRight(m_deltaTime);
+            }
+        }
+        m_inputManager->clearPressed();
+        return;
+    }
+
     // Handle player input
-    if (m_scene && m_scene->getPlayer()) {
-        Player* player = m_scene->getPlayer();
-        
+    if (Player* player = m_scene->getPlayer()) {
         if (m_inputManager->isKeyDown(GLFW_KEY_W) || m_inputManager->isKeyDown(GLFW_KEY_UP)) {
             player->moveForward(m_deltaTime);
         }
@@ -120,6 +147,8 @@ void Engine::processInput() {
             player->turnRight(m_deltaTime);
         }
     }
+
+    m_inputManager->clearPressed();
 }
 
 void Engine::update(float deltaTime) {

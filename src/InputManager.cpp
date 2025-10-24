@@ -30,10 +30,6 @@ void InputManager::initialize(GLFWwindow* window) {
 }
 
 void InputManager::update() {
-    // Clear pressed states from previous frame
-    m_keysPressed.clear();
-    m_mouseButtonsPressed.clear();
-    
     // Update mouse delta
     m_deltaMouseX = m_mouseX - m_lastMouseX;
     m_deltaMouseY = m_mouseY - m_lastMouseY;
@@ -45,6 +41,11 @@ void InputManager::update() {
         m_deltaMouseY = 0.0;
         m_firstMouse = false;
     }
+}
+
+void InputManager::clearPressed() {
+    m_keysPressed.clear();
+    m_mouseButtonsPressed.clear();
 }
 
 bool InputManager::isKeyDown(int key) const {

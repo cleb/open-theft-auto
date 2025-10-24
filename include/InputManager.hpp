@@ -22,6 +22,7 @@ public:
     
     void initialize(GLFWwindow* window);
     void update();
+    void clearPressed();
     
     // Key input
     bool isKeyDown(int key) const;

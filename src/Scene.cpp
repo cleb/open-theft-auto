@@ -1,6 +1,8 @@
 #include "Scene.hpp"
 #include "Renderer.hpp"
 #include <iostream>
+#include <glm/glm.hpp>
+#include <glm/geometric.hpp>
 
 Scene::Scene() {
 }
@@ -31,6 +33,11 @@ void Scene::update(float deltaTime) {
     // Update player
     if (m_player) {
         m_player->update(deltaTime);
+    }
+
+    if (m_playerInVehicle && m_activeVehicle && m_player) {
+        m_player->setPosition(m_activeVehicle->getPosition());
+        m_player->setRotation(m_activeVehicle->getRotation());
     }
     
     // Update all game objects
@@ -66,8 +73,14 @@ void Scene::render(Renderer* renderer) {
     if (!renderer) return;
     
     // Update camera to follow player
-    if (m_player && renderer->getCamera()) {
-        renderer->getCamera()->followTarget(m_player->getPosition());
+    if (renderer->getCamera()) {
+        glm::vec3 target = glm::vec3(0.0f);
+        if (m_playerInVehicle && m_activeVehicle) {
+            target = m_activeVehicle->getPosition();
+        } else if (m_player) {
+            target = m_player->getPosition();
+        }
+        renderer->getCamera()->followTarget(target);
     }
     
     // Render tile grid (replaces roads and buildings)
@@ -97,7 +110,7 @@ void Scene::render(Renderer* renderer) {
     }
     
     // Render player (on top)
-    if (m_player) {
+    if (m_player && !m_playerInVehicle) {
         m_player->render(renderer);
     }
     
@@ -133,10 +146,48 @@ void Scene::createTestScene() {
     
     // Add a car nearby
     auto car = std::make_unique<Vehicle>();
-    car->initialize("");
+    car->initialize("assets/textures/car.png");
+    car->setSpriteSize(glm::vec2(1.5f, 3.0f));
     car->setPosition(glm::vec3(15.0f, 15.0f, 0.0f));  // Place on road
     addVehicle(std::move(car));
     
     std::cout << "Created test scene with tile grid and " 
               << m_vehicles.size() << " vehicles" << std::endl;
+}
+
+bool Scene::tryEnterNearestVehicle(float radius) {
+    if (!m_player || m_playerInVehicle) {
+        return false;
+    }
+
+    Vehicle* nearestVehicle = nullptr;
+    float nearestDistance = radius;
+    const glm::vec2 playerPos(m_player->getPosition().x, m_player->getPosition().y);
+
+    for (auto& vehicle : m_vehicles) {
+        if (!vehicle || !vehicle->isActive()) {
+            continue;
+        }
+
+        const glm::vec3 vehiclePos3 = vehicle->getPosition();
+        const glm::vec2 vehiclePos(vehiclePos3.x, vehiclePos3.y);
+        const float distance = glm::length(vehiclePos - playerPos);
+
+        if (distance <= nearestDistance) {
+            nearestVehicle = vehicle.get();
+            nearestDistance = distance;
+        }
+    }
+
+    if (!nearestVehicle) {
+        return false;
+    }
+
+    m_playerInVehicle = true;
+    m_activeVehicle = nearestVehicle;
+    m_activeVehicle->setPlayerControlled(true);
+    m_player->setActive(false);
+    m_player->setPosition(m_activeVehicle->getPosition());
+    m_player->setRotation(m_activeVehicle->getRotation());
+    return true;
 }

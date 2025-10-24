@@ -20,6 +20,9 @@ private:
     // New tile grid system
     std::unique_ptr<TileGrid> m_tileGrid;
 
+    bool m_playerInVehicle = false;
+    Vehicle* m_activeVehicle = nullptr;
+
 public:
     Scene();
     ~Scene() = default;
@@ -35,6 +38,9 @@ public:
     
     Player* getPlayer() const { return m_player.get(); }
     TileGrid* getTileGrid() const { return m_tileGrid.get(); }
+    bool tryEnterNearestVehicle(float radius = 2.0f);
+    bool isPlayerInVehicle() const { return m_playerInVehicle; }
+    Vehicle* getActiveVehicle() const { return m_activeVehicle; }
     
 private:
     void createTestScene();
