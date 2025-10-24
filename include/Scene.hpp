@@ -7,6 +7,7 @@
 #include "Vehicle.hpp"
 #include "Building.hpp"
 #include "Road.hpp"
+#include "TileGrid.hpp"
 
 class Scene {
 private:
@@ -15,6 +16,9 @@ private:
     std::vector<std::unique_ptr<Vehicle>> m_vehicles;
     std::vector<std::unique_ptr<Building>> m_buildings;
     std::vector<std::unique_ptr<Road>> m_roads;
+    
+    // New tile grid system
+    std::unique_ptr<TileGrid> m_tileGrid;
 
 public:
     Scene();
@@ -30,6 +34,7 @@ public:
     void addRoad(std::unique_ptr<Road> road);
     
     Player* getPlayer() const { return m_player.get(); }
+    TileGrid* getTileGrid() const { return m_tileGrid.get(); }
     
 private:
     void createTestScene();
