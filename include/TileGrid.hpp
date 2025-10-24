@@ -39,10 +39,12 @@ public:
     // World/Grid conversion
     glm::vec3 gridToWorld(const glm::ivec3& gridPos) const;
     glm::ivec3 worldToGrid(const glm::vec3& worldPos) const;
+    bool canOccupy(const glm::vec3& startPos, const glm::vec3& endPos) const;
     
     // Configuration helpers
     void createTestGrid();  // Create a test configuration
     
 private:
     int getIndex(int x, int y, int z) const;
+    bool hasGroundSupport(const glm::ivec3& tilePos) const;
 };

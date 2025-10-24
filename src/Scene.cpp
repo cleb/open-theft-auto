@@ -19,6 +19,7 @@ bool Scene::initialize() {
         std::cerr << "Failed to initialize player" << std::endl;
         return false;
     }
+    m_player->setTileGrid(m_tileGrid.get());
     
     // Create test scene
     createTestScene();

@@ -1,12 +1,14 @@
 #include "Player.hpp"
 #include "Renderer.hpp"
+#include "TileGrid.hpp"
 #include <glm/gtc/constants.hpp>
 #include <iostream>
 
 Player::Player() 
     : m_speed(5.0f)
     , m_rotationSpeed(90.0f)
-    , m_size(1.0f, 1.0f) {
+    , m_size(1.0f, 1.0f)
+    , m_tileGrid(nullptr) {
 }
 
 bool Player::initialize() {
@@ -34,14 +36,22 @@ void Player::render(Renderer* renderer) {
 void Player::moveForward(float deltaTime) {
     // Move in the direction the player is facing
     float angleRadians = glm::radians(m_rotation.z);
-    m_position.x += sin(angleRadians) * m_speed * deltaTime;
-    m_position.y += cos(angleRadians) * m_speed * deltaTime;
+    glm::vec3 delta(
+        sin(angleRadians) * m_speed * deltaTime,
+        cos(angleRadians) * m_speed * deltaTime,
+        0.0f
+    );
+    applyMovement(delta);
 }
 
 void Player::moveBackward(float deltaTime) {
     float angleRadians = glm::radians(m_rotation.z);
-    m_position.x -= sin(angleRadians) * m_speed * deltaTime;
-    m_position.y -= cos(angleRadians) * m_speed * deltaTime;
+    glm::vec3 delta(
+        -sin(angleRadians) * m_speed * deltaTime,
+        -cos(angleRadians) * m_speed * deltaTime,
+        0.0f
+    );
+    applyMovement(delta);
 }
 
 void Player::turnLeft(float deltaTime) {
@@ -51,6 +61,38 @@ void Player::turnLeft(float deltaTime) {
     if (m_rotation.z < 0.0f) {
         m_rotation.z += 360.0f;
     }
+}
+
+void Player::applyMovement(const glm::vec3& delta) {
+    if (delta.x == 0.0f && delta.y == 0.0f) {
+        return;
+    }
+
+    glm::vec3 newPosition = m_position;
+
+    if (!m_tileGrid) {
+        newPosition += delta;
+        setPosition(newPosition);
+        return;
+    }
+
+    // Resolve each axis separately so the player can slide along blocking walls.
+    if (delta.x != 0.0f) {
+        glm::vec3 target = newPosition + glm::vec3(delta.x, 0.0f, 0.0f);
+        if (m_tileGrid->canOccupy(newPosition, target)) {
+            newPosition.x = target.x;
+        }
+    }
+
+    if (delta.y != 0.0f) {
+        glm::vec3 startForY = newPosition;
+        glm::vec3 target = startForY + glm::vec3(0.0f, delta.y, 0.0f);
+        if (m_tileGrid->canOccupy(startForY, target)) {
+            newPosition.y = target.y;
+        }
+    }
+
+    setPosition(newPosition);
 }
 
 void Player::turnRight(float deltaTime) {

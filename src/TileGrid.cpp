@@ -1,5 +1,6 @@
 #include "TileGrid.hpp"
 #include "Renderer.hpp"
+#include <cmath>
 #include <iostream>
 
 TileGrid::TileGrid(const glm::ivec3& gridSize, float tileSize)
@@ -92,20 +93,94 @@ int TileGrid::getIndex(int x, int y, int z) const {
     return x + y * m_gridSize.x + z * m_gridSize.x * m_gridSize.y;
 }
 
+bool TileGrid::hasGroundSupport(const glm::ivec3& tilePos) const {
+    int groundZ = tilePos.z - 1;
+    if (groundZ < 0) {
+        return false;
+    }
+
+    const Tile* groundTile = getTile(tilePos.x, tilePos.y, groundZ);
+    if (!groundTile) {
+        return false;
+    }
+
+    return groundTile->isTopSolid();
+}
+
 glm::vec3 TileGrid::gridToWorld(const glm::ivec3& gridPos) const {
     return glm::vec3(
         gridPos.x * m_tileSize,
         gridPos.y * m_tileSize,
-        gridPos.z * m_tileSize
+        (gridPos.z - 1) * m_tileSize
     );
 }
 
 glm::ivec3 TileGrid::worldToGrid(const glm::vec3& worldPos) const {
+    const float halfSize = m_tileSize * 0.5f;
     return glm::ivec3(
-        static_cast<int>(worldPos.x / m_tileSize),
-        static_cast<int>(worldPos.y / m_tileSize),
-        static_cast<int>(worldPos.z / m_tileSize)
+        static_cast<int>(std::floor((worldPos.x + halfSize) / m_tileSize)),
+        static_cast<int>(std::floor((worldPos.y + halfSize) / m_tileSize)),
+        static_cast<int>(std::floor((worldPos.z + m_tileSize) / m_tileSize))
     );
+}
+
+bool TileGrid::canOccupy(const glm::vec3& startPos, const glm::vec3& endPos) const {
+    glm::ivec3 startTile = worldToGrid(startPos);
+    glm::ivec3 endTile = worldToGrid(endPos);
+
+    if (!isValidPosition(startTile.x, startTile.y, startTile.z)) {
+        return false;
+    }
+
+    if (!isValidPosition(endTile.x, endTile.y, endTile.z)) {
+        return false;
+    }
+
+    if (startTile == endTile) {
+        return hasGroundSupport(endTile);
+    }
+
+    glm::ivec3 diff = endTile - startTile;
+    if (diff.z != 0) {
+        return false;
+    }
+
+    int manhattan = glm::abs(diff.x) + glm::abs(diff.y);
+    if (manhattan > 1) {
+        return false;
+    }
+
+    WallDirection fromDir;
+    WallDirection toDir;
+
+    if (diff.x == 1) {
+        fromDir = WallDirection::East;
+        toDir = WallDirection::West;
+    } else if (diff.x == -1) {
+        fromDir = WallDirection::West;
+        toDir = WallDirection::East;
+    } else if (diff.y == 1) {
+        fromDir = WallDirection::North;
+        toDir = WallDirection::South;
+    } else if (diff.y == -1) {
+        fromDir = WallDirection::South;
+        toDir = WallDirection::North;
+    } else {
+        return hasGroundSupport(endTile);
+    }
+
+    const Tile* fromTile = getTile(startTile);
+    const Tile* toTile = getTile(endTile);
+
+    if (!fromTile || !toTile) {
+        return false;
+    }
+
+    if (!fromTile->isWallWalkable(fromDir) || !toTile->isWallWalkable(toDir)) {
+        return false;
+    }
+
+    return hasGroundSupport(endTile);
 }
 
 void TileGrid::createTestGrid() {
