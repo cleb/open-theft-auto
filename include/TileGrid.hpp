@@ -2,6 +2,7 @@
 
 #include "Tile.hpp"
 #include "Texture.hpp"
+#include "Mesh.hpp"
 #include <vector>
 #include <memory>
 #include <unordered_map>
@@ -15,7 +16,10 @@ private:
     std::vector<std::unique_ptr<Tile>> m_tiles;
     std::unordered_map<std::string, std::shared_ptr<Texture>> m_textureCache;
     std::unordered_map<std::string, std::string> m_textureAliases;
-    
+    std::unique_ptr<Mesh> m_waterMesh;
+    glm::mat4 m_waterModelMatrix{1.0f};
+    float m_waterHeight = 0.0f;
+
 public:
     TileGrid(const glm::ivec3& gridSize = glm::ivec3(16, 16, 4), float tileSize = 3.0f);
     ~TileGrid() = default;
@@ -56,4 +60,5 @@ private:
     std::shared_ptr<Texture> loadTexture(const std::string& identifier);
     std::shared_ptr<Texture> loadTextureFromPath(const std::string& path);
     std::string resolveTexturePath(const std::string& identifier) const;
+    void updateWaterMesh();
 };

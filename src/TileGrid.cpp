@@ -7,6 +7,8 @@
 #include <iostream>
 #include <sstream>
 #include <utility>
+#include <GLFW/glfw3.h>
+#include <glm/gtc/matrix_transform.hpp>
 
 TileGrid::TileGrid(const glm::ivec3& gridSize, float tileSize)
     : m_gridSize(gridSize), m_tileSize(tileSize) {
@@ -48,6 +50,8 @@ bool TileGrid::rebuildTiles() {
             }
         }
     }
+
+    updateWaterMesh();
 
     return true;
 }
@@ -144,6 +148,41 @@ std::string TileGrid::resolveTexturePath(const std::string& identifier) const {
         return aliasIt->second;
     }
     return identifier;
+}
+
+void TileGrid::updateWaterMesh() {
+    if (m_gridSize.x <= 0 || m_gridSize.y <= 0) {
+        m_waterMesh.reset();
+        m_waterModelMatrix = glm::mat4(1.0f);
+        return;
+    }
+
+    const float margin = m_tileSize;
+    const float width = static_cast<float>(m_gridSize.x) * m_tileSize;
+    const float depth = static_cast<float>(m_gridSize.y) * m_tileSize;
+    const float halfWidth = width * 0.5f + margin;
+    const float halfDepth = depth * 0.5f + margin;
+
+    const float tileCountX = static_cast<float>(std::max(1, m_gridSize.x));
+    const float tileCountY = static_cast<float>(std::max(1, m_gridSize.y));
+    const glm::vec2 uvScale(tileCountX * 0.6f, tileCountY * 0.6f);
+
+    std::vector<Vertex> vertices = {
+        {{-halfWidth, -halfDepth, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
+        {{ halfWidth, -halfDepth, 0.0f}, {0.0f, 0.0f, 1.0f}, {uvScale.x, 0.0f}},
+        {{ halfWidth,  halfDepth, 0.0f}, {0.0f, 0.0f, 1.0f}, {uvScale.x, uvScale.y}},
+        {{-halfWidth,  halfDepth, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, uvScale.y}}
+    };
+
+    std::vector<GLuint> indices = {0, 1, 2, 2, 3, 0};
+
+    m_waterMesh = std::make_unique<Mesh>(vertices, indices);
+
+    m_waterHeight = -m_tileSize - (m_tileSize * 0.15f);
+    const float centerX = (static_cast<float>(m_gridSize.x) - 1.0f) * m_tileSize * 0.5f;
+    const float centerY = (static_cast<float>(m_gridSize.y) - 1.0f) * m_tileSize * 0.5f;
+
+    m_waterModelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(centerX, centerY, m_waterHeight));
 }
 
 bool TileGrid::loadFromFile(const std::string& filePath) {
@@ -588,7 +627,30 @@ bool TileGrid::loadFromFile(const std::string& filePath) {
 
 void TileGrid::render(Renderer* renderer) {
     if (!renderer) return;
-    
+
+    if (m_waterMesh) {
+        Shader* waterShader = renderer->getShader("water");
+        if (waterShader) {
+            waterShader->use();
+            waterShader->setMat4("model", m_waterModelMatrix);
+            waterShader->setMat4("view", renderer->getViewMatrix());
+            waterShader->setMat4("projection", renderer->getProjectionMatrix());
+            waterShader->setVec3("lightPos", glm::vec3(10.0f, 10.0f, 10.0f));
+            waterShader->setVec3("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
+            waterShader->setVec3("cameraPos", renderer->getCameraPosition());
+            waterShader->setVec3("deepColor", glm::vec3(0.0f, 0.19f, 0.35f));
+            waterShader->setVec3("shallowColor", glm::vec3(0.12f, 0.55f, 0.70f));
+            waterShader->setFloat("foamIntensity", 0.35f);
+            waterShader->setFloat("waveStrength", 0.25f);
+            waterShader->setFloat("waveFrequency", 0.35f);
+            waterShader->setFloat("waveSpeed", 0.8f);
+            waterShader->setFloat("time", static_cast<float>(glfwGetTime()));
+
+            m_waterMesh->render();
+            waterShader->unuse();
+        }
+    }
+
     for (auto& tile : m_tiles) {
         if (tile) {
             tile->render(renderer);

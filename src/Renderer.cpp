@@ -54,7 +54,11 @@ bool Renderer::initialize(int windowWidth, int windowHeight) {
     if (!loadShader("road", "assets/shaders/model.vert", "assets/shaders/model.frag")) {
         std::cerr << "Failed to load road shader" << std::endl;
     }
-    
+
+    if (!loadShader("water", "assets/shaders/water.vert", "assets/shaders/water.frag")) {
+        std::cerr << "Failed to load water shader" << std::endl;
+    }
+
     return true;
 }
 
@@ -185,9 +189,13 @@ Shader* Renderer::getShader(const std::string& name) {
     return (it != m_shaders.end()) ? it->second.get() : nullptr;
 }
 
+glm::vec3 Renderer::getCameraPosition() const {
+    return m_camera ? m_camera->getPosition() : glm::vec3(0.0f);
+}
+
 void Renderer::onWindowResize(int width, int height) {
     glViewport(0, 0, width, height);
-    
+
     // Update projection matrix
     float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
     float viewSize = 20.0f;
