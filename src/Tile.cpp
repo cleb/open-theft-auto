@@ -97,6 +97,73 @@ void Tile::setCarDirection(CarDirection dir) {
     m_topSurface.carDirection = dir;
 }
 
+void Tile::applyUpdate(const Update& update,
+                       const std::function<std::string(const std::string&)>& resolveTexture,
+                       const std::function<std::shared_ptr<Texture>(const std::string&)>& loadTexture) {
+    if (update.topSpecified) {
+        if (update.topSolid) {
+            std::string resolved = update.topTextureId;
+            if (!resolved.empty() && resolveTexture) {
+                resolved = resolveTexture(resolved);
+            }
+
+            std::shared_ptr<Texture> texture;
+            if (!resolved.empty() && loadTexture) {
+                texture = loadTexture(resolved);
+            }
+
+            setTopSurface(true, resolved, CarDirection::None);
+            if (texture) {
+                setTopTexture(texture);
+            }
+        } else {
+            setTopSurface(false, "", CarDirection::None);
+        }
+    }
+
+    if (update.carSpecified) {
+        setCarDirection(update.carDirection);
+    }
+
+    for (int i = 0; i < 4; ++i) {
+        const WallUpdate& wall = update.walls[i];
+        if (!wall.specified) {
+            continue;
+        }
+
+        const auto dir = static_cast<WallDirection>(i);
+        std::string resolved = wall.textureId;
+        if (!resolved.empty() && resolveTexture) {
+            resolved = resolveTexture(resolved);
+        }
+
+        setWall(dir, wall.walkable, resolved);
+
+        if (!resolved.empty() && loadTexture) {
+            if (auto texture = loadTexture(resolved)) {
+                setWallTexture(dir, texture);
+            }
+        }
+    }
+}
+
+void Tile::copyFrom(const Tile& other) {
+    const TopSurfaceData& otherTop = other.getTopSurface();
+    setTopSurface(otherTop.solid, otherTop.texturePath, otherTop.carDirection);
+    if (otherTop.texture) {
+        setTopTexture(otherTop.texture);
+    }
+
+    for (int i = 0; i < 4; ++i) {
+        const auto dir = static_cast<WallDirection>(i);
+        const WallData& otherWall = other.getWall(dir);
+        setWall(dir, otherWall.walkable, otherWall.texturePath);
+        if (otherWall.texture) {
+            setWallTexture(dir, otherWall.texture);
+        }
+    }
+}
+
 void Tile::generateMeshes() {
     // Create wall meshes for non-walkable walls
     for (int i = 0; i < 4; i++) {

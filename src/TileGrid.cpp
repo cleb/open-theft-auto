@@ -95,20 +95,7 @@ bool TileGrid::resize(const glm::ivec3& newSize) {
                     continue;
                 }
 
-                const TopSurfaceData& oldTop = oldTile->getTopSurface();
-                newTile->setTopSurface(oldTop.solid, oldTop.texturePath, oldTop.carDirection);
-                if (oldTop.texture) {
-                    newTile->setTopTexture(oldTop.texture);
-                }
-
-                for (int wallIdx = 0; wallIdx < 4; ++wallIdx) {
-                    const WallDirection direction = static_cast<WallDirection>(wallIdx);
-                    const WallData& oldWall = oldTile->getWall(direction);
-                    newTile->setWall(direction, oldWall.walkable, oldWall.texturePath);
-                    if (oldWall.texture) {
-                        newTile->setWallTexture(direction, oldWall.texture);
-                    }
-                }
+                newTile->copyFrom(*oldTile);
             }
         }
     }
@@ -330,20 +317,8 @@ bool TileGrid::loadFromFile(const std::string& filePath) {
         return false;
     }
 
-    struct WallConfig {
-        bool specified = false;
-        bool walkable = true;
-        std::string textureId;
-    };
-
-    struct TileConfig {
-        bool topSpecified = false;
-        bool topSolid = false;
-        std::string topTextureId;
-        bool carSpecified = false;
-        CarDirection carDirection = CarDirection::None;
-        WallConfig walls[4];
-    };
+    using WallConfig = Tile::WallUpdate;
+    using TileConfig = Tile::Update;
 
     auto parseCarDirection = [&](const std::string& value, CarDirection& out, int lineNumber) -> bool {
         const std::string lower = toLowerCopy(trimCopy(value));
@@ -459,49 +434,11 @@ bool TileGrid::loadFromFile(const std::string& filePath) {
         return false;
     };
 
-    auto applyTileConfig = [&](Tile& tile, const TileConfig& config) {
-        if (config.topSpecified) {
-            if (config.topSolid) {
-                const std::string resolved = resolveTexturePath(config.topTextureId);
-                std::shared_ptr<Texture> texture;
-                if (!resolved.empty()) {
-                    texture = loadTextureFromPath(resolved);
-                }
-
-                tile.setTopSurface(true, resolved, CarDirection::None);
-                if (texture) {
-                    tile.setTopTexture(texture);
-                }
-            } else {
-                tile.setTopSurface(false, "", CarDirection::None);
-            }
-        }
-
-        if (config.carSpecified) {
-            tile.setCarDirection(config.carDirection);
-        }
-
-        for (int i = 0; i < 4; ++i) {
-            const WallConfig& wall = config.walls[i];
-            if (!wall.specified) {
-                continue;
-            }
-            const auto dir = static_cast<WallDirection>(i);
-
-            std::string resolved;
-            if (!wall.textureId.empty()) {
-                resolved = resolveTexturePath(wall.textureId);
-            }
-
-            tile.setWall(dir, wall.walkable, resolved);
-
-            if (!resolved.empty()) {
-                auto texture = loadTextureFromPath(resolved);
-                if (texture) {
-                    tile.setWallTexture(dir, texture);
-                }
-            }
-        }
+    const auto resolveAlias = [this](const std::string& identifier) {
+        return resolveTexturePath(identifier);
+    };
+    const auto loadTexture = [this](const std::string& path) {
+        return loadTextureFromPath(path);
     };
 
     for (size_t idx = 0; idx < lines.size(); ++idx) {
@@ -564,7 +501,7 @@ bool TileGrid::loadFromFile(const std::string& filePath) {
                 continue;
             }
 
-            applyTileConfig(*tile, config);
+            tile->applyUpdate(config, resolveAlias, loadTexture);
         } else if (lowerCmd == "fill") {
             int xStart = 0;
             int xEnd = 0;
@@ -638,7 +575,7 @@ bool TileGrid::loadFromFile(const std::string& filePath) {
                         if (!tile) {
                             continue;
                         }
-                        applyTileConfig(*tile, config);
+                        tile->applyUpdate(config, resolveAlias, loadTexture);
                     }
                 }
             }
