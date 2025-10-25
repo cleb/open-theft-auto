@@ -1,5 +1,6 @@
 #include "InputManager.hpp"
 #include <iostream>
+#include <imgui_impl_glfw.h>
 
 InputManager::InputManager() 
     : m_window(nullptr)
@@ -22,6 +23,8 @@ void InputManager::initialize(GLFWwindow* window) {
     glfwSetKeyCallback(window, keyCallback);
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetCursorPosCallback(window, cursorPosCallback);
+    glfwSetScrollCallback(window, scrollCallback);
+    glfwSetCharCallback(window, charCallback);
     
     // Get initial mouse position
     glfwGetCursorPos(window, &m_mouseX, &m_mouseY);
@@ -75,10 +78,14 @@ void InputManager::keyCallback(GLFWwindow* window, int key, int scancode, int ac
     (void)scancode; (void)mods; // Suppress unused parameter warnings
     
     if (action == GLFW_PRESS) {
+        ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
         inputManager->m_keys[key] = true;
         inputManager->m_keysPressed[key] = true;
     } else if (action == GLFW_RELEASE) {
+        ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
         inputManager->m_keys[key] = false;
+    } else {
+        ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
     }
 }
 
@@ -89,10 +96,14 @@ void InputManager::mouseButtonCallback(GLFWwindow* window, int button, int actio
     (void)mods; // Suppress unused parameter warning
     
     if (action == GLFW_PRESS) {
+        ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
         inputManager->m_mouseButtons[button] = true;
         inputManager->m_mouseButtonsPressed[button] = true;
     } else if (action == GLFW_RELEASE) {
+        ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
         inputManager->m_mouseButtons[button] = false;
+    } else {
+        ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
     }
 }
 
@@ -100,6 +111,27 @@ void InputManager::cursorPosCallback(GLFWwindow* window, double xpos, double ypo
     InputManager* inputManager = static_cast<InputManager*>(glfwGetWindowUserPointer(window));
     if (!inputManager) return;
     
+    ImGui_ImplGlfw_CursorPosCallback(window, xpos, ypos);
+
     inputManager->m_mouseX = xpos;
     inputManager->m_mouseY = ypos;
+}
+
+void InputManager::scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
+    InputManager* inputManager = static_cast<InputManager*>(glfwGetWindowUserPointer(window));
+    if (!inputManager) return;
+
+    (void)xoffset;
+    (void)yoffset;
+
+    ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
+}
+
+void InputManager::charCallback(GLFWwindow* window, unsigned int codepoint) {
+    InputManager* inputManager = static_cast<InputManager*>(glfwGetWindowUserPointer(window));
+    if (!inputManager) return;
+
+    (void)codepoint;
+
+    ImGui_ImplGlfw_CharCallback(window, codepoint);
 }

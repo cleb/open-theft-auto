@@ -113,7 +113,7 @@ void Renderer::initializeSpriteData() {
     glBindVertexArray(0);
 }
 
-void Renderer::renderMesh(const Mesh& mesh, const glm::mat4& modelMatrix, const std::string& shaderName) {
+void Renderer::renderMesh(const Mesh& mesh, const glm::mat4& modelMatrix, const std::string& shaderName, const glm::vec3& tint) {
     Shader* shader = getShader(shaderName);
     if (!shader) return;
     
@@ -129,10 +129,10 @@ void Renderer::renderMesh(const Mesh& mesh, const glm::mat4& modelMatrix, const 
     const auto& texture = mesh.getTexture();
     const bool hasTexture = static_cast<bool>(texture);
     shader->setInt("useTexture", hasTexture ? 1 : 0);
+    shader->setVec3("objectColor", tint);
     if (hasTexture) {
         shader->setInt("texture_diffuse1", 0);
         texture->bind(0);
-        shader->setVec3("objectColor", glm::vec3(1.0f));
     }
     
     mesh.render();

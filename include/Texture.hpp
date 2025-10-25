@@ -15,6 +15,8 @@ public:
     ~Texture();
     
     bool loadFromFile(const std::string& filePath);
+    bool loadFromData(const unsigned char* data, int width, int height, int channels);
+    bool createSolidColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255);
     void bind(GLuint slot = 0) const;
     void unbind() const;
     

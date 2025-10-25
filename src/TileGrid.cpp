@@ -741,3 +741,97 @@ bool TileGrid::isRoadTile(const glm::ivec3& gridPos) const {
     return tile->getCarDirection() != CarDirection::None;
 }
 
+bool TileGrid::saveToFile(const std::string& filePath) const {
+    std::ofstream output(filePath);
+    if (!output.is_open()) {
+        std::cerr << "Failed to save tile grid to file: " << filePath << std::endl;
+        return false;
+    }
+
+    output << "# Tile grid exported by editor" << std::endl;
+    output << "grid " << m_gridSize.x << ' ' << m_gridSize.y << ' ' << m_gridSize.z << std::endl;
+    output << "tile_size " << m_tileSize << std::endl;
+
+    for (const auto& alias : m_textureAliases) {
+        if (alias.first.empty() || alias.second.empty()) {
+            continue;
+        }
+        output << "texture " << alias.first << ' ' << alias.second << std::endl;
+    }
+
+    auto carDirectionToString = [](CarDirection dir) -> std::string {
+        switch (dir) {
+            case CarDirection::North: return "north";
+            case CarDirection::South: return "south";
+            case CarDirection::East: return "east";
+            case CarDirection::West: return "west";
+            case CarDirection::NorthSouth: return "north_south";
+            case CarDirection::EastWest: return "east_west";
+            case CarDirection::None: default: return "none";
+        }
+    };
+
+    auto wallKey = [](WallDirection dir) -> const char* {
+        switch (dir) {
+            case WallDirection::North: return "north";
+            case WallDirection::South: return "south";
+            case WallDirection::East: return "east";
+            case WallDirection::West: return "west";
+        }
+        return "north";
+    };
+
+    for (int z = 0; z < m_gridSize.z; ++z) {
+        for (int y = 0; y < m_gridSize.y; ++y) {
+            for (int x = 0; x < m_gridSize.x; ++x) {
+                const Tile* tile = getTile(x, y, z);
+                if (!tile) {
+                    continue;
+                }
+
+                std::vector<std::string> properties;
+                const TopSurfaceData& top = tile->getTopSurface();
+
+                if (top.solid) {
+                    std::string topProp = "top=solid";
+                    if (!top.texturePath.empty()) {
+                        topProp += ':' + top.texturePath;
+                    }
+                    properties.push_back(std::move(topProp));
+                }
+
+                if (top.carDirection != CarDirection::None) {
+                    properties.push_back(std::string("car=") + carDirectionToString(top.carDirection));
+                }
+
+                for (int dirIndex = 0; dirIndex < 4; ++dirIndex) {
+                    const WallDirection dir = static_cast<WallDirection>(dirIndex);
+                    const WallData& wall = tile->getWall(dir);
+                    if (wall.walkable && wall.texturePath.empty()) {
+                        continue;
+                    }
+
+                    std::string entry = std::string(wallKey(dir)) + '=' + (wall.walkable ? "walkable" : "solid");
+                    if (!wall.texturePath.empty()) {
+                        entry += ':' + wall.texturePath;
+                    }
+                    properties.push_back(std::move(entry));
+                }
+
+                if (properties.empty()) {
+                    continue;
+                }
+
+                output << "tile " << x << ' ' << y << ' ' << z;
+                for (const auto& prop : properties) {
+                    output << ' ' << prop;
+                }
+                output << std::endl;
+            }
+        }
+    }
+
+    std::cout << "Saved tile grid to file: " << filePath << std::endl;
+    return true;
+}
+

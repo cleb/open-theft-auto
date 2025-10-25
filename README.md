@@ -32,7 +32,7 @@ A top-down 2.5D game engine inspired by GTA 1 & 2, featuring 2D sprites for cars
 ```bash
 sudo apt update
 sudo apt install build-essential cmake
-sudo apt install libglfw3-dev libglew-dev libglm-dev
+sudo apt install libglfw3-dev libglew-dev libglm-dev libimgui-dev
 ```
 
 ### Linux (Fedora/CentOS)
@@ -98,6 +98,25 @@ mingw32-make -j4
 
 - **WASD** or **Arrow Keys**: Move player
 - **ESC**: Exit game
+- **F1**: Toggle map edit mode
+
+### Edit Mode Shortcuts
+
+- **WASD / Arrow Keys**: Move tile cursor
+- **Q / E**: Change layer
+- **1 / 2 / 3**: Select grass, road, or empty brush
+- **R**: Cycle road direction when road brush active
+- **I / J / K / L**: Toggle north / west / south / east walls
+- **Space / Left Click**: Apply selected brush
+- **Ctrl + S**: Save current level file
+
+### Editor UI
+
+- Press **F1** to open the ImGui-based *Map Editor* panel.
+- Use the *Brush* controls to switch between grass, road, or empty brushes.
+- The *Tile Faces* tabs expose top and wall settings for the selected tile, including per-face wall textures.
+- Texture inputs accept either absolute paths or texture aliases; pick from the alias dropdown for quick selections.
+- Wall controls allow toggling walkability and assigning textures per face.
 
 ## Project Structure
 

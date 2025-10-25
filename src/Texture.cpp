@@ -21,23 +21,15 @@ bool Texture::loadFromFile(const std::string& filePath) {
     if (!data) {
         std::cerr << "Failed to load texture: " << filePath << std::endl;
         
-        // Create a simple colored placeholder
-        glGenTextures(1, &m_textureID);
-        glBindTexture(GL_TEXTURE_2D, m_textureID);
-        
-        unsigned char placeholder[] = {255, 255, 255, 255};
-        m_width = 1;
-        m_height = 1;
-        m_channels = 4;
-        
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, placeholder);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        
+        const unsigned char placeholder[] = {255, 255, 255, 255};
+        loadFromData(placeholder, 1, 1, 4);
         return false;
     }
     
+    if (m_textureID) {
+        glDeleteTextures(1, &m_textureID);
+        m_textureID = 0;
+    }
     glGenTextures(1, &m_textureID);
     glBindTexture(GL_TEXTURE_2D, m_textureID);
     
@@ -63,6 +55,46 @@ bool Texture::loadFromFile(const std::string& filePath) {
     
     std::cout << "Loaded texture: " << filePath << " (" << m_width << "x" << m_height << ", " << m_channels << " channels)" << std::endl;
     return true;
+}
+
+bool Texture::loadFromData(const unsigned char* data, int width, int height, int channels) {
+    if (!data || width <= 0 || height <= 0 || channels <= 0) {
+        return false;
+    }
+
+    if (m_textureID) {
+        glDeleteTextures(1, &m_textureID);
+        m_textureID = 0;
+    }
+
+    m_width = width;
+    m_height = height;
+    m_channels = channels;
+
+    GLenum format = GL_RGB;
+    if (channels == 1) {
+        format = GL_RED;
+    } else if (channels == 3) {
+        format = GL_RGB;
+    } else if (channels == 4) {
+        format = GL_RGBA;
+    }
+
+    glGenTextures(1, &m_textureID);
+    glBindTexture(GL_TEXTURE_2D, m_textureID);
+    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    return true;
+}
+
+bool Texture::createSolidColor(unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+    const unsigned char pixel[] = {r, g, b, a};
+    return loadFromData(pixel, 1, 1, 4);
 }
 
 void Texture::bind(GLuint slot) const {

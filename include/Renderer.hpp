@@ -38,7 +38,7 @@ public:
     void setViewMatrix(const glm::mat4& view) { m_viewMatrix = view; }
     
     // 3D rendering
-    void renderMesh(const Mesh& mesh, const glm::mat4& modelMatrix, const std::string& shaderName);
+    void renderMesh(const Mesh& mesh, const glm::mat4& modelMatrix, const std::string& shaderName, const glm::vec3& tint = glm::vec3(1.0f));
     
     // 2D sprite rendering
     void renderSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size, 

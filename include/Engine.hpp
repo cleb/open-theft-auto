@@ -17,6 +17,7 @@ private:
     bool m_running;
     std::chrono::high_resolution_clock::time_point m_lastTime;
     float m_deltaTime;
+    bool m_imguiInitialized;
     
     void calculateDeltaTime();
     void processInput();

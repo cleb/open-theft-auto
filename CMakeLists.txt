@@ -37,12 +37,76 @@ file(GLOB_RECURSE HEADERS
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
 # Link libraries
+find_path(IMGUI_INCLUDE_DIR imgui.h
+    PATHS
+        /usr/include/imgui
+)
+
+if (NOT IMGUI_INCLUDE_DIR)
+    message(FATAL_ERROR "Could not locate ImGui headers. Please ensure libimgui-dev is installed.")
+endif()
+
+find_library(IMGUI_LIBRARY imgui
+    PATHS
+        /usr/lib
+        /usr/lib/x86_64-linux-gnu
+)
+
+if (NOT IMGUI_LIBRARY)
+    message(FATAL_ERROR "Could not locate ImGui library. Please ensure libimgui-dev is installed.")
+endif()
+
+find_library(STB_LIBRARY stb
+    PATHS
+        /usr/lib
+        /usr/lib/x86_64-linux-gnu
+)
+
+if (NOT STB_LIBRARY)
+    message(FATAL_ERROR "Could not locate stb library. Please ensure libstb-dev is installed.")
+endif()
+
 target_link_libraries(${PROJECT_NAME} 
     OpenGL::GL
     glfw
     GLEW::GLEW
     glm::glm
+    ${IMGUI_LIBRARY}
+    ${STB_LIBRARY}
 )
+
+find_path(IMGUI_BACKEND_SOURCE_DIR imgui_impl_glfw.cpp
+    PATHS
+        /usr/share/doc/libimgui-dev/examples/backends
+        /usr/share/doc/libimgui/examples/backends
+        /usr/share/doc/imgui/examples/backends
+)
+
+if (NOT IMGUI_BACKEND_SOURCE_DIR)
+    message(FATAL_ERROR "Could not locate ImGui backend sources. Please ensure libimgui-dev is installed.")
+endif()
+
+find_path(IMGUI_BACKEND_INCLUDE_DIR imgui_impl_glfw.h
+    PATHS
+        /usr/include/imgui/backends
+)
+
+if (NOT IMGUI_BACKEND_INCLUDE_DIR)
+    message(FATAL_ERROR "Could not locate ImGui backend headers. Please ensure libimgui-dev is installed.")
+endif()
+
+target_sources(${PROJECT_NAME} PRIVATE
+    ${IMGUI_BACKEND_SOURCE_DIR}/imgui_impl_glfw.cpp
+    ${IMGUI_BACKEND_SOURCE_DIR}/imgui_impl_opengl3.cpp
+)
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${IMGUI_INCLUDE_DIR}
+    ${IMGUI_BACKEND_INCLUDE_DIR}
+    ${IMGUI_BACKEND_SOURCE_DIR}
+)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE IMGUI_IMPL_OPENGL_LOADER_GLEW)
 
 # Platform-specific settings
 if(WIN32)

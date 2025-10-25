@@ -22,6 +22,7 @@ public:
     
     bool initialize();
     bool loadFromFile(const std::string& filePath);
+    bool saveToFile(const std::string& filePath) const;
     void render(class Renderer* renderer);
     
     // Tile access
@@ -35,6 +36,7 @@ public:
     float getTileSize() const { return m_tileSize; }
     bool isValidPosition(int x, int y, int z) const;
     bool isValidPosition(const glm::ivec3& gridPos) const;
+    const std::unordered_map<std::string, std::string>& getTextureAliases() const { return m_textureAliases; }
     
     // World/Grid conversion
     glm::vec3 gridToWorld(const glm::ivec3& gridPos) const;
