@@ -754,6 +754,13 @@ void TileGridEditor::applyVehicleBrush() {
         return;
     }
 
+    Tile* supportTile = m_grid->getTile(m_cursor);
+    if (!supportTile || !supportTile->isTopSolid()) {
+        std::cout << "Cannot place vehicle without solid ground at (" << m_cursor.x << ", "
+                  << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+        return;
+    }
+
     VehicleSpawnDefinition spawn;
     spawn.gridPosition = m_cursor;
     spawn.rotationDegrees = normalizeDegrees(m_uiVehicleState.rotationDegrees);
