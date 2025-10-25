@@ -169,8 +169,11 @@ void Scene::processInput(InputManager* input, float deltaTime) {
         return;
     }
 
-    if (input->isKeyPressed(GLFW_KEY_ENTER) || input->isKeyPressed(GLFW_KEY_KP_ENTER)) {
-        if (!m_playerInVehicle) {
+    const bool enterPressed = input->isKeyPressed(GLFW_KEY_ENTER) || input->isKeyPressed(GLFW_KEY_KP_ENTER);
+    if (enterPressed) {
+        if (m_playerInVehicle) {
+            leaveVehicle();
+        } else {
             m_playerInVehicle = tryEnterNearestVehicle();
         }
     }

@@ -52,6 +52,60 @@ bool TileGrid::rebuildTiles() {
     return true;
 }
 
+bool TileGrid::resize(const glm::ivec3& newSize) {
+    if (newSize.x <= 0 || newSize.y <= 0 || newSize.z <= 0) {
+        std::cerr << "TileGrid::resize: invalid grid size requested: " << newSize.x << "x" << newSize.y << "x" << newSize.z
+                  << std::endl;
+        return false;
+    }
+
+    if (newSize == m_gridSize) {
+        return true;
+    }
+
+    const glm::ivec3 oldSize = m_gridSize;
+    auto oldTiles = std::move(m_tiles);
+
+    m_gridSize = newSize;
+    if (!rebuildTiles()) {
+        m_gridSize = oldSize;
+        m_tiles = std::move(oldTiles);
+        return false;
+    }
+
+    const int copyX = std::min(oldSize.x, newSize.x);
+    const int copyY = std::min(oldSize.y, newSize.y);
+    const int copyZ = std::min(oldSize.z, newSize.z);
+
+    auto oldIndex = [&](int x, int y, int z) -> size_t {
+        return static_cast<size_t>((z * oldSize.y + y) * oldSize.x + x);
+    };
+
+    for (int z = 0; z < copyZ; ++z) {
+        for (int y = 0; y < copyY; ++y) {
+            for (int x = 0; x < copyX; ++x) {
+                const size_t idx = oldIndex(x, y, z);
+                if (idx >= oldTiles.size()) {
+                    continue;
+                }
+
+                const Tile* oldTile = oldTiles[idx].get();
+                Tile* newTile = getTile(x, y, z);
+                if (!oldTile || !newTile) {
+                    continue;
+                }
+
+                newTile->copyFrom(*oldTile);
+            }
+        }
+    }
+
+    std::cout << "Resized tile grid: " << oldSize.x << "x" << oldSize.y << "x" << oldSize.z << " -> " << newSize.x << "x"
+              << newSize.y << "x" << newSize.z << std::endl;
+
+    return true;
+}
+
 void TileGrid::registerTextureAlias(const std::string& alias, const std::string& path) {
     if (alias.empty() || path.empty()) {
         return;
@@ -263,20 +317,8 @@ bool TileGrid::loadFromFile(const std::string& filePath) {
         return false;
     }
 
-    struct WallConfig {
-        bool specified = false;
-        bool walkable = true;
-        std::string textureId;
-    };
-
-    struct TileConfig {
-        bool topSpecified = false;
-        bool topSolid = false;
-        std::string topTextureId;
-        bool carSpecified = false;
-        CarDirection carDirection = CarDirection::None;
-        WallConfig walls[4];
-    };
+    using WallConfig = Tile::WallUpdate;
+    using TileConfig = Tile::Update;
 
     auto parseCarDirection = [&](const std::string& value, CarDirection& out, int lineNumber) -> bool {
         const std::string lower = toLowerCopy(trimCopy(value));
@@ -392,49 +434,11 @@ bool TileGrid::loadFromFile(const std::string& filePath) {
         return false;
     };
 
-    auto applyTileConfig = [&](Tile& tile, const TileConfig& config) {
-        if (config.topSpecified) {
-            if (config.topSolid) {
-                const std::string resolved = resolveTexturePath(config.topTextureId);
-                std::shared_ptr<Texture> texture;
-                if (!resolved.empty()) {
-                    texture = loadTextureFromPath(resolved);
-                }
-
-                tile.setTopSurface(true, resolved, CarDirection::None);
-                if (texture) {
-                    tile.setTopTexture(texture);
-                }
-            } else {
-                tile.setTopSurface(false, "", CarDirection::None);
-            }
-        }
-
-        if (config.carSpecified) {
-            tile.setCarDirection(config.carDirection);
-        }
-
-        for (int i = 0; i < 4; ++i) {
-            const WallConfig& wall = config.walls[i];
-            if (!wall.specified) {
-                continue;
-            }
-            const auto dir = static_cast<WallDirection>(i);
-
-            std::string resolved;
-            if (!wall.textureId.empty()) {
-                resolved = resolveTexturePath(wall.textureId);
-            }
-
-            tile.setWall(dir, wall.walkable, resolved);
-
-            if (!resolved.empty()) {
-                auto texture = loadTextureFromPath(resolved);
-                if (texture) {
-                    tile.setWallTexture(dir, texture);
-                }
-            }
-        }
+    const auto resolveAlias = [this](const std::string& identifier) {
+        return resolveTexturePath(identifier);
+    };
+    const auto loadTexture = [this](const std::string& path) {
+        return loadTextureFromPath(path);
     };
 
     for (size_t idx = 0; idx < lines.size(); ++idx) {
@@ -497,7 +501,7 @@ bool TileGrid::loadFromFile(const std::string& filePath) {
                 continue;
             }
 
-            applyTileConfig(*tile, config);
+            tile->applyUpdate(config, resolveAlias, loadTexture);
         } else if (lowerCmd == "fill") {
             int xStart = 0;
             int xEnd = 0;
@@ -571,7 +575,7 @@ bool TileGrid::loadFromFile(const std::string& filePath) {
                         if (!tile) {
                             continue;
                         }
-                        applyTileConfig(*tile, config);
+                        tile->applyUpdate(config, resolveAlias, loadTexture);
                     }
                 }
             }
