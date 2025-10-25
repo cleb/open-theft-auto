@@ -467,6 +467,10 @@ void TileGridEditor::drawBrushControls() {
 }
 
 void TileGridEditor::drawGridControls() {
+    if (!m_grid) {
+        return;
+    }
+
     ImGui::SeparatorText("Grid");
 
     const glm::ivec3 currentSize = m_grid->getGridSize();
@@ -489,7 +493,9 @@ void TileGridEditor::drawGridControls() {
             if (m_grid->resize(m_pendingGridSize)) {
                 syncPendingGridSizeFromGrid();
                 clampCursor();
+                announceCursor();
                 refreshUiStateFromTile();
+                refreshCursorColor();
                 m_gridResizeError.clear();
             } else {
                 m_gridResizeError = "Failed to resize grid.";
