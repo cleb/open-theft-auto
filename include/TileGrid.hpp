@@ -8,6 +8,14 @@
 #include <glm/glm.hpp>
 #include <string>
 
+struct LevelData;
+class TileGrid;
+
+namespace LevelSerialization {
+struct GridAccess;
+bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data);
+}
+
 class TileGrid {
 private:
     glm::ivec3 m_gridSize;      // Grid dimensions (width, height, depth)
@@ -19,10 +27,8 @@ private:
 public:
     TileGrid(const glm::ivec3& gridSize = glm::ivec3(16, 16, 4), float tileSize = 3.0f);
     ~TileGrid() = default;
-    
+
     bool initialize();
-    bool loadFromFile(const std::string& filePath);
-    bool saveToFile(const std::string& filePath) const;
     void render(class Renderer* renderer);
 
     // Tile access
@@ -47,7 +53,7 @@ public:
     bool canOccupy(const glm::vec3& startPos, const glm::vec3& endPos) const;
     bool isRoadTile(const glm::vec3& worldPos) const;
     bool isRoadTile(const glm::ivec3& gridPos) const;
-    
+
 private:
     int getIndex(int x, int y, int z) const;
     bool hasGroundSupport(const glm::ivec3& tilePos) const;
@@ -56,4 +62,7 @@ private:
     std::shared_ptr<Texture> loadTexture(const std::string& identifier);
     std::shared_ptr<Texture> loadTextureFromPath(const std::string& path);
     std::string resolveTexturePath(const std::string& identifier) const;
+
+    friend struct LevelSerialization::GridAccess;
+    friend bool LevelSerialization::loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data);
 };

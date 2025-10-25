@@ -6,6 +6,8 @@
 #include "InputManager.hpp"
 #include "Mesh.hpp"
 #include "Texture.hpp"
+#include "LevelData.hpp"
+#include "LevelSerialization.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -14,15 +16,29 @@
 #include <imgui.h>
 
 #include <algorithm>
+#include <cmath>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace {
 constexpr const char* kWallLabels[4] = {"North", "South", "East", "West"};
+constexpr const char* kDefaultVehicleTexture = "assets/textures/car.png";
+float normalizeDegrees(float value) {
+    if (!std::isfinite(value)) {
+        return 0.0f;
+    }
+    float normalized = std::fmod(value, 360.0f);
+    if (normalized < 0.0f) {
+        normalized += 360.0f;
+    }
+    return normalized;
+}
 
 const char* carDirectionToString(CarDirection dir) {
     switch (dir) {
@@ -71,10 +87,25 @@ CarDirection indexToCarDirection(int index) {
         default: return CarDirection::None;
     }
 }
+
+std::string trimCopy(const std::string& value) {
+    auto begin = value.begin();
+    while (begin != value.end() && std::isspace(static_cast<unsigned char>(*begin))) {
+        ++begin;
+    }
+
+    auto end = value.end();
+    while (end != begin && std::isspace(static_cast<unsigned char>(*(end - 1)))) {
+        --end;
+    }
+
+    return std::string(begin, end);
+}
 }
 
 TileGridEditor::TileGridEditor()
     : m_grid(nullptr)
+    , m_levelData(nullptr)
     , m_enabled(false)
     , m_cursor(0)
     , m_lastAnnouncedCursor(
@@ -89,12 +120,14 @@ TileGridEditor::TileGridEditor()
     , m_helpPrinted(false)
     , m_pendingGridSize(0)
     , m_gridResizeError() {
+    std::snprintf(m_uiVehicleState.texture.data(), m_uiVehicleState.texture.size(), "%s", kDefaultVehicleTexture);
 }
 
 TileGridEditor::~TileGridEditor() = default;
 
-void TileGridEditor::initialize(TileGrid* grid) {
+void TileGridEditor::initialize(TileGrid* grid, LevelData* levelData) {
     m_grid = grid;
+    m_levelData = levelData;
     m_cursorMesh.reset();
     m_arrowMesh.reset();
     clampCursor();
@@ -102,6 +135,7 @@ void TileGridEditor::initialize(TileGrid* grid) {
     refreshCursorColor();
     rebuildAliasList();
     refreshUiStateFromTile();
+    m_selectedPrefabIndex = -1;
     syncPendingGridSizeFromGrid();
     m_gridResizeError.clear();
 }
@@ -136,6 +170,9 @@ void TileGridEditor::setEnabled(bool enabled) {
         announceBrush();
         rebuildAliasList();
         refreshUiStateFromTile();
+        if (m_newPrefabName[0] == '\0') {
+            std::snprintf(m_newPrefabName.data(), m_newPrefabName.size(), "Prefab %d", m_prefabAutoNameCounter);
+        }
         syncPendingGridSizeFromGrid();
         m_gridResizeError.clear();
         if (!m_helpPrinted) {
@@ -167,6 +204,7 @@ void TileGridEditor::processInput(InputManager* input) {
     if (!captureKeyboard) {
         handleBrushHotkeys(input);
         handleWallHotkeys(input);
+        handlePrefabHotkeys(input);
 
         if (input->isKeyPressed(GLFW_KEY_UP) || input->isKeyPressed(GLFW_KEY_W)) {
             moveCursor(0, -1);
@@ -211,6 +249,12 @@ void TileGridEditor::processInput(InputManager* input) {
                     break;
             }
             announceBrush();
+        } else if (m_brush == BrushType::Vehicle && input->isKeyPressed(GLFW_KEY_R)) {
+            m_uiVehicleState.rotationDegrees = normalizeDegrees(m_uiVehicleState.rotationDegrees + 90.0f);
+            announceBrush();
+        }
+        if (m_brush == BrushType::Vehicle && input->isKeyPressed(GLFW_KEY_DELETE)) {
+            removeVehicleAtCursor();
         }
     }
 
@@ -325,10 +369,12 @@ void TileGridEditor::drawGui() {
 
     drawGridControls();
     drawBrushControls();
+    drawPrefabControls();
 
     static bool saveErrorPopup = false;
     if (ImGui::Button("Save Level")) {
-        if (m_levelPath.empty() || !m_grid->saveToFile(m_levelPath)) {
+        if (m_levelPath.empty() || !m_grid || !m_levelData ||
+            !LevelSerialization::saveLevel(m_levelPath, *m_grid, *m_levelData)) {
             saveErrorPopup = true;
         }
     }
@@ -360,6 +406,38 @@ Tile* TileGridEditor::currentTile() {
 
 const Tile* TileGridEditor::currentTile() const {
     return m_grid ? m_grid->getTile(m_cursor) : nullptr;
+}
+
+VehicleSpawnDefinition* TileGridEditor::findVehicleSpawn(const glm::ivec3& gridPos) {
+    if (!m_levelData) {
+        return nullptr;
+    }
+
+    auto& spawns = m_levelData->vehicleSpawns;
+    auto it = std::find_if(spawns.begin(), spawns.end(), [&](const VehicleSpawnDefinition& spawn) {
+        return spawn.gridPosition == gridPos;
+    });
+    if (it == spawns.end()) {
+        return nullptr;
+    }
+    return &(*it);
+}
+
+const VehicleSpawnDefinition* TileGridEditor::findVehicleSpawn(const glm::ivec3& gridPos) const {
+    return const_cast<TileGridEditor*>(this)->findVehicleSpawn(gridPos);
+}
+
+TileGridEditor::VehiclePlacementStatus TileGridEditor::evaluateVehiclePlacement(const glm::ivec3& position) const {
+    if (!m_grid || !m_grid->isValidPosition(position)) {
+        return VehiclePlacementStatus::OutOfBounds;
+    }
+
+    const Tile* tile = m_grid->getTile(position);
+    if (!tile || !tile->isTopSolid()) {
+        return VehiclePlacementStatus::MissingSupport;
+    }
+
+    return VehiclePlacementStatus::Valid;
 }
 
 void TileGridEditor::ensureCursorMesh() {
@@ -400,7 +478,7 @@ void TileGridEditor::ensureArrowMesh() {
     const float arrowLength = tileSize * 0.7f;
     const float tailLength = arrowLength * 0.55f;
     const float headLength = arrowLength * 0.45f;
-    
+
     const float tailStart = -arrowLength * 0.5f;
     const float tailEnd = tailStart + tailLength;
     const float tipY = tailStart + arrowLength;
@@ -434,6 +512,18 @@ void TileGridEditor::ensureArrowMesh() {
 }
 
 void TileGridEditor::refreshCursorColor() {
+    if (m_brush == BrushType::Vehicle) {
+        if (m_uiVehicleState.removeMode) {
+            m_cursorColor = m_uiVehicleState.cursorHasVehicle ? glm::vec3(0.9f, 0.6f, 0.2f)
+                                                              : glm::vec3(0.6f, 0.6f, 0.6f);
+        } else {
+            const VehiclePlacementStatus status = evaluateVehiclePlacement(m_cursor);
+            m_cursorColor = (status == VehiclePlacementStatus::Valid) ? glm::vec3(0.3f, 0.3f, 0.9f)
+                                                                      : glm::vec3(0.9f, 0.2f, 0.2f);
+        }
+        return;
+    }
+
     switch (m_brush) {
         case BrushType::Grass:
             m_cursorColor = glm::vec3(0.3f, 0.9f, 0.3f);
@@ -443,6 +533,9 @@ void TileGridEditor::refreshCursorColor() {
             break;
         case BrushType::Empty:
             m_cursorColor = glm::vec3(0.9f, 0.3f, 0.3f);
+            break;
+        case BrushType::Vehicle:
+            m_cursorColor = glm::vec3(0.3f, 0.3f, 0.9f);
             break;
     }
 }
@@ -493,11 +586,18 @@ void TileGridEditor::announceCursor() {
             std::cout << ' ' << wallDirectionToString(dir) << '=' << (wall.walkable ? "open" : "blocked");
         }
     }
+    if (const auto* spawn = findVehicleSpawn(m_cursor)) {
+        std::cout << " vehicle rotation=" << spawn->rotationDegrees
+                  << " size=" << spawn->size.x << 'x' << spawn->size.y;
+        if (!spawn->texturePath.empty()) {
+            std::cout << " texture=" << spawn->texturePath;
+        }
+    }
     std::cout << std::endl;
 }
 
 void TileGridEditor::announceBrush() {
-    if (m_brush == m_lastAnnouncedBrush && m_brush != BrushType::Road) {
+    if (m_brush == m_lastAnnouncedBrush && m_brush != BrushType::Road && m_brush != BrushType::Vehicle) {
         return;
     }
 
@@ -513,6 +613,16 @@ void TileGridEditor::announceBrush() {
         case BrushType::Empty:
             std::cout << "empty";
             break;
+        case BrushType::Vehicle:
+            std::cout << "vehicle";
+            if (m_uiVehicleState.removeMode) {
+                std::cout << " (remove)";
+            } else {
+                std::cout << " (rotation=" << normalizeDegrees(m_uiVehicleState.rotationDegrees)
+                          << " size=" << std::max(0.1f, m_uiVehicleState.size.x)
+                          << 'x' << std::max(0.1f, m_uiVehicleState.size.y) << ')';
+            }
+            break;
     }
     std::cout << std::endl;
     refreshCursorColor();
@@ -525,9 +635,12 @@ void TileGridEditor::printHelp() const {
               << "  1: grass brush\n"
               << "  2: road brush\n"
               << "  3: empty brush\n"
-              << "  R: cycle road direction\n"
+              << "  4: vehicle brush\n"
+              << "  R: cycle road direction / rotate vehicle\n"
+              << "  Delete: remove vehicle at cursor\n"
               << "  I/J/K/L: toggle wall (north/west/south/east)\n"
               << "  Space or Left Click: apply brush\n"
+              << "  Ctrl+1-9: apply prefab\n"
               << "  Ctrl+S: save level\n"
               << "  F1: exit edit mode" << std::endl;
 }
@@ -550,6 +663,11 @@ void TileGridEditor::drawBrushControls() {
         m_brush = BrushType::Empty;
         changed = true;
     }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Vehicle", m_brush == BrushType::Vehicle)) {
+        m_brush = BrushType::Vehicle;
+        changed = true;
+    }
 
     if (changed) {
         announceBrush();
@@ -565,7 +683,62 @@ void TileGridEditor::drawBrushControls() {
             }
             announceBrush();
         }
+    } else if (m_brush == BrushType::Vehicle) {
+        drawVehicleBrushControls();
     }
+}
+
+void TileGridEditor::drawPrefabControls() {
+    ImGui::SeparatorText("Prefabs");
+
+    const bool hasTile = m_uiTileState.hasTile && currentTile() != nullptr;
+    ImGui::InputText("Name##prefab", m_newPrefabName.data(), m_newPrefabName.size());
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!hasTile);
+    if (ImGui::Button("Save Prefab")) {
+        savePrefab(std::string(m_newPrefabName.data()));
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::TextDisabled("Ctrl+1-9 to apply");
+
+    ImVec2 listSize = ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 6.0f);
+    if (ImGui::BeginChild("PrefabList", listSize, true)) {
+        if (m_prefabs.empty()) {
+            ImGui::TextDisabled("No prefabs saved yet.");
+        } else if (ImGui::BeginTable("PrefabTable", 3, ImGuiTableFlags_SizingStretchProp)) {
+            ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 0.6f);
+            ImGui::TableSetupColumn("Apply", ImGuiTableColumnFlags_WidthFixed, 60.0f);
+            ImGui::TableSetupColumn("Delete", ImGuiTableColumnFlags_WidthFixed, 60.0f);
+            for (std::size_t i = 0; i < m_prefabs.size(); ++i) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::PushID(static_cast<int>(i));
+                const bool selected = static_cast<int>(i) == m_selectedPrefabIndex;
+                if (ImGui::Selectable(m_prefabs[i].name.c_str(), selected)) {
+                    m_selectedPrefabIndex = static_cast<int>(i);
+                    if (ImGui::IsMouseDoubleClicked(0)) {
+                        applyPrefab(i);
+                    }
+                }
+
+                ImGui::TableSetColumnIndex(1);
+                if (ImGui::SmallButton("Apply")) {
+                    applyPrefab(i);
+                }
+
+                ImGui::TableSetColumnIndex(2);
+                if (ImGui::SmallButton("Delete")) {
+                    deletePrefab(i);
+                    ImGui::PopID();
+                    break;
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+        }
+    }
+    ImGui::EndChild();
 }
 
 void TileGridEditor::drawGridControls() {
@@ -815,8 +988,102 @@ void TileGridEditor::applyWallFromUi(int wallIndex, WallDirection direction) {
     refreshUiStateFromTile();
 }
 
+void TileGridEditor::applyVehicleBrush() {
+    if (!m_grid || !m_levelData) {
+        return;
+    }
+
+    if (m_uiVehicleState.removeMode) {
+        auto& spawns = m_levelData->vehicleSpawns;
+        auto it = std::find_if(spawns.begin(), spawns.end(), [&](const VehicleSpawnDefinition& spawn) {
+            return spawn.gridPosition == m_cursor;
+        });
+        if (it != spawns.end()) {
+            spawns.erase(it);
+            std::cout << "Removed vehicle at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+        } else {
+            std::cout << "No vehicle to remove at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+        }
+        announceCursor();
+        refreshUiStateFromTile();
+        return;
+    }
+
+    const VehiclePlacementStatus placement = evaluateVehiclePlacement(m_cursor);
+    if (placement != VehiclePlacementStatus::Valid) {
+        if (placement == VehiclePlacementStatus::OutOfBounds) {
+            std::cout << "Cannot place vehicle outside of grid bounds at (" << m_cursor.x << ", "
+                      << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+        } else {
+            std::cout << "Cannot place vehicle without solid ground at (" << m_cursor.x << ", "
+                      << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+        }
+        return;
+    }
+
+    VehicleSpawnDefinition spawn;
+    spawn.gridPosition = m_cursor;
+    spawn.rotationDegrees = normalizeDegrees(m_uiVehicleState.rotationDegrees);
+    spawn.size = glm::vec2(
+        std::max(0.1f, m_uiVehicleState.size.x),
+        std::max(0.1f, m_uiVehicleState.size.y));
+
+    std::string texturePath = m_uiVehicleState.texture.data();
+    if (texturePath.empty()) {
+        texturePath = kDefaultVehicleTexture;
+    }
+    spawn.texturePath = texturePath;
+
+    auto& spawns = m_levelData->vehicleSpawns;
+    auto existing = std::find_if(spawns.begin(), spawns.end(), [&](const VehicleSpawnDefinition& entry) {
+        return entry.gridPosition == spawn.gridPosition;
+    });
+    if (existing != spawns.end()) {
+        *existing = spawn;
+    } else {
+        spawns.push_back(spawn);
+    }
+    std::cout << "Placed vehicle at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z
+              << ") rotation=" << spawn.rotationDegrees
+              << " size=" << spawn.size.x << "x" << spawn.size.y
+              << " texture=" << spawn.texturePath << std::endl;
+
+    announceCursor();
+    refreshUiStateFromTile();
+}
+
+void TileGridEditor::removeVehicleAtCursor() {
+    if (!m_grid || !m_levelData) {
+        return;
+    }
+    auto& spawns = m_levelData->vehicleSpawns;
+    auto it = std::find_if(spawns.begin(), spawns.end(), [&](const VehicleSpawnDefinition& spawn) {
+        return spawn.gridPosition == m_cursor;
+    });
+    if (it != spawns.end()) {
+        spawns.erase(it);
+        std::cout << "Removed vehicle at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+        announceCursor();
+        refreshUiStateFromTile();
+    }
+}
+
 void TileGridEditor::refreshUiStateFromTile() {
     m_uiTileState.position = m_cursor;
+
+    m_uiVehicleState.cursorHasVehicle = false;
+    if (const auto* spawn = findVehicleSpawn(m_cursor)) {
+        m_uiVehicleState.cursorHasVehicle = true;
+        m_uiVehicleState.rotationDegrees = normalizeDegrees(spawn->rotationDegrees);
+        m_uiVehicleState.size = spawn->size;
+        std::snprintf(m_uiVehicleState.texture.data(),
+                      m_uiVehicleState.texture.size(),
+                      "%s",
+                      spawn->texturePath.c_str());
+    }
+    if (!m_uiVehicleState.cursorHasVehicle && m_uiVehicleState.texture[0] == '\0') {
+        std::snprintf(m_uiVehicleState.texture.data(), m_uiVehicleState.texture.size(), "%s", kDefaultVehicleTexture);
+    }
 
     Tile* tile = currentTile();
     if (!tile) {
@@ -830,6 +1097,7 @@ void TileGridEditor::refreshUiStateFromTile() {
         for (auto& texture : m_uiTileState.wallTextures) {
             texture.fill('\0');
         }
+        refreshCursorColor();
         return;
     }
 
@@ -849,6 +1117,8 @@ void TileGridEditor::refreshUiStateFromTile() {
                       "%s",
                       wall.texturePath.c_str());
     }
+
+    refreshCursorColor();
 }
 
 void TileGridEditor::rebuildAliasList() {
@@ -891,10 +1161,88 @@ void TileGridEditor::applyBrush() {
             tile->setTopSurface(false, "", CarDirection::None);
             tile->setCarDirection(CarDirection::None);
             break;
+        case BrushType::Vehicle:
+            applyVehicleBrush();
+            return;
     }
 
     announceCursor();
     refreshUiStateFromTile();
+}
+
+void TileGridEditor::savePrefab(const std::string& name) {
+    if (!m_grid) {
+        return;
+    }
+
+    Tile* tile = currentTile();
+    if (!tile) {
+        return;
+    }
+
+    std::string trimmed = trimCopy(name);
+    if (trimmed.empty()) {
+        trimmed = "Prefab " + std::to_string(m_prefabAutoNameCounter);
+    }
+
+    auto existing = std::find_if(m_prefabs.begin(), m_prefabs.end(), [&trimmed](const PrefabEntry& candidate) {
+        return candidate.name == trimmed;
+    });
+    if (existing != m_prefabs.end()) {
+        existing->name = trimmed;
+        if (!existing->tile) {
+            existing->tile = std::make_unique<Tile>(tile->getGridPosition(), tile->getTileSize());
+        }
+        existing->tile->copyFrom(*tile);
+        m_selectedPrefabIndex = static_cast<int>(existing - m_prefabs.begin());
+    } else {
+        PrefabEntry entry;
+        entry.name = trimmed;
+        entry.tile = std::make_unique<Tile>(tile->getGridPosition(), tile->getTileSize());
+        entry.tile->copyFrom(*tile);
+        m_prefabs.push_back(std::move(entry));
+        m_selectedPrefabIndex = static_cast<int>(m_prefabs.size()) - 1;
+        ++m_prefabAutoNameCounter;
+        std::snprintf(m_newPrefabName.data(), m_newPrefabName.size(), "Prefab %d", m_prefabAutoNameCounter);
+    }
+}
+
+void TileGridEditor::applyPrefab(std::size_t index) {
+    if (!m_grid || index >= m_prefabs.size()) {
+        return;
+    }
+
+    Tile* tile = currentTile();
+    if (!tile) {
+        return;
+    }
+
+    const PrefabEntry& entry = m_prefabs[index];
+    if (!entry.tile) {
+        return;
+    }
+
+    tile->copyFrom(*entry.tile);
+    m_selectedPrefabIndex = static_cast<int>(index);
+
+    announceCursor();
+    refreshUiStateFromTile();
+}
+
+void TileGridEditor::deletePrefab(std::size_t index) {
+    if (index >= m_prefabs.size()) {
+        return;
+    }
+
+    m_prefabs.erase(m_prefabs.begin() + static_cast<long>(index));
+    if (m_prefabs.empty()) {
+        m_selectedPrefabIndex = -1;
+        return;
+    }
+
+    if (m_selectedPrefabIndex >= static_cast<int>(m_prefabs.size())) {
+        m_selectedPrefabIndex = static_cast<int>(m_prefabs.size()) - 1;
+    }
 }
 
 void TileGridEditor::toggleWall(WallDirection direction) {
@@ -956,6 +1304,11 @@ void TileGridEditor::clampCursor() {
 }
 
 void TileGridEditor::handleBrushHotkeys(InputManager* input) {
+    const bool ctrlDown = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
+    if (ctrlDown) {
+        return;
+    }
+
     if (input->isKeyPressed(GLFW_KEY_1)) {
         m_brush = BrushType::Grass;
         announceBrush();
@@ -966,6 +1319,10 @@ void TileGridEditor::handleBrushHotkeys(InputManager* input) {
     }
     if (input->isKeyPressed(GLFW_KEY_3)) {
         m_brush = BrushType::Empty;
+        announceBrush();
+    }
+    if (input->isKeyPressed(GLFW_KEY_4)) {
+        m_brush = BrushType::Vehicle;
         announceBrush();
     }
 }
@@ -985,15 +1342,108 @@ void TileGridEditor::handleWallHotkeys(InputManager* input) {
     }
 }
 
+void TileGridEditor::handlePrefabHotkeys(InputManager* input) {
+    if (m_prefabs.empty()) {
+        return;
+    }
+
+    const bool ctrlDown = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
+    if (!ctrlDown) {
+        return;
+    }
+
+    const std::size_t maxHotkeyPrefabs = std::min<std::size_t>(9, m_prefabs.size());
+    for (std::size_t i = 0; i < maxHotkeyPrefabs; ++i) {
+        int key = GLFW_KEY_1 + static_cast<int>(i);
+        if (input->isKeyPressed(key)) {
+            applyPrefab(i);
+        }
+    }
+}
+
 void TileGridEditor::handleSaveHotkey(InputManager* input) {
-    if (m_levelPath.empty()) {
+    if (m_levelPath.empty() || !m_grid || !m_levelData) {
         return;
     }
 
     const bool ctrl = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
     if (ctrl && input->isKeyPressed(GLFW_KEY_S)) {
-        if (!m_grid->saveToFile(m_levelPath)) {
-            std::cerr << "Failed to save tile grid to " << m_levelPath << std::endl;
+        if (!LevelSerialization::saveLevel(m_levelPath, *m_grid, *m_levelData)) {
+            std::cerr << "Failed to save level to " << m_levelPath << std::endl;
+        }
+    }
+}
+
+void TileGridEditor::drawVehicleBrushControls() {
+    ImGui::SeparatorText("Vehicle Settings");
+
+    ImGui::Text("Cursor: %s", m_uiVehicleState.cursorHasVehicle ? "vehicle present" : "empty");
+
+    bool removeMode = m_uiVehicleState.removeMode;
+    if (ImGui::Checkbox("Remove Vehicle", &removeMode)) {
+        m_uiVehicleState.removeMode = removeMode;
+        announceBrush();
+    }
+
+    if (!m_uiVehicleState.removeMode) {
+        float rotation = m_uiVehicleState.rotationDegrees;
+        if (ImGui::SliderFloat("Rotation", &rotation, 0.0f, 360.0f, "%.1f deg")) {
+            m_uiVehicleState.rotationDegrees = normalizeDegrees(rotation);
+            announceBrush();
+        }
+
+        if (ImGui::Button("North##VehicleRot")) {
+            m_uiVehicleState.rotationDegrees = 0.0f;
+            announceBrush();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("East##VehicleRot")) {
+            m_uiVehicleState.rotationDegrees = 90.0f;
+            announceBrush();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("South##VehicleRot")) {
+            m_uiVehicleState.rotationDegrees = 180.0f;
+            announceBrush();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("West##VehicleRot")) {
+            m_uiVehicleState.rotationDegrees = 270.0f;
+            announceBrush();
+        }
+
+        glm::vec2 size = m_uiVehicleState.size;
+        if (ImGui::DragFloat2("Size (W x L)", &size.x, 0.05f, 0.5f, 10.0f, "%.2f")) {
+            size.x = std::max(0.1f, size.x);
+            size.y = std::max(0.1f, size.y);
+            m_uiVehicleState.size = size;
+            announceBrush();
+        }
+
+        if (ImGui::InputText("Texture Path##vehicle", m_uiVehicleState.texture.data(), m_uiVehicleState.texture.size())) {
+            announceBrush();
+        }
+
+        if (drawTexturePicker("vehicle", m_uiVehicleState.texture)) {
+            announceBrush();
+        }
+
+        const char* applyLabel = m_uiVehicleState.cursorHasVehicle ? "Update Vehicle" : "Place Vehicle";
+        if (ImGui::Button(applyLabel)) {
+            applyVehicleBrush();
+        }
+        if (m_uiVehicleState.cursorHasVehicle) {
+            ImGui::SameLine();
+            if (ImGui::Button("Remove Vehicle Here")) {
+                bool previousRemove = m_uiVehicleState.removeMode;
+                m_uiVehicleState.removeMode = true;
+                applyVehicleBrush();
+                m_uiVehicleState.removeMode = previousRemove;
+            }
+        }
+    } else {
+        if (ImGui::Button("Remove Vehicle")) {
+            applyVehicleBrush();
         }
     }
 }

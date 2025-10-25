@@ -110,9 +110,8 @@ public:
     void applyUpdate(const Update& update,
                      const std::function<std::string(const std::string&)>& resolveTexture,
                      const std::function<std::shared_ptr<Texture>(const std::string&)>& loadTexture);
-
     void copyFrom(const Tile& other);
-    
+
 private:
     void createWallMesh(WallDirection dir);
     void createTopMesh();

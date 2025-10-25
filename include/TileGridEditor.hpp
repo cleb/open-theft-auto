@@ -9,6 +9,8 @@
 #include "Tile.hpp"
 
 class TileGrid;
+struct LevelData;
+struct VehicleSpawnDefinition;
 class Renderer;
 class InputManager;
 class Mesh;
@@ -19,7 +21,7 @@ public:
     TileGridEditor();
     ~TileGridEditor();
 
-    void initialize(TileGrid* grid);
+    void initialize(TileGrid* grid, LevelData* levelData);
     void setLevelPath(const std::string& path);
     void setCursor(const glm::ivec3& gridPos);
     const glm::ivec3& getCursor() const { return m_cursor; }
@@ -36,10 +38,18 @@ private:
     enum class BrushType {
         Grass,
         Road,
-        Empty
+        Empty,
+        Vehicle
+    };
+
+    enum class VehiclePlacementStatus {
+        Valid,
+        OutOfBounds,
+        MissingSupport
     };
 
     static constexpr std::size_t TextureBufferSize = 256;
+    static constexpr std::size_t PrefabNameBufferSize = 64;
 
     struct UiTileState {
         glm::ivec3 position{0};
@@ -51,12 +61,26 @@ private:
         std::array<std::array<char, TextureBufferSize>, 4> wallTextures{};
     };
 
+    struct UiVehicleState {
+        bool cursorHasVehicle = false;
+        bool removeMode = false;
+        float rotationDegrees = 0.0f;
+        glm::vec2 size = glm::vec2(1.5f, 3.0f);
+        std::array<char, TextureBufferSize> texture{};
+    };
+
     struct AliasEntry {
         std::string name;
         std::string path;
     };
 
+    struct PrefabEntry {
+        std::string name;
+        std::unique_ptr<Tile> tile;
+    };
+
     TileGrid* m_grid;
+    LevelData* m_levelData;
     bool m_enabled;
     glm::ivec3 m_cursor;
     glm::ivec3 m_lastAnnouncedCursor;
@@ -74,11 +98,21 @@ private:
     bool m_helpPrinted;
     UiTileState m_uiTileState;
     std::vector<AliasEntry> m_aliasEntries;
+    UiVehicleState m_uiVehicleState;
+    std::vector<PrefabEntry> m_prefabs;
+    std::array<char, PrefabNameBufferSize> m_newPrefabName{};
+    int m_selectedPrefabIndex;
+    int m_prefabAutoNameCounter;
     glm::ivec3 m_pendingGridSize;
     std::string m_gridResizeError;
 
     Tile* currentTile();
     const Tile* currentTile() const;
+
+    VehicleSpawnDefinition* findVehicleSpawn(const glm::ivec3& gridPos);
+    const VehicleSpawnDefinition* findVehicleSpawn(const glm::ivec3& gridPos) const;
+
+    VehiclePlacementStatus evaluateVehiclePlacement(const glm::ivec3& position) const;
 
     void ensureCursorMesh();
     void ensureArrowMesh();
@@ -90,6 +124,8 @@ private:
     void refreshUiStateFromTile();
     void rebuildAliasList();
     void drawBrushControls();
+    void drawVehicleBrushControls();
+    void drawPrefabControls();
     void drawTileFaceTabs();
     void drawTopFaceControls(Tile* tile);
     void drawWallControls(Tile* tile, WallDirection direction, int wallIndex);
@@ -98,14 +134,20 @@ private:
     std::string findAliasForPath(const std::string& path) const;
     void applyTopSurfaceFromUi();
     void applyWallFromUi(int wallIndex, WallDirection direction);
+    void applyVehicleBrush();
+    void removeVehicleAtCursor();
     void syncPendingGridSizeFromGrid();
 
     void applyBrush();
+    void savePrefab(const std::string& name);
+    void applyPrefab(std::size_t index);
+    void deletePrefab(std::size_t index);
     void toggleWall(WallDirection direction);
     void changeLayer(int delta);
     void moveCursor(int dx, int dy);
     void clampCursor();
     void handleBrushHotkeys(InputManager* input);
     void handleWallHotkeys(InputManager* input);
+    void handlePrefabHotkeys(InputManager* input);
     void handleSaveHotkey(InputManager* input);
 };

@@ -147,23 +147,6 @@ void Tile::applyUpdate(const Update& update,
     }
 }
 
-void Tile::copyFrom(const Tile& other) {
-    const TopSurfaceData& otherTop = other.getTopSurface();
-    setTopSurface(otherTop.solid, otherTop.texturePath, otherTop.carDirection);
-    if (otherTop.texture) {
-        setTopTexture(otherTop.texture);
-    }
-
-    for (int i = 0; i < 4; ++i) {
-        const auto dir = static_cast<WallDirection>(i);
-        const WallData& otherWall = other.getWall(dir);
-        setWall(dir, otherWall.walkable, otherWall.texturePath);
-        if (otherWall.texture) {
-            setWallTexture(dir, otherWall.texture);
-        }
-    }
-}
-
 void Tile::generateMeshes() {
     // Create wall meshes for non-walkable walls
     for (int i = 0; i < 4; i++) {
@@ -282,23 +265,39 @@ void Tile::createTopMesh() {
 
 void Tile::render(Renderer* renderer) {
     if (!renderer) return;
-    
+
     if (!m_meshesGenerated) {
         generateMeshes();
     }
-    
+
     // Set up model matrix for this tile
     glm::mat4 model = glm::translate(glm::mat4(1.0f), m_worldPosition);
-    
+
     // Render non-walkable walls
     for (int i = 0; i < 4; i++) {
         if (m_wallMeshes[i]) {
             renderer->renderMesh(*m_wallMeshes[i], model, "model");
         }
     }
-    
+
     // Render top surface
     if (m_topMesh) {
         renderer->renderMesh(*m_topMesh, model, "model");
     }
+}
+
+void Tile::copyFrom(const Tile& other) {
+    if (this == &other) {
+        return;
+    }
+
+    m_topSurface = other.m_topSurface;
+    m_topMesh.reset();
+
+    for (int i = 0; i < 4; ++i) {
+        m_walls[i] = other.m_walls[i];
+        m_wallMeshes[i].reset();
+    }
+
+    m_meshesGenerated = false;
 }
