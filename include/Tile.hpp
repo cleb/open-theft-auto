@@ -90,6 +90,8 @@ public:
     // Rendering
     void generateMeshes();
     void render(class Renderer* renderer);
+
+    void copyFrom(const Tile& other);
     
 private:
     void createWallMesh(WallDirection dir);
