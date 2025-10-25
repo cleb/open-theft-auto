@@ -420,6 +420,13 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
     bool gridSpecified = false;
     bool tileSizeSpecified = false;
 
+    struct PendingVehicle {
+        int lineNumber = 0;
+        VehicleSpawnDefinition spawn;
+    };
+
+    std::vector<PendingVehicle> pendingVehicles;
+
     for (const ParsedLine& line : lines) {
         std::istringstream stream(line.content);
         std::string command;
@@ -632,18 +639,23 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
                              + std::to_string(spawn.gridPosition.y) + ", " + std::to_string(spawn.gridPosition.z) + ")");
                 continue;
             }
+            pendingVehicles.push_back(PendingVehicle{line.number, std::move(spawn)});
+        }
+    }
 
-            const Tile* supportTile = grid.getTile(spawn.gridPosition);
-            if (!supportTile || !supportTile->isTopSolid()) {
-                logger.error("Vehicle spawn requires a solid tile at the target position");
-                continue;
-            }
+    for (const PendingVehicle& pending : pendingVehicles) {
+        LineLogger logger{filePath, pending.lineNumber};
+        const glm::ivec3& position = pending.spawn.gridPosition;
+        const Tile* supportTile = grid.getTile(position);
+        if (!supportTile || !supportTile->isTopSolid()) {
+            logger.error("Vehicle spawn requires a solid tile at the target position");
+            continue;
+        }
 
-            if (auto* existing = findVehicleSpawnEntry(data.vehicleSpawns, spawn.gridPosition)) {
-                *existing = spawn;
-            } else {
-                data.vehicleSpawns.push_back(std::move(spawn));
-            }
+        if (auto* existing = findVehicleSpawnEntry(data.vehicleSpawns, position)) {
+            *existing = pending.spawn;
+        } else {
+            data.vehicleSpawns.push_back(pending.spawn);
         }
     }
 
