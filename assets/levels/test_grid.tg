@@ -27,44 +27,44 @@ fill x=10-11 y=2-3 z=1 top=solid:grass
 fill x=10-11 y=6-7 z=1 top=solid:grass
 
 # Low-rise building exterior walls
-fill x=2-3 y=2 z=1 wallS=solid:wall
-fill x=2-3 y=3 z=1 wallN=solid:wall
-fill x=2 y=2-3 z=1 wallW=solid:wall
-fill x=3 y=2-3 z=1 wallE=solid:wall
+fill x=2-3 y=2 z=1 wallN=solid:wall
+fill x=2-3 y=3 z=1 wallS=solid:wall
+fill x=2 y=2-3 z=1 wallE=solid:wall
+fill x=3 y=2-3 z=1 wallW=solid:wall
 
-fill x=2-3 y=6 z=1 wallS=solid:wall
-fill x=2-3 y=7 z=1 wallN=solid:wall
-fill x=2 y=6-7 z=1 wallW=solid:wall
-fill x=3 y=6-7 z=1 wallE=solid:wall
+fill x=2-3 y=6 z=1 wallN=solid:wall
+fill x=2-3 y=7 z=1 wallS=solid:wall
+fill x=2 y=6-7 z=1 wallE=solid:wall
+fill x=3 y=6-7 z=1 wallW=solid:wall
 
-fill x=2-3 y=10 z=1 wallS=solid:wall
-fill x=2-3 y=11 z=1 wallN=solid:wall
-fill x=2 y=10-11 z=1 wallW=solid:wall
-fill x=3 y=10-11 z=1 wallE=solid:wall
+fill x=2-3 y=10 z=1 wallN=solid:wall
+fill x=2-3 y=11 z=1 wallS=solid:wall
+fill x=2 y=10-11 z=1 wallE=solid:wall
+fill x=3 y=10-11 z=1 wallW=solid:wall
 
-fill x=6-7 y=2 z=1 wallS=solid:wall
-fill x=6-7 y=3 z=1 wallN=solid:wall
-fill x=6 y=2-3 z=1 wallW=solid:wall
-fill x=7 y=2-3 z=1 wallE=solid:wall
+fill x=6-7 y=2 z=1 wallN=solid:wall
+fill x=6-7 y=3 z=1 wallS=solid:wall
+fill x=6 y=2-3 z=1 wallE=solid:wall
+fill x=7 y=2-3 z=1 wallW=solid:wall
 
-fill x=6-7 y=10 z=1 wallS=solid:wall
-fill x=6-7 y=11 z=1 wallN=solid:wall
-fill x=6 y=10-11 z=1 wallW=solid:wall
-fill x=7 y=10-11 z=1 wallE=solid:wall
+fill x=6-7 y=10 z=1 wallN=solid:wall
+fill x=6-7 y=11 z=1 wallS=solid:wall
+fill x=6 y=10-11 z=1 wallE=solid:wall
+fill x=7 y=10-11 z=1 wallW=solid:wall
 
-fill x=10-11 y=2 z=1 wallS=solid:wall
-fill x=10-11 y=3 z=1 wallN=solid:wall
-fill x=10 y=2-3 z=1 wallW=solid:wall
-fill x=11 y=2-3 z=1 wallE=solid:wall
+fill x=10-11 y=2 z=1 wallN=solid:wall
+fill x=10-11 y=3 z=1 wallS=solid:wall
+fill x=10 y=2-3 z=1 wallE=solid:wall
+fill x=11 y=2-3 z=1 wallW=solid:wall
 
-fill x=10-11 y=6 z=1 wallS=solid:wall
-fill x=10-11 y=7 z=1 wallN=solid:wall
-fill x=10 y=6-7 z=1 wallW=solid:wall
-fill x=11 y=6-7 z=1 wallE=solid:wall
+fill x=10-11 y=6 z=1 wallN=solid:wall
+fill x=10-11 y=7 z=1 wallS=solid:wall
+fill x=10 y=6-7 z=1 wallE=solid:wall
+fill x=11 y=6-7 z=1 wallW=solid:wall
 
 # Tall building stack (z = 1..3)
 fill x=7-8 y=7-8 z=1-3 top=solid:grass
-fill x=7-8 y=7 z=1-3 wallS=solid:wall
-fill x=7-8 y=8 z=1-3 wallN=solid:wall
-fill x=7 y=7-8 z=1-3 wallW=solid:wall
-fill x=8 y=7-8 z=1-3 wallE=solid:wall
+fill x=7-8 y=7 z=1-3 wallN=solid:wall
+fill x=7-8 y=8 z=1-3 wallS=solid:wall
+fill x=7 y=7-8 z=1-3 wallE=solid:wall
+fill x=8 y=7-8 z=1-3 wallW=solid:wall

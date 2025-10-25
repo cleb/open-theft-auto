@@ -126,32 +126,32 @@ void Tile::createWallMesh(WallDirection dir) {
     
     // Define vertices based on wall direction
     switch (dir) {
-        case WallDirection::North:  // +Y wall
+        case WallDirection::North:  // -Y wall
+            vertices.push_back({{-halfSize, -halfSize, 0.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}});
+            vertices.push_back({{ halfSize, -halfSize, 0.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}});
+            vertices.push_back({{ halfSize, -halfSize, height}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}});
+            vertices.push_back({{-halfSize, -halfSize, height}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}});
+            break;
+            
+        case WallDirection::South:  // +Y wall
             vertices.push_back({{-halfSize, halfSize, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}});
             vertices.push_back({{ halfSize, halfSize, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}});
             vertices.push_back({{ halfSize, halfSize, height}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}});
             vertices.push_back({{-halfSize, halfSize, height}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}});
             break;
             
-        case WallDirection::South:  // -Y wall
-            vertices.push_back({{ halfSize, -halfSize, 0.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}});
-            vertices.push_back({{-halfSize, -halfSize, 0.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}});
-            vertices.push_back({{-halfSize, -halfSize, height}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}});
-            vertices.push_back({{ halfSize, -halfSize, height}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}});
-            break;
-            
-        case WallDirection::East:  // +X wall
-            vertices.push_back({{halfSize, -halfSize, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}});
-            vertices.push_back({{halfSize,  halfSize, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}});
-            vertices.push_back({{halfSize,  halfSize, height}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}});
-            vertices.push_back({{halfSize, -halfSize, height}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}});
-            break;
-            
-        case WallDirection::West:  // -X wall
+        case WallDirection::East:  // -X wall
             vertices.push_back({{-halfSize,  halfSize, 0.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}});
             vertices.push_back({{-halfSize, -halfSize, 0.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}});
             vertices.push_back({{-halfSize, -halfSize, height}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}});
             vertices.push_back({{-halfSize,  halfSize, height}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}});
+            break;
+            
+        case WallDirection::West:  // +X wall
+            vertices.push_back({{halfSize, -halfSize, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}});
+            vertices.push_back({{halfSize,  halfSize, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}});
+            vertices.push_back({{halfSize,  halfSize, height}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}});
+            vertices.push_back({{halfSize, -halfSize, height}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}});
             break;
     }
     
