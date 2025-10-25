@@ -11,6 +11,7 @@
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/constants.hpp>
 
 #include <imgui.h>
 
@@ -115,7 +116,10 @@ TileGridEditor::TileGridEditor()
     , m_lastAnnouncedBrush(BrushType::Empty)
     , m_roadDirection(CarDirection::NorthSouth)
     , m_cursorColor(0.3f, 0.9f, 0.3f)
-    , m_helpPrinted(false) {
+    , m_arrowColor(0.95f, 0.7f, 0.1f)
+    , m_helpPrinted(false)
+    , m_pendingGridSize(0)
+    , m_gridResizeError() {
     std::snprintf(m_uiVehicleState.texture.data(), m_uiVehicleState.texture.size(), "%s", kDefaultVehicleTexture);
 }
 
@@ -125,6 +129,7 @@ void TileGridEditor::initialize(TileGrid* grid, LevelData* levelData) {
     m_grid = grid;
     m_levelData = levelData;
     m_cursorMesh.reset();
+    m_arrowMesh.reset();
     clampCursor();
     ensureCursorMesh();
     refreshCursorColor();
@@ -265,14 +270,71 @@ void TileGridEditor::render(Renderer* renderer) {
         return;
     }
     ensureCursorMesh();
-    if (!m_cursorMesh) {
-        return;
+    ensureArrowMesh();
+
+    if (m_arrowMesh) {
+        const glm::ivec3 gridSize = m_grid->getGridSize();
+        const float tileSize = m_grid->getTileSize();
+        const float heightOffset = tileSize * 0.03f;
+
+        for (int z = 0; z < gridSize.z; ++z) {
+            for (int y = 0; y < gridSize.y; ++y) {
+                for (int x = 0; x < gridSize.x; ++x) {
+                    Tile* tile = m_grid->getTile(x, y, z);
+                    if (!tile) {
+                        continue;
+                    }
+
+                    const TopSurfaceData& top = tile->getTopSurface();
+                    if (top.carDirection == CarDirection::None) {
+                        continue;
+                    }
+
+                    glm::vec3 base = m_grid->gridToWorld(glm::ivec3(x, y, z));
+                    base.z += tileSize + heightOffset;
+
+                    auto renderArrow = [&](float rotation) {
+                        glm::mat4 model = glm::translate(glm::mat4(1.0f), base);
+                        model = glm::rotate(model, rotation, glm::vec3(0.0f, 0.0f, 1.0f));
+                        renderer->renderMesh(*m_arrowMesh, model, "model", m_arrowColor);
+                    };
+
+                    switch (top.carDirection) {
+                        case CarDirection::North:
+                            renderArrow(glm::pi<float>());
+                            break;
+                        case CarDirection::South:
+                            renderArrow(0.0f);
+                            break;
+                        case CarDirection::East:
+                            renderArrow(glm::half_pi<float>());
+                            break;
+                        case CarDirection::West:
+                            renderArrow(-glm::half_pi<float>());
+                            break;
+                        case CarDirection::NorthSouth:
+                            renderArrow(0.0f);
+                            renderArrow(glm::pi<float>());
+                            break;
+                        case CarDirection::EastWest:
+                            renderArrow(glm::half_pi<float>());
+                            renderArrow(-glm::half_pi<float>());
+                            break;
+                        case CarDirection::None:
+                        default:
+                            break;
+                    }
+                }
+            }
+        }
     }
 
-    const glm::vec3 base = m_grid->gridToWorld(m_cursor);
-    const float offset = m_grid->getTileSize() * 0.02f;
-    glm::mat4 model = glm::translate(glm::mat4(1.0f), base + glm::vec3(0.0f, 0.0f, offset));
-    renderer->renderMesh(*m_cursorMesh, model, "model", m_cursorColor);
+    if (m_cursorMesh) {
+        const glm::vec3 base = m_grid->gridToWorld(m_cursor);
+        const float offset = m_grid->getTileSize() * 0.02f;
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), base + glm::vec3(0.0f, 0.0f, offset));
+        renderer->renderMesh(*m_cursorMesh, model, "model", m_cursorColor);
+    }
 }
 
 void TileGridEditor::drawGui() {
@@ -405,6 +467,48 @@ void TileGridEditor::ensureCursorMesh() {
         m_cursorTexture->createSolidColor(255, 255, 255, 96);
     }
     m_cursorMesh->setTexture(m_cursorTexture);
+}
+
+void TileGridEditor::ensureArrowMesh() {
+    if (!m_grid || m_arrowMesh) {
+        return;
+    }
+
+    const float tileSize = m_grid->getTileSize();
+    const float arrowLength = tileSize * 0.7f;
+    const float tailLength = arrowLength * 0.55f;
+    const float headLength = arrowLength * 0.45f;
+
+    const float tailStart = -arrowLength * 0.5f;
+    const float tailEnd = tailStart + tailLength;
+    const float tipY = tailStart + arrowLength;
+
+    const float halfTailWidth = tileSize * 0.09f;
+    const float halfHeadWidth = tileSize * 0.22f;
+
+    const auto makeVertex = [&](float x, float y) {
+        const float u = (x + halfHeadWidth) / (2.0f * halfHeadWidth);
+        const float v = (y - tailStart) / arrowLength;
+        return Vertex{{x, y, 0.0f}, {0.0f, 0.0f, 1.0f}, {u, v}};
+    };
+
+    std::vector<Vertex> vertices = {
+        makeVertex(-halfTailWidth, tailStart),    // 0: tail bottom-left
+        makeVertex(halfTailWidth, tailStart),     // 1: tail bottom-right
+        makeVertex(-halfTailWidth, tailEnd),      // 2: tail top-left
+        makeVertex(halfTailWidth, tailEnd),       // 3: tail top-right
+        makeVertex(-halfHeadWidth, tailEnd),      // 4: head left corner
+        makeVertex(halfHeadWidth, tailEnd),       // 5: head right corner
+        makeVertex(0.0f, tipY),                   // 6: arrow tip
+    };
+
+    std::vector<GLuint> indices = {
+        0, 1, 2,  // tail rect - bottom triangle
+        1, 3, 2,  // tail rect - top triangle
+        4, 5, 6,  // arrowhead triangle
+    };
+
+    m_arrowMesh = std::make_unique<Mesh>(vertices, indices);
 }
 
 void TileGridEditor::refreshCursorColor() {
