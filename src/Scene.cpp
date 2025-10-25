@@ -83,10 +83,14 @@ void Scene::update(float deltaTime) {
 void Scene::render(Renderer* renderer) {
     if (!renderer) return;
     
-    // Update camera to follow player
+    // Update camera target
     if (renderer->getCamera()) {
-        glm::vec3 target = glm::vec3(0.0f);
-        if (m_playerInVehicle && m_activeVehicle) {
+        glm::vec3 target(0.0f);
+        if (m_tileGridEditor && m_tileGridEditor->isEnabled() && m_tileGrid) {
+            const glm::ivec3 cursor = m_tileGridEditor->getCursor();
+            target = m_tileGrid->gridToWorld(cursor);
+            target.z += m_tileGrid->getTileSize();
+        } else if (m_playerInVehicle && m_activeVehicle) {
             target = m_activeVehicle->getPosition();
         } else if (m_player) {
             target = m_player->getPosition();
