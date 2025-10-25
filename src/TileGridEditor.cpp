@@ -397,16 +397,16 @@ void TileGridEditor::ensureArrowMesh() {
     }
 
     const float tileSize = m_grid->getTileSize();
-    const float arrowLength = tileSize * 0.72f;
-    const float tailLength = arrowLength * 0.45f;
-    const float transitionLength = (arrowLength - tailLength) * 0.55f;
+    const float arrowLength = tileSize * 0.7f;
+    const float tailLength = arrowLength * 0.55f;
+    const float headLength = arrowLength * 0.45f;
+    
     const float tailStart = -arrowLength * 0.5f;
     const float tailEnd = tailStart + tailLength;
-    const float headBase = tailEnd + transitionLength;
     const float tipY = tailStart + arrowLength;
 
-    const float halfTailWidth = tileSize * 0.11f;
-    const float halfHeadWidth = tileSize * 0.27f;
+    const float halfTailWidth = tileSize * 0.09f;
+    const float halfHeadWidth = tileSize * 0.22f;
 
     const auto makeVertex = [&](float x, float y) {
         const float u = (x + halfHeadWidth) / (2.0f * halfHeadWidth);
@@ -415,21 +415,19 @@ void TileGridEditor::ensureArrowMesh() {
     };
 
     std::vector<Vertex> vertices = {
-        makeVertex(-halfTailWidth, tailStart),
-        makeVertex(halfTailWidth, tailStart),
-        makeVertex(-halfTailWidth, tailEnd),
-        makeVertex(halfTailWidth, tailEnd),
-        makeVertex(-halfHeadWidth, headBase),
-        makeVertex(halfHeadWidth, headBase),
-        makeVertex(0.0f, tipY),
+        makeVertex(-halfTailWidth, tailStart),    // 0: tail bottom-left
+        makeVertex(halfTailWidth, tailStart),     // 1: tail bottom-right
+        makeVertex(-halfTailWidth, tailEnd),      // 2: tail top-left
+        makeVertex(halfTailWidth, tailEnd),       // 3: tail top-right
+        makeVertex(-halfHeadWidth, tailEnd),      // 4: head left corner
+        makeVertex(halfHeadWidth, tailEnd),       // 5: head right corner
+        makeVertex(0.0f, tipY),                   // 6: arrow tip
     };
 
     std::vector<GLuint> indices = {
-        0, 1, 2,
-        1, 3, 2,
-        2, 3, 5,
-        2, 5, 4,
-        4, 5, 6,
+        0, 1, 2,  // tail rect - bottom triangle
+        1, 3, 2,  // tail rect - top triangle
+        4, 5, 6,  // arrowhead triangle
     };
 
     m_arrowMesh = std::make_unique<Mesh>(vertices, indices);
