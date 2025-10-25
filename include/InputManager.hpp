@@ -10,6 +10,8 @@ private:
     std::unordered_map<int, bool> m_keysPressed;
     std::unordered_map<int, bool> m_mouseButtons;
     std::unordered_map<int, bool> m_mouseButtonsPressed;
+
+    static std::unordered_map<GLFWwindow*, InputManager*> s_instances;
     
     double m_mouseX, m_mouseY;
     double m_deltaMouseX, m_deltaMouseY;
@@ -18,7 +20,7 @@ private:
 
 public:
     InputManager();
-    ~InputManager() = default;
+    ~InputManager();
     
     void initialize(GLFWwindow* window);
     void update();
