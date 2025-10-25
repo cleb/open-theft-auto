@@ -36,7 +36,9 @@ public:
     
     void setProjectionMatrix(const glm::mat4& projection) { m_projectionMatrix = projection; }
     void setViewMatrix(const glm::mat4& view) { m_viewMatrix = view; }
-    
+    const glm::mat4& getProjectionMatrix() const { return m_projectionMatrix; }
+    const glm::mat4& getViewMatrix() const { return m_viewMatrix; }
+
     // 3D rendering
     void renderMesh(const Mesh& mesh, const glm::mat4& modelMatrix, const std::string& shaderName, const glm::vec3& tint = glm::vec3(1.0f));
     
@@ -47,7 +49,8 @@ public:
     // Shader management
     bool loadShader(const std::string& name, const std::string& vertexPath, const std::string& fragmentPath);
     Shader* getShader(const std::string& name);
-    
+    glm::vec3 getCameraPosition() const;
+
     // Camera
     Camera* getCamera() const { return m_camera.get(); }
     
