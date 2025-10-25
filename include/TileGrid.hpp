@@ -9,9 +9,10 @@
 #include <string>
 
 struct LevelData;
+class TileGrid;
 
 namespace LevelSerialization {
-bool loadLevel(const std::string& filePath, class TileGrid& grid, LevelData& data);
+bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data);
 }
 
 class TileGrid {
