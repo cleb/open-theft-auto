@@ -56,4 +56,5 @@ private:
     void createTestScene();
     void toggleEditMode();
     void leaveVehicle();
+    void rebuildVehiclesFromGrid();
 };

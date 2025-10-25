@@ -36,7 +36,8 @@ private:
     enum class BrushType {
         Grass,
         Road,
-        Empty
+        Empty,
+        Vehicle
     };
 
     static constexpr std::size_t TextureBufferSize = 256;
@@ -49,6 +50,14 @@ private:
         std::array<char, TextureBufferSize> topTexture{};
         std::array<bool, 4> wallWalkable{};
         std::array<std::array<char, TextureBufferSize>, 4> wallTextures{};
+    };
+
+    struct UiVehicleState {
+        bool cursorHasVehicle = false;
+        bool removeMode = false;
+        float rotationDegrees = 0.0f;
+        glm::vec2 size = glm::vec2(1.5f, 3.0f);
+        std::array<char, TextureBufferSize> texture{};
     };
 
     struct AliasEntry {
@@ -72,6 +81,7 @@ private:
     bool m_helpPrinted;
     UiTileState m_uiTileState;
     std::vector<AliasEntry> m_aliasEntries;
+    UiVehicleState m_uiVehicleState;
 
     Tile* currentTile();
     const Tile* currentTile() const;
@@ -85,6 +95,7 @@ private:
     void refreshUiStateFromTile();
     void rebuildAliasList();
     void drawBrushControls();
+    void drawVehicleBrushControls();
     void drawTileFaceTabs();
     void drawTopFaceControls(Tile* tile);
     void drawWallControls(Tile* tile, WallDirection direction, int wallIndex);
@@ -92,6 +103,8 @@ private:
     std::string findAliasForPath(const std::string& path) const;
     void applyTopSurfaceFromUi();
     void applyWallFromUi(int wallIndex, WallDirection direction);
+    void applyVehicleBrush();
+    void removeVehicleAtCursor();
 
     void applyBrush();
     void toggleWall(WallDirection direction);
