@@ -16,10 +16,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -84,6 +86,20 @@ CarDirection indexToCarDirection(int index) {
         default: return CarDirection::None;
     }
 }
+
+std::string trimCopy(const std::string& value) {
+    auto begin = value.begin();
+    while (begin != value.end() && std::isspace(static_cast<unsigned char>(*begin))) {
+        ++begin;
+    }
+
+    auto end = value.end();
+    while (end != begin && std::isspace(static_cast<unsigned char>(*(end - 1)))) {
+        --end;
+    }
+
+    return std::string(begin, end);
+}
 }
 
 TileGridEditor::TileGridEditor()
@@ -114,6 +130,9 @@ void TileGridEditor::initialize(TileGrid* grid, LevelData* levelData) {
     refreshCursorColor();
     rebuildAliasList();
     refreshUiStateFromTile();
+    m_selectedPrefabIndex = -1;
+    syncPendingGridSizeFromGrid();
+    m_gridResizeError.clear();
 }
 
 void TileGridEditor::setLevelPath(const std::string& path) {
@@ -146,6 +165,11 @@ void TileGridEditor::setEnabled(bool enabled) {
         announceBrush();
         rebuildAliasList();
         refreshUiStateFromTile();
+        if (m_newPrefabName[0] == '\0') {
+            std::snprintf(m_newPrefabName.data(), m_newPrefabName.size(), "Prefab %d", m_prefabAutoNameCounter);
+        }
+        syncPendingGridSizeFromGrid();
+        m_gridResizeError.clear();
         if (!m_helpPrinted) {
             printHelp();
             m_helpPrinted = true;
@@ -175,6 +199,7 @@ void TileGridEditor::processInput(InputManager* input) {
     if (!captureKeyboard) {
         handleBrushHotkeys(input);
         handleWallHotkeys(input);
+        handlePrefabHotkeys(input);
 
         if (input->isKeyPressed(GLFW_KEY_UP) || input->isKeyPressed(GLFW_KEY_W)) {
             moveCursor(0, -1);
@@ -280,7 +305,9 @@ void TileGridEditor::drawGui() {
     ImGui::Separator();
     ImGui::Text("Cursor: (%d, %d, %d)", m_cursor.x, m_cursor.y, m_cursor.z);
 
+    drawGridControls();
     drawBrushControls();
+    drawPrefabControls();
 
     static bool saveErrorPopup = false;
     if (ImGui::Button("Save Level")) {
@@ -409,6 +436,14 @@ void TileGridEditor::refreshCursorColor() {
     }
 }
 
+void TileGridEditor::syncPendingGridSizeFromGrid() {
+    if (m_grid) {
+        m_pendingGridSize = m_grid->getGridSize();
+    } else {
+        m_pendingGridSize = glm::ivec3(0);
+    }
+}
+
 void TileGridEditor::announceCursor() {
     if (!m_grid) {
         return;
@@ -501,6 +536,7 @@ void TileGridEditor::printHelp() const {
               << "  Delete: remove vehicle at cursor\n"
               << "  I/J/K/L: toggle wall (north/west/south/east)\n"
               << "  Space or Left Click: apply brush\n"
+              << "  Ctrl+1-9: apply prefab\n"
               << "  Ctrl+S: save level\n"
               << "  F1: exit edit mode" << std::endl;
 }
@@ -545,6 +581,102 @@ void TileGridEditor::drawBrushControls() {
         }
     } else if (m_brush == BrushType::Vehicle) {
         drawVehicleBrushControls();
+    }
+}
+
+void TileGridEditor::drawPrefabControls() {
+    ImGui::SeparatorText("Prefabs");
+
+    const bool hasTile = m_uiTileState.hasTile && currentTile() != nullptr;
+    ImGui::InputText("Name##prefab", m_newPrefabName.data(), m_newPrefabName.size());
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!hasTile);
+    if (ImGui::Button("Save Prefab")) {
+        savePrefab(std::string(m_newPrefabName.data()));
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::TextDisabled("Ctrl+1-9 to apply");
+
+    ImVec2 listSize = ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 6.0f);
+    if (ImGui::BeginChild("PrefabList", listSize, true)) {
+        if (m_prefabs.empty()) {
+            ImGui::TextDisabled("No prefabs saved yet.");
+        } else if (ImGui::BeginTable("PrefabTable", 3, ImGuiTableFlags_SizingStretchProp)) {
+            ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 0.6f);
+            ImGui::TableSetupColumn("Apply", ImGuiTableColumnFlags_WidthFixed, 60.0f);
+            ImGui::TableSetupColumn("Delete", ImGuiTableColumnFlags_WidthFixed, 60.0f);
+            for (std::size_t i = 0; i < m_prefabs.size(); ++i) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::PushID(static_cast<int>(i));
+                const bool selected = static_cast<int>(i) == m_selectedPrefabIndex;
+                if (ImGui::Selectable(m_prefabs[i].name.c_str(), selected)) {
+                    m_selectedPrefabIndex = static_cast<int>(i);
+                    if (ImGui::IsMouseDoubleClicked(0)) {
+                        applyPrefab(i);
+                    }
+                }
+
+                ImGui::TableSetColumnIndex(1);
+                if (ImGui::SmallButton("Apply")) {
+                    applyPrefab(i);
+                }
+
+                ImGui::TableSetColumnIndex(2);
+                if (ImGui::SmallButton("Delete")) {
+                    deletePrefab(i);
+                    ImGui::PopID();
+                    break;
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+        }
+    }
+    ImGui::EndChild();
+}
+
+void TileGridEditor::drawGridControls() {
+    if (!m_grid) {
+        return;
+    }
+
+    ImGui::SeparatorText("Grid");
+
+    const glm::ivec3 currentSize = m_grid->getGridSize();
+    ImGui::Text("Current Size: %d x %d x %d", currentSize.x, currentSize.y, currentSize.z);
+
+    int pendingSize[3] = {m_pendingGridSize.x, m_pendingGridSize.y, m_pendingGridSize.z};
+    if (ImGui::InputInt3("New Size", pendingSize)) {
+        m_pendingGridSize = glm::ivec3(pendingSize[0], pendingSize[1], pendingSize[2]);
+        m_gridResizeError.clear();
+    }
+
+    const bool pendingValid = m_pendingGridSize.x > 0 && m_pendingGridSize.y > 0 && m_pendingGridSize.z > 0;
+    if (!pendingValid) {
+        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "All grid dimensions must be greater than zero.");
+    }
+
+    ImGui::BeginDisabled(!pendingValid || m_pendingGridSize == currentSize);
+    if (ImGui::Button("Apply Grid Size")) {
+        if (pendingValid) {
+            if (m_grid->resize(m_pendingGridSize)) {
+                syncPendingGridSizeFromGrid();
+                clampCursor();
+                announceCursor();
+                refreshUiStateFromTile();
+                refreshCursorColor();
+                m_gridResizeError.clear();
+            } else {
+                m_gridResizeError = "Failed to resize grid.";
+            }
+        }
+    }
+    ImGui::EndDisabled();
+
+    if (!m_gridResizeError.empty()) {
+        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "%s", m_gridResizeError.c_str());
     }
 }
 
@@ -934,6 +1066,81 @@ void TileGridEditor::applyBrush() {
     refreshUiStateFromTile();
 }
 
+void TileGridEditor::savePrefab(const std::string& name) {
+    if (!m_grid) {
+        return;
+    }
+
+    Tile* tile = currentTile();
+    if (!tile) {
+        return;
+    }
+
+    std::string trimmed = trimCopy(name);
+    if (trimmed.empty()) {
+        trimmed = "Prefab " + std::to_string(m_prefabAutoNameCounter);
+    }
+
+    auto existing = std::find_if(m_prefabs.begin(), m_prefabs.end(), [&trimmed](const PrefabEntry& candidate) {
+        return candidate.name == trimmed;
+    });
+    if (existing != m_prefabs.end()) {
+        existing->name = trimmed;
+        if (!existing->tile) {
+            existing->tile = std::make_unique<Tile>(tile->getGridPosition(), tile->getTileSize());
+        }
+        existing->tile->copyFrom(*tile);
+        m_selectedPrefabIndex = static_cast<int>(existing - m_prefabs.begin());
+    } else {
+        PrefabEntry entry;
+        entry.name = trimmed;
+        entry.tile = std::make_unique<Tile>(tile->getGridPosition(), tile->getTileSize());
+        entry.tile->copyFrom(*tile);
+        m_prefabs.push_back(std::move(entry));
+        m_selectedPrefabIndex = static_cast<int>(m_prefabs.size()) - 1;
+        ++m_prefabAutoNameCounter;
+        std::snprintf(m_newPrefabName.data(), m_newPrefabName.size(), "Prefab %d", m_prefabAutoNameCounter);
+    }
+}
+
+void TileGridEditor::applyPrefab(std::size_t index) {
+    if (!m_grid || index >= m_prefabs.size()) {
+        return;
+    }
+
+    Tile* tile = currentTile();
+    if (!tile) {
+        return;
+    }
+
+    const PrefabEntry& entry = m_prefabs[index];
+    if (!entry.tile) {
+        return;
+    }
+
+    tile->copyFrom(*entry.tile);
+    m_selectedPrefabIndex = static_cast<int>(index);
+
+    announceCursor();
+    refreshUiStateFromTile();
+}
+
+void TileGridEditor::deletePrefab(std::size_t index) {
+    if (index >= m_prefabs.size()) {
+        return;
+    }
+
+    m_prefabs.erase(m_prefabs.begin() + static_cast<long>(index));
+    if (m_prefabs.empty()) {
+        m_selectedPrefabIndex = -1;
+        return;
+    }
+
+    if (m_selectedPrefabIndex >= static_cast<int>(m_prefabs.size())) {
+        m_selectedPrefabIndex = static_cast<int>(m_prefabs.size()) - 1;
+    }
+}
+
 void TileGridEditor::toggleWall(WallDirection direction) {
     if (!m_grid) {
         return;
@@ -993,6 +1200,11 @@ void TileGridEditor::clampCursor() {
 }
 
 void TileGridEditor::handleBrushHotkeys(InputManager* input) {
+    const bool ctrlDown = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
+    if (ctrlDown) {
+        return;
+    }
+
     if (input->isKeyPressed(GLFW_KEY_1)) {
         m_brush = BrushType::Grass;
         announceBrush();
@@ -1023,6 +1235,25 @@ void TileGridEditor::handleWallHotkeys(InputManager* input) {
     }
     if (input->isKeyPressed(GLFW_KEY_J)) {
         toggleWall(WallDirection::West);
+    }
+}
+
+void TileGridEditor::handlePrefabHotkeys(InputManager* input) {
+    if (m_prefabs.empty()) {
+        return;
+    }
+
+    const bool ctrlDown = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
+    if (!ctrlDown) {
+        return;
+    }
+
+    const std::size_t maxHotkeyPrefabs = std::min<std::size_t>(9, m_prefabs.size());
+    for (std::size_t i = 0; i < maxHotkeyPrefabs; ++i) {
+        int key = GLFW_KEY_1 + static_cast<int>(i);
+        if (input->isKeyPressed(key)) {
+            applyPrefab(i);
+        }
     }
 }
 

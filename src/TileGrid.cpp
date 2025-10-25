@@ -48,6 +48,60 @@ bool TileGrid::rebuildTiles() {
     return true;
 }
 
+bool TileGrid::resize(const glm::ivec3& newSize) {
+    if (newSize.x <= 0 || newSize.y <= 0 || newSize.z <= 0) {
+        std::cerr << "TileGrid::resize: invalid grid size requested: " << newSize.x << "x" << newSize.y << "x" << newSize.z
+                  << std::endl;
+        return false;
+    }
+
+    if (newSize == m_gridSize) {
+        return true;
+    }
+
+    const glm::ivec3 oldSize = m_gridSize;
+    auto oldTiles = std::move(m_tiles);
+
+    m_gridSize = newSize;
+    if (!rebuildTiles()) {
+        m_gridSize = oldSize;
+        m_tiles = std::move(oldTiles);
+        return false;
+    }
+
+    const int copyX = std::min(oldSize.x, newSize.x);
+    const int copyY = std::min(oldSize.y, newSize.y);
+    const int copyZ = std::min(oldSize.z, newSize.z);
+
+    auto oldIndex = [&](int x, int y, int z) -> size_t {
+        return static_cast<size_t>((z * oldSize.y + y) * oldSize.x + x);
+    };
+
+    for (int z = 0; z < copyZ; ++z) {
+        for (int y = 0; y < copyY; ++y) {
+            for (int x = 0; x < copyX; ++x) {
+                const size_t idx = oldIndex(x, y, z);
+                if (idx >= oldTiles.size()) {
+                    continue;
+                }
+
+                const Tile* oldTile = oldTiles[idx].get();
+                Tile* newTile = getTile(x, y, z);
+                if (!oldTile || !newTile) {
+                    continue;
+                }
+
+                newTile->copyFrom(*oldTile);
+            }
+        }
+    }
+
+    std::cout << "Resized tile grid: " << oldSize.x << "x" << oldSize.y << "x" << oldSize.z << " -> " << newSize.x << "x"
+              << newSize.y << "x" << newSize.z << std::endl;
+
+    return true;
+}
+
 void TileGrid::registerTextureAlias(const std::string& alias, const std::string& path) {
     if (alias.empty() || path.empty()) {
         return;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <functional>
 #include <memory>
 #include <string>
 #include "Mesh.hpp"
@@ -59,6 +60,21 @@ private:
     bool m_meshesGenerated;
 
 public:
+    struct WallUpdate {
+        bool specified = false;
+        bool walkable = true;
+        std::string textureId;
+    };
+
+    struct Update {
+        bool topSpecified = false;
+        bool topSolid = false;
+        std::string topTextureId;
+        bool carSpecified = false;
+        CarDirection carDirection = CarDirection::None;
+        WallUpdate walls[4];
+    };
+
     Tile(const glm::ivec3& gridPos, float tileSize = 1.0f);
     ~Tile() = default;
     
@@ -90,7 +106,12 @@ public:
     // Rendering
     void generateMeshes();
     void render(class Renderer* renderer);
-    
+
+    void applyUpdate(const Update& update,
+                     const std::function<std::string(const std::string&)>& resolveTexture,
+                     const std::function<std::shared_ptr<Texture>(const std::string&)>& loadTexture);
+    void copyFrom(const Tile& other);
+
 private:
     void createWallMesh(WallDirection dir);
     void createTopMesh();

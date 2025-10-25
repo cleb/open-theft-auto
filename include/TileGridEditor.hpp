@@ -49,6 +49,7 @@ private:
     };
 
     static constexpr std::size_t TextureBufferSize = 256;
+    static constexpr std::size_t PrefabNameBufferSize = 64;
 
     struct UiTileState {
         glm::ivec3 position{0};
@@ -73,6 +74,11 @@ private:
         std::string path;
     };
 
+    struct PrefabEntry {
+        std::string name;
+        std::unique_ptr<Tile> tile;
+    };
+
     TileGrid* m_grid;
     LevelData* m_levelData;
     bool m_enabled;
@@ -91,6 +97,12 @@ private:
     UiTileState m_uiTileState;
     std::vector<AliasEntry> m_aliasEntries;
     UiVehicleState m_uiVehicleState;
+    std::vector<PrefabEntry> m_prefabs;
+    std::array<char, PrefabNameBufferSize> m_newPrefabName{};
+    int m_selectedPrefabIndex;
+    int m_prefabAutoNameCounter;
+    glm::ivec3 m_pendingGridSize;
+    std::string m_gridResizeError;
 
     Tile* currentTile();
     const Tile* currentTile() const;
@@ -110,22 +122,29 @@ private:
     void rebuildAliasList();
     void drawBrushControls();
     void drawVehicleBrushControls();
+    void drawPrefabControls();
     void drawTileFaceTabs();
     void drawTopFaceControls(Tile* tile);
     void drawWallControls(Tile* tile, WallDirection direction, int wallIndex);
+    void drawGridControls();
     bool drawTexturePicker(const char* label, std::array<char, TextureBufferSize>& buffer);
     std::string findAliasForPath(const std::string& path) const;
     void applyTopSurfaceFromUi();
     void applyWallFromUi(int wallIndex, WallDirection direction);
     void applyVehicleBrush();
     void removeVehicleAtCursor();
+    void syncPendingGridSizeFromGrid();
 
     void applyBrush();
+    void savePrefab(const std::string& name);
+    void applyPrefab(std::size_t index);
+    void deletePrefab(std::size_t index);
     void toggleWall(WallDirection direction);
     void changeLayer(int delta);
     void moveCursor(int dx, int dy);
     void clampCursor();
     void handleBrushHotkeys(InputManager* input);
     void handleWallHotkeys(InputManager* input);
+    void handlePrefabHotkeys(InputManager* input);
     void handleSaveHotkey(InputManager* input);
 };

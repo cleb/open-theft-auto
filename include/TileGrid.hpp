@@ -30,7 +30,7 @@ public:
 
     bool initialize();
     void render(class Renderer* renderer);
-    
+
     // Tile access
     Tile* getTile(int x, int y, int z);
     Tile* getTile(const glm::ivec3& gridPos);
@@ -43,7 +43,10 @@ public:
     bool isValidPosition(int x, int y, int z) const;
     bool isValidPosition(const glm::ivec3& gridPos) const;
     const std::unordered_map<std::string, std::string>& getTextureAliases() const { return m_textureAliases; }
-    
+
+    // Grid management
+    bool resize(const glm::ivec3& newSize);
+
     // World/Grid conversion
     glm::vec3 gridToWorld(const glm::ivec3& gridPos) const;
     glm::ivec3 worldToGrid(const glm::vec3& worldPos) const;
