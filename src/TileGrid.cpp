@@ -396,13 +396,14 @@ bool TileGrid::loadFromFile(const std::string& filePath) {
         if (config.topSpecified) {
             if (config.topSolid) {
                 const std::string resolved = resolveTexturePath(config.topTextureId);
-                auto texture = loadTextureFromPath(resolved);
+                std::shared_ptr<Texture> texture;
+                if (!resolved.empty()) {
+                    texture = loadTextureFromPath(resolved);
+                }
+
+                tile.setTopSurface(true, resolved, CarDirection::None);
                 if (texture) {
-                    tile.setTopSurface(true, texture, CarDirection::None);
-                } else if (!resolved.empty()) {
-                    tile.setTopSurface(true, resolved, CarDirection::None);
-                } else {
-                    tile.setTopSurface(true, "", CarDirection::None);
+                    tile.setTopTexture(texture);
                 }
             } else {
                 tile.setTopSurface(false, "", CarDirection::None);
@@ -419,18 +420,19 @@ bool TileGrid::loadFromFile(const std::string& filePath) {
                 continue;
             }
             const auto dir = static_cast<WallDirection>(i);
+
+            std::string resolved;
             if (!wall.textureId.empty()) {
-                const std::string resolved = resolveTexturePath(wall.textureId);
+                resolved = resolveTexturePath(wall.textureId);
+            }
+
+            tile.setWall(dir, wall.walkable, resolved);
+
+            if (!resolved.empty()) {
                 auto texture = loadTextureFromPath(resolved);
                 if (texture) {
-                    tile.setWall(dir, wall.walkable, texture);
-                } else if (!resolved.empty()) {
-                    tile.setWall(dir, wall.walkable, resolved);
-                } else {
-                    tile.setWall(dir, wall.walkable);
+                    tile.setWallTexture(dir, texture);
                 }
-            } else {
-                tile.setWall(dir, wall.walkable);
             }
         }
     };
@@ -752,12 +754,38 @@ bool TileGrid::saveToFile(const std::string& filePath) const {
     output << "grid " << m_gridSize.x << ' ' << m_gridSize.y << ' ' << m_gridSize.z << std::endl;
     output << "tile_size " << m_tileSize << std::endl;
 
-    for (const auto& alias : m_textureAliases) {
+    std::vector<std::pair<std::string, std::string>> aliasEntries(m_textureAliases.begin(), m_textureAliases.end());
+    std::sort(aliasEntries.begin(), aliasEntries.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.first < rhs.first;
+    });
+
+    for (const auto& alias : aliasEntries) {
         if (alias.first.empty() || alias.second.empty()) {
             continue;
         }
         output << "texture " << alias.first << ' ' << alias.second << std::endl;
     }
+
+    std::unordered_map<std::string, std::string> pathToAlias;
+    for (const auto& alias : aliasEntries) {
+        if (!alias.second.empty()) {
+            pathToAlias[alias.second] = alias.first;
+        }
+    }
+
+    auto identifierForSave = [&](const std::string& value) -> std::string {
+        if (value.empty()) {
+            return std::string();
+        }
+        if (m_textureAliases.find(value) != m_textureAliases.end()) {
+            return value;
+        }
+        auto aliasIt = pathToAlias.find(value);
+        if (aliasIt != pathToAlias.end()) {
+            return aliasIt->second;
+        }
+        return value;
+    };
 
     auto carDirectionToString = [](CarDirection dir) -> std::string {
         switch (dir) {
@@ -794,8 +822,9 @@ bool TileGrid::saveToFile(const std::string& filePath) const {
 
                 if (top.solid) {
                     std::string topProp = "top=solid";
-                    if (!top.texturePath.empty()) {
-                        topProp += ':' + top.texturePath;
+                    const std::string topId = identifierForSave(top.texturePath);
+                    if (!topId.empty()) {
+                        topProp += ':' + topId;
                     }
                     properties.push_back(std::move(topProp));
                 }
@@ -812,8 +841,9 @@ bool TileGrid::saveToFile(const std::string& filePath) const {
                     }
 
                     std::string entry = std::string(wallKey(dir)) + '=' + (wall.walkable ? "walkable" : "solid");
-                    if (!wall.texturePath.empty()) {
-                        entry += ':' + wall.texturePath;
+                    const std::string wallId = identifierForSave(wall.texturePath);
+                    if (!wallId.empty()) {
+                        entry += ':' + wallId;
                     }
                     properties.push_back(std::move(entry));
                 }
