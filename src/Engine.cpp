@@ -19,29 +19,29 @@ bool Engine::initialize(int width, int height, const std::string& title) {
         return false;
     }
     
+    // Initialize input manager
+    m_inputManager = std::make_unique<InputManager>();
+    m_inputManager->initialize();
+
     // Create window
     m_window = std::make_unique<Window>();
-    if (!m_window->create(width, height, title)) {
+    if (!m_window->create(width, height, title, m_inputManager.get())) {
         std::cerr << "Failed to create window" << std::endl;
         return false;
     }
-    
+
     // Initialize GLEW
     if (glewInit() != GLEW_OK) {
         std::cerr << "Failed to initialize GLEW" << std::endl;
         return false;
     }
-    
+
     // Initialize renderer
     m_renderer = std::make_unique<Renderer>();
     if (!m_renderer->initialize(width, height)) {
         std::cerr << "Failed to initialize renderer" << std::endl;
         return false;
     }
-    
-    // Initialize input manager
-    m_inputManager = std::make_unique<InputManager>();
-    m_inputManager->initialize(m_window->getGLFWWindow());
     
     // Initialize ImGui
     IMGUI_CHECKVERSION();

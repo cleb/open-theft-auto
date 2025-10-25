@@ -1,17 +1,25 @@
 #include "Window.hpp"
+#include "InputManager.hpp"
 #include <iostream>
+#include <imgui_impl_glfw.h>
 
-Window::Window() : m_window(nullptr), m_width(0), m_height(0) {
+Window::Window() : m_window(nullptr), m_width(0), m_height(0), m_inputManager(nullptr) {
 }
 
 Window::~Window() {
     destroy();
 }
 
-bool Window::create(int width, int height, const std::string& title) {
+bool Window::create(int width, int height, const std::string& title, InputManager* inputManager) {
     m_width = width;
     m_height = height;
     m_title = title;
+    m_inputManager = inputManager;
+
+    if (!m_inputManager) {
+        std::cerr << "InputManager pointer is null" << std::endl;
+        return false;
+    }
     
     // Set GLFW window hints
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -40,7 +48,14 @@ bool Window::create(int width, int height, const std::string& title) {
     glfwSetKeyCallback(m_window, keyCallback);
     glfwSetMouseButtonCallback(m_window, mouseButtonCallback);
     glfwSetCursorPosCallback(m_window, cursorPosCallback);
-    
+    glfwSetScrollCallback(m_window, scrollCallback);
+    glfwSetCharCallback(m_window, charCallback);
+
+    double xpos = 0.0;
+    double ypos = 0.0;
+    glfwGetCursorPos(m_window, &xpos, &ypos);
+    m_inputManager->setInitialMousePosition(xpos, ypos);
+
     return true;
 }
 
@@ -49,6 +64,7 @@ void Window::destroy() {
         glfwDestroyWindow(m_window);
         m_window = nullptr;
     }
+    m_inputManager = nullptr;
 }
 
 bool Window::shouldClose() const {
@@ -75,16 +91,51 @@ void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height) 
 }
 
 void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    // This will be handled by InputManager
-    (void)window; (void)key; (void)scancode; (void)action; (void)mods;
+    Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
+    if (!windowInstance || !windowInstance->m_inputManager) {
+        return;
+    }
+
+    ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
+    windowInstance->m_inputManager->onKey(key, scancode, action, mods);
 }
 
 void Window::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-    // This will be handled by InputManager
-    (void)window; (void)button; (void)action; (void)mods;
+    Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
+    if (!windowInstance || !windowInstance->m_inputManager) {
+        return;
+    }
+
+    ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
+    windowInstance->m_inputManager->onMouseButton(button, action, mods);
 }
 
 void Window::cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
-    // This will be handled by InputManager
-    (void)window; (void)xpos; (void)ypos;
+    Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
+    if (!windowInstance || !windowInstance->m_inputManager) {
+        return;
+    }
+
+    ImGui_ImplGlfw_CursorPosCallback(window, xpos, ypos);
+    windowInstance->m_inputManager->onCursorPos(xpos, ypos);
+}
+
+void Window::scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
+    Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
+    if (!windowInstance || !windowInstance->m_inputManager) {
+        return;
+    }
+
+    ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
+    windowInstance->m_inputManager->onScroll(xoffset, yoffset);
+}
+
+void Window::charCallback(GLFWwindow* window, unsigned int codepoint) {
+    Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
+    if (!windowInstance || !windowInstance->m_inputManager) {
+        return;
+    }
+
+    ImGui_ImplGlfw_CharCallback(window, codepoint);
+    windowInstance->m_inputManager->onChar(codepoint);
 }
