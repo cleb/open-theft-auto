@@ -9,6 +9,8 @@
 #include "Tile.hpp"
 
 class TileGrid;
+struct LevelData;
+struct VehicleSpawnDefinition;
 class Renderer;
 class InputManager;
 class Mesh;
@@ -19,7 +21,7 @@ public:
     TileGridEditor();
     ~TileGridEditor();
 
-    void initialize(TileGrid* grid);
+    void initialize(TileGrid* grid, LevelData* levelData);
     void setLevelPath(const std::string& path);
     void setCursor(const glm::ivec3& gridPos);
     const glm::ivec3& getCursor() const { return m_cursor; }
@@ -66,6 +68,7 @@ private:
     };
 
     TileGrid* m_grid;
+    LevelData* m_levelData;
     bool m_enabled;
     glm::ivec3 m_cursor;
     glm::ivec3 m_lastAnnouncedCursor;
@@ -85,6 +88,9 @@ private:
 
     Tile* currentTile();
     const Tile* currentTile() const;
+
+    VehicleSpawnDefinition* findVehicleSpawn(const glm::ivec3& gridPos);
+    const VehicleSpawnDefinition* findVehicleSpawn(const glm::ivec3& gridPos) const;
 
     void ensureCursorMesh();
     void refreshCursorColor();

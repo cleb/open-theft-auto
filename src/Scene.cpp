@@ -1,6 +1,7 @@
 #include "Scene.hpp"
 #include "Renderer.hpp"
 #include "InputManager.hpp"
+#include "LevelSerialization.hpp"
 #include <iostream>
 #include <string>
 #include <glm/glm.hpp>
@@ -20,7 +21,7 @@ bool Scene::initialize() {
     }
 
     m_tileGridEditor = std::make_unique<TileGridEditor>();
-    m_tileGridEditor->initialize(m_tileGrid.get());
+    m_tileGridEditor->initialize(m_tileGrid.get(), &m_levelData);
     
     // Initialize player
     m_player = std::make_unique<Player>();
@@ -234,15 +235,15 @@ void Scene::createTestScene() {
     // Configure the tile grid with test data
     if (m_tileGrid) {
         const std::string levelPath = "assets/levels/test_grid.tg";
-        if (!m_tileGrid->loadFromFile(levelPath)) {
-            std::cerr << "Failed to load tile grid from " << levelPath << std::endl;
+        if (!LevelSerialization::loadLevel(levelPath, *m_tileGrid, m_levelData)) {
+            std::cerr << "Failed to load level from " << levelPath << std::endl;
         }
         m_levelPath = levelPath;
         if (m_tileGridEditor) {
             m_tileGridEditor->setLevelPath(m_levelPath);
-            m_tileGridEditor->initialize(m_tileGrid.get());
+            m_tileGridEditor->initialize(m_tileGrid.get(), &m_levelData);
         }
-        rebuildVehiclesFromGrid();
+        rebuildVehiclesFromSpawns();
     }
 
     std::cout << "Created test scene with tile grid and "
@@ -311,7 +312,7 @@ void Scene::toggleEditMode() {
         std::cout << "Edit mode enabled" << std::endl;
     } else {
         m_tileGridEditor->setEnabled(false);
-        rebuildVehiclesFromGrid();
+        rebuildVehiclesFromSpawns();
         if (m_player) {
             m_player->setActive(true);
         }
@@ -332,7 +333,7 @@ void Scene::leaveVehicle() {
     m_activeVehicle = nullptr;
 }
 
-void Scene::rebuildVehiclesFromGrid() {
+void Scene::rebuildVehiclesFromSpawns() {
     m_playerInVehicle = false;
     m_activeVehicle = nullptr;
 
@@ -347,8 +348,7 @@ void Scene::rebuildVehiclesFromGrid() {
         return;
     }
 
-    const auto& spawns = m_tileGrid->getVehicleSpawns();
-    for (const auto& spawn : spawns) {
+    for (const auto& spawn : m_levelData.vehicleSpawns) {
         auto vehicle = std::make_unique<Vehicle>();
         const std::string texture = spawn.texturePath.empty() ? "assets/textures/car.png" : spawn.texturePath;
         vehicle->initialize(texture);

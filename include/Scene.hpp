@@ -9,6 +9,7 @@
 #include "Road.hpp"
 #include "TileGrid.hpp"
 #include "TileGridEditor.hpp"
+#include "LevelData.hpp"
 
 #include <string>
 
@@ -25,6 +26,7 @@ private:
     // New tile grid system
     std::unique_ptr<TileGrid> m_tileGrid;
     std::unique_ptr<TileGridEditor> m_tileGridEditor;
+    LevelData m_levelData;
     std::string m_levelPath;
 
     bool m_playerInVehicle = false;
@@ -56,5 +58,5 @@ private:
     void createTestScene();
     void toggleEditMode();
     void leaveVehicle();
-    void rebuildVehiclesFromGrid();
+    void rebuildVehiclesFromSpawns();
 };

@@ -4,7 +4,6 @@
 #include <cctype>
 #include <cmath>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <utility>
@@ -40,7 +39,6 @@ bool TileGrid::rebuildTiles() {
     }
 
     m_tiles.clear();
-    m_vehicleSpawns.clear();
     const size_t total = static_cast<size_t>(m_gridSize.x) * static_cast<size_t>(m_gridSize.y) * static_cast<size_t>(m_gridSize.z);
     m_tiles.reserve(total);
 
@@ -281,15 +279,6 @@ bool TileGrid::loadFromFile(const std::string& filePath) {
         WallConfig walls[4];
     };
 
-    struct VehicleConfig {
-        bool rotationSpecified = false;
-        float rotation = 0.0f;
-        bool textureSpecified = false;
-        std::string textureId;
-        bool sizeSpecified = false;
-        glm::vec2 size = glm::vec2(1.5f, 3.0f);
-    };
-
     auto parseCarDirection = [&](const std::string& value, CarDirection& out, int lineNumber) -> bool {
         const std::string lower = toLowerCopy(trimCopy(value));
         if (lower.empty() || lower == "none" || lower == "off") {
@@ -404,56 +393,6 @@ bool TileGrid::loadFromFile(const std::string& filePath) {
         return false;
     };
 
-    auto parseVehicleProperty = [&](const std::string& key, const std::string& value, VehicleConfig& config, int lineNumber) -> bool {
-        const std::string lowerKey = toLowerCopy(trimCopy(key));
-        if (lowerKey == "rotation" || lowerKey == "angle" || lowerKey == "yaw") {
-            float rotation = 0.0f;
-            if (!parseFloat(value, rotation)) {
-                logParseError(lineNumber, "Invalid rotation value: " + value);
-                return false;
-            }
-            config.rotation = rotation;
-            config.rotationSpecified = true;
-            return true;
-        }
-
-        if (lowerKey == "texture" || lowerKey == "tex") {
-            config.textureId = trimCopy(value);
-            config.textureSpecified = true;
-            return true;
-        }
-
-        if (lowerKey == "size" || lowerKey == "dimensions") {
-            const std::string trimmed = trimCopy(value);
-            auto separator = trimmed.find('x');
-            if (separator == std::string::npos) {
-                separator = trimmed.find(',');
-            }
-            if (separator == std::string::npos) {
-                logParseError(lineNumber, "Invalid size format: " + value);
-                return false;
-            }
-            const std::string first = trimCopy(trimmed.substr(0, separator));
-            const std::string second = trimCopy(trimmed.substr(separator + 1));
-            float width = 0.0f;
-            float length = 0.0f;
-            if (!parseFloat(first, width) || !parseFloat(second, length)) {
-                logParseError(lineNumber, "Invalid size values: " + value);
-                return false;
-            }
-            if (width <= 0.0f || length <= 0.0f) {
-                logParseError(lineNumber, "Vehicle size must be positive");
-                return false;
-            }
-            config.size = glm::vec2(width, length);
-            config.sizeSpecified = true;
-            return true;
-        }
-
-        logParseError(lineNumber, "Unknown vehicle property: " + key);
-        return false;
-    };
-
     auto applyTileConfig = [&](Tile& tile, const TileConfig& config) {
         if (config.topSpecified) {
             if (config.topSolid) {
@@ -560,53 +499,6 @@ bool TileGrid::loadFromFile(const std::string& filePath) {
             }
 
             applyTileConfig(*tile, config);
-        } else if (lowerCmd == "vehicle") {
-            int x = 0;
-            int y = 0;
-            int z = 0;
-            if (!(iss >> x >> y >> z)) {
-                logParseError(lineNumber, "Expected coordinates after 'vehicle'");
-                continue;
-            }
-
-            VehicleConfig config;
-            bool parseOk = true;
-            std::string token;
-            while (iss >> token) {
-                const auto eqPos = token.find('=');
-                if (eqPos == std::string::npos) {
-                    logParseError(lineNumber, "Expected key=value pair but found '" + token + "'");
-                    parseOk = false;
-                    continue;
-                }
-                const std::string key = token.substr(0, eqPos);
-                const std::string value = token.substr(eqPos + 1);
-                if (!parseVehicleProperty(key, value, config, lineNumber)) {
-                    parseOk = false;
-                }
-            }
-
-            if (!parseOk) {
-                continue;
-            }
-
-            if (!isValidPosition(x, y, z)) {
-                logParseWarning(lineNumber, "Vehicle coordinates out of bounds: (" + std::to_string(x) + ", " + std::to_string(y) + ", " + std::to_string(z) + ")");
-                continue;
-            }
-
-            VehicleSpawn spawn;
-            spawn.gridPosition = glm::ivec3(x, y, z);
-            spawn.rotationDegrees = config.rotation;
-            spawn.size = config.size;
-
-            std::string textureIdentifier = config.textureId;
-            if (textureIdentifier.empty()) {
-                textureIdentifier = "car";
-            }
-            spawn.texturePath = resolveTexturePath(textureIdentifier);
-
-            addOrUpdateVehicleSpawn(spawn);
         } else if (lowerCmd == "fill") {
             int xStart = 0;
             int xEnd = 0;
@@ -850,200 +742,5 @@ bool TileGrid::isRoadTile(const glm::ivec3& gridPos) const {
     }
 
     return tile->getCarDirection() != CarDirection::None;
-}
-
-TileGrid::VehicleSpawn* TileGrid::findVehicleSpawn(const glm::ivec3& gridPos) {
-    auto it = std::find_if(
-        m_vehicleSpawns.begin(),
-        m_vehicleSpawns.end(),
-        [&](const VehicleSpawn& spawn) { return spawn.gridPosition == gridPos; });
-    if (it == m_vehicleSpawns.end()) {
-        return nullptr;
-    }
-    return &(*it);
-}
-
-const TileGrid::VehicleSpawn* TileGrid::findVehicleSpawn(const glm::ivec3& gridPos) const {
-    return const_cast<TileGrid*>(this)->findVehicleSpawn(gridPos);
-}
-
-void TileGrid::addOrUpdateVehicleSpawn(const VehicleSpawn& spawn) {
-    if (!isValidPosition(spawn.gridPosition)) {
-        return;
-    }
-
-    VehicleSpawn normalized = spawn;
-    if (normalized.texturePath.empty()) {
-        normalized.texturePath = resolveTexturePath("car");
-    }
-    while (normalized.rotationDegrees < 0.0f) {
-        normalized.rotationDegrees += 360.0f;
-    }
-    while (normalized.rotationDegrees >= 360.0f) {
-        normalized.rotationDegrees -= 360.0f;
-    }
-    if (normalized.size.x <= 0.0f) {
-        normalized.size.x = 1.5f;
-    }
-    if (normalized.size.y <= 0.0f) {
-        normalized.size.y = 3.0f;
-    }
-    auto* existing = findVehicleSpawn(spawn.gridPosition);
-    if (existing) {
-        *existing = normalized;
-        return;
-    }
-
-    m_vehicleSpawns.push_back(normalized);
-}
-
-bool TileGrid::removeVehicleSpawnAt(const glm::ivec3& gridPos) {
-    auto it = std::find_if(
-        m_vehicleSpawns.begin(),
-        m_vehicleSpawns.end(),
-        [&](const VehicleSpawn& spawn) { return spawn.gridPosition == gridPos; });
-    if (it == m_vehicleSpawns.end()) {
-        return false;
-    }
-    m_vehicleSpawns.erase(it);
-    return true;
-}
-
-bool TileGrid::saveToFile(const std::string& filePath) const {
-    std::ofstream output(filePath);
-    if (!output.is_open()) {
-        std::cerr << "Failed to save tile grid to file: " << filePath << std::endl;
-        return false;
-    }
-
-    output << "# Tile grid exported by editor" << std::endl;
-    output << "grid " << m_gridSize.x << ' ' << m_gridSize.y << ' ' << m_gridSize.z << std::endl;
-    output << "tile_size " << m_tileSize << std::endl;
-
-    std::vector<std::pair<std::string, std::string>> aliasEntries(m_textureAliases.begin(), m_textureAliases.end());
-    std::sort(aliasEntries.begin(), aliasEntries.end(), [](const auto& lhs, const auto& rhs) {
-        return lhs.first < rhs.first;
-    });
-
-    for (const auto& alias : aliasEntries) {
-        if (alias.first.empty() || alias.second.empty()) {
-            continue;
-        }
-        output << "texture " << alias.first << ' ' << alias.second << std::endl;
-    }
-
-    std::unordered_map<std::string, std::string> pathToAlias;
-    for (const auto& alias : aliasEntries) {
-        if (!alias.second.empty()) {
-            pathToAlias[alias.second] = alias.first;
-        }
-    }
-
-    auto identifierForSave = [&](const std::string& value) -> std::string {
-        if (value.empty()) {
-            return std::string();
-        }
-        if (m_textureAliases.find(value) != m_textureAliases.end()) {
-            return value;
-        }
-        auto aliasIt = pathToAlias.find(value);
-        if (aliasIt != pathToAlias.end()) {
-            return aliasIt->second;
-        }
-        return value;
-    };
-
-    auto formatFloat = [](float value) -> std::string {
-        std::ostringstream oss;
-        oss << std::fixed << std::setprecision(2) << value;
-        return oss.str();
-    };
-
-    auto carDirectionToString = [](CarDirection dir) -> std::string {
-        switch (dir) {
-            case CarDirection::North: return "north";
-            case CarDirection::South: return "south";
-            case CarDirection::East: return "east";
-            case CarDirection::West: return "west";
-            case CarDirection::NorthSouth: return "north_south";
-            case CarDirection::EastWest: return "east_west";
-            case CarDirection::None: default: return "none";
-        }
-    };
-
-    auto wallKey = [](WallDirection dir) -> const char* {
-        switch (dir) {
-            case WallDirection::North: return "north";
-            case WallDirection::South: return "south";
-            case WallDirection::East: return "east";
-            case WallDirection::West: return "west";
-        }
-        return "north";
-    };
-
-    for (const auto& spawn : m_vehicleSpawns) {
-        output << "vehicle " << spawn.gridPosition.x << ' ' << spawn.gridPosition.y << ' ' << spawn.gridPosition.z;
-        output << " rotation=" << formatFloat(spawn.rotationDegrees);
-        if (!spawn.texturePath.empty()) {
-            output << " texture=" << identifierForSave(spawn.texturePath);
-        }
-        output << " size=" << formatFloat(spawn.size.x) << 'x' << formatFloat(spawn.size.y);
-        output << std::endl;
-    }
-
-    for (int z = 0; z < m_gridSize.z; ++z) {
-        for (int y = 0; y < m_gridSize.y; ++y) {
-            for (int x = 0; x < m_gridSize.x; ++x) {
-                const Tile* tile = getTile(x, y, z);
-                if (!tile) {
-                    continue;
-                }
-
-                std::vector<std::string> properties;
-                const TopSurfaceData& top = tile->getTopSurface();
-
-                if (top.solid) {
-                    std::string topProp = "top=solid";
-                    const std::string topId = identifierForSave(top.texturePath);
-                    if (!topId.empty()) {
-                        topProp += ':' + topId;
-                    }
-                    properties.push_back(std::move(topProp));
-                }
-
-                if (top.carDirection != CarDirection::None) {
-                    properties.push_back(std::string("car=") + carDirectionToString(top.carDirection));
-                }
-
-                for (int dirIndex = 0; dirIndex < 4; ++dirIndex) {
-                    const WallDirection dir = static_cast<WallDirection>(dirIndex);
-                    const WallData& wall = tile->getWall(dir);
-                    if (wall.walkable && wall.texturePath.empty()) {
-                        continue;
-                    }
-
-                    std::string entry = std::string(wallKey(dir)) + '=' + (wall.walkable ? "walkable" : "solid");
-                    const std::string wallId = identifierForSave(wall.texturePath);
-                    if (!wallId.empty()) {
-                        entry += ':' + wallId;
-                    }
-                    properties.push_back(std::move(entry));
-                }
-
-                if (properties.empty()) {
-                    continue;
-                }
-
-                output << "tile " << x << ' ' << y << ' ' << z;
-                for (const auto& prop : properties) {
-                    output << ' ' << prop;
-                }
-                output << std::endl;
-            }
-        }
-    }
-
-    std::cout << "Saved tile grid to file: " << filePath << std::endl;
-    return true;
 }
 

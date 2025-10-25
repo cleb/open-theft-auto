@@ -6,6 +6,8 @@
 #include "InputManager.hpp"
 #include "Mesh.hpp"
 #include "Texture.hpp"
+#include "LevelData.hpp"
+#include "LevelSerialization.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -86,6 +88,7 @@ CarDirection indexToCarDirection(int index) {
 
 TileGridEditor::TileGridEditor()
     : m_grid(nullptr)
+    , m_levelData(nullptr)
     , m_enabled(false)
     , m_cursor(0)
     , m_lastAnnouncedCursor(
@@ -102,8 +105,9 @@ TileGridEditor::TileGridEditor()
 
 TileGridEditor::~TileGridEditor() = default;
 
-void TileGridEditor::initialize(TileGrid* grid) {
+void TileGridEditor::initialize(TileGrid* grid, LevelData* levelData) {
     m_grid = grid;
+    m_levelData = levelData;
     m_cursorMesh.reset();
     clampCursor();
     ensureCursorMesh();
@@ -280,7 +284,8 @@ void TileGridEditor::drawGui() {
 
     static bool saveErrorPopup = false;
     if (ImGui::Button("Save Level")) {
-        if (m_levelPath.empty() || !m_grid->saveToFile(m_levelPath)) {
+        if (m_levelPath.empty() || !m_grid || !m_levelData ||
+            !LevelSerialization::saveLevel(m_levelPath, *m_grid, *m_levelData)) {
             saveErrorPopup = true;
         }
     }
@@ -312,6 +317,25 @@ Tile* TileGridEditor::currentTile() {
 
 const Tile* TileGridEditor::currentTile() const {
     return m_grid ? m_grid->getTile(m_cursor) : nullptr;
+}
+
+VehicleSpawnDefinition* TileGridEditor::findVehicleSpawn(const glm::ivec3& gridPos) {
+    if (!m_levelData) {
+        return nullptr;
+    }
+
+    auto& spawns = m_levelData->vehicleSpawns;
+    auto it = std::find_if(spawns.begin(), spawns.end(), [&](const VehicleSpawnDefinition& spawn) {
+        return spawn.gridPosition == gridPos;
+    });
+    if (it == spawns.end()) {
+        return nullptr;
+    }
+    return &(*it);
+}
+
+const VehicleSpawnDefinition* TileGridEditor::findVehicleSpawn(const glm::ivec3& gridPos) const {
+    return const_cast<TileGridEditor*>(this)->findVehicleSpawn(gridPos);
 }
 
 void TileGridEditor::ensureCursorMesh() {
@@ -398,14 +422,11 @@ void TileGridEditor::announceCursor() {
             std::cout << ' ' << wallDirectionToString(dir) << '=' << (wall.walkable ? "open" : "blocked");
         }
     }
-    if (m_grid) {
-        const TileGrid::VehicleSpawn* spawn = m_grid->findVehicleSpawn(m_cursor);
-        if (spawn) {
-            std::cout << " vehicle rotation=" << spawn->rotationDegrees
-                      << " size=" << spawn->size.x << 'x' << spawn->size.y;
-            if (!spawn->texturePath.empty()) {
-                std::cout << " texture=" << spawn->texturePath;
-            }
+    if (const auto* spawn = findVehicleSpawn(m_cursor)) {
+        std::cout << " vehicle rotation=" << spawn->rotationDegrees
+                  << " size=" << spawn->size.x << 'x' << spawn->size.y;
+        if (!spawn->texturePath.empty()) {
+            std::cout << " texture=" << spawn->texturePath;
         }
     }
     std::cout << std::endl;
@@ -707,12 +728,17 @@ void TileGridEditor::applyWallFromUi(int wallIndex, WallDirection direction) {
 }
 
 void TileGridEditor::applyVehicleBrush() {
-    if (!m_grid) {
+    if (!m_grid || !m_levelData) {
         return;
     }
 
     if (m_uiVehicleState.removeMode) {
-        if (m_grid->removeVehicleSpawnAt(m_cursor)) {
+        auto& spawns = m_levelData->vehicleSpawns;
+        auto it = std::find_if(spawns.begin(), spawns.end(), [&](const VehicleSpawnDefinition& spawn) {
+            return spawn.gridPosition == m_cursor;
+        });
+        if (it != spawns.end()) {
+            spawns.erase(it);
             std::cout << "Removed vehicle at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
         } else {
             std::cout << "No vehicle to remove at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
@@ -722,7 +748,13 @@ void TileGridEditor::applyVehicleBrush() {
         return;
     }
 
-    TileGrid::VehicleSpawn spawn;
+    if (!m_grid->isValidPosition(m_cursor)) {
+        std::cout << "Cannot place vehicle outside of grid bounds at (" << m_cursor.x << ", "
+                  << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+        return;
+    }
+
+    VehicleSpawnDefinition spawn;
     spawn.gridPosition = m_cursor;
     spawn.rotationDegrees = normalizeDegrees(m_uiVehicleState.rotationDegrees);
     spawn.size = glm::vec2(
@@ -735,7 +767,15 @@ void TileGridEditor::applyVehicleBrush() {
     }
     spawn.texturePath = texturePath;
 
-    m_grid->addOrUpdateVehicleSpawn(spawn);
+    auto& spawns = m_levelData->vehicleSpawns;
+    auto existing = std::find_if(spawns.begin(), spawns.end(), [&](const VehicleSpawnDefinition& entry) {
+        return entry.gridPosition == spawn.gridPosition;
+    });
+    if (existing != spawns.end()) {
+        *existing = spawn;
+    } else {
+        spawns.push_back(spawn);
+    }
     std::cout << "Placed vehicle at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z
               << ") rotation=" << spawn.rotationDegrees
               << " size=" << spawn.size.x << "x" << spawn.size.y
@@ -746,10 +786,15 @@ void TileGridEditor::applyVehicleBrush() {
 }
 
 void TileGridEditor::removeVehicleAtCursor() {
-    if (!m_grid) {
+    if (!m_grid || !m_levelData) {
         return;
     }
-    if (m_grid->removeVehicleSpawnAt(m_cursor)) {
+    auto& spawns = m_levelData->vehicleSpawns;
+    auto it = std::find_if(spawns.begin(), spawns.end(), [&](const VehicleSpawnDefinition& spawn) {
+        return spawn.gridPosition == m_cursor;
+    });
+    if (it != spawns.end()) {
+        spawns.erase(it);
         std::cout << "Removed vehicle at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
         announceCursor();
         refreshUiStateFromTile();
@@ -760,16 +805,14 @@ void TileGridEditor::refreshUiStateFromTile() {
     m_uiTileState.position = m_cursor;
 
     m_uiVehicleState.cursorHasVehicle = false;
-    if (m_grid) {
-        if (const TileGrid::VehicleSpawn* spawn = m_grid->findVehicleSpawn(m_cursor)) {
-            m_uiVehicleState.cursorHasVehicle = true;
-            m_uiVehicleState.rotationDegrees = normalizeDegrees(spawn->rotationDegrees);
-            m_uiVehicleState.size = spawn->size;
-            std::snprintf(m_uiVehicleState.texture.data(),
-                          m_uiVehicleState.texture.size(),
-                          "%s",
-                          spawn->texturePath.c_str());
-        }
+    if (const auto* spawn = findVehicleSpawn(m_cursor)) {
+        m_uiVehicleState.cursorHasVehicle = true;
+        m_uiVehicleState.rotationDegrees = normalizeDegrees(spawn->rotationDegrees);
+        m_uiVehicleState.size = spawn->size;
+        std::snprintf(m_uiVehicleState.texture.data(),
+                      m_uiVehicleState.texture.size(),
+                      "%s",
+                      spawn->texturePath.c_str());
     }
     if (!m_uiVehicleState.cursorHasVehicle && m_uiVehicleState.texture[0] == '\0') {
         std::snprintf(m_uiVehicleState.texture.data(), m_uiVehicleState.texture.size(), "%s", kDefaultVehicleTexture);
@@ -950,14 +993,14 @@ void TileGridEditor::handleWallHotkeys(InputManager* input) {
 }
 
 void TileGridEditor::handleSaveHotkey(InputManager* input) {
-    if (m_levelPath.empty()) {
+    if (m_levelPath.empty() || !m_grid || !m_levelData) {
         return;
     }
 
     const bool ctrl = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
     if (ctrl && input->isKeyPressed(GLFW_KEY_S)) {
-        if (!m_grid->saveToFile(m_levelPath)) {
-            std::cerr << "Failed to save tile grid to " << m_levelPath << std::endl;
+        if (!LevelSerialization::saveLevel(m_levelPath, *m_grid, *m_levelData)) {
+            std::cerr << "Failed to save level to " << m_levelPath << std::endl;
         }
     }
 }
