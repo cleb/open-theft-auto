@@ -4,24 +4,24 @@
 #include "Texture.hpp"
 #include <vector>
 #include <memory>
+#include <unordered_map>
 #include <glm/glm.hpp>
+#include <string>
 
 class TileGrid {
 private:
     glm::ivec3 m_gridSize;      // Grid dimensions (width, height, depth)
     float m_tileSize;           // Size of each tile
     std::vector<std::unique_ptr<Tile>> m_tiles;
-    
-    // Shared textures
-    std::shared_ptr<Texture> m_grassTexture;
-    std::shared_ptr<Texture> m_roadTexture;
-    std::shared_ptr<Texture> m_wallTexture;
+    std::unordered_map<std::string, std::shared_ptr<Texture>> m_textureCache;
+    std::unordered_map<std::string, std::string> m_textureAliases;
     
 public:
     TileGrid(const glm::ivec3& gridSize = glm::ivec3(16, 16, 4), float tileSize = 3.0f);
     ~TileGrid() = default;
     
     bool initialize();
+    bool loadFromFile(const std::string& filePath);
     void render(class Renderer* renderer);
     
     // Tile access
@@ -43,10 +43,12 @@ public:
     bool isRoadTile(const glm::vec3& worldPos) const;
     bool isRoadTile(const glm::ivec3& gridPos) const;
     
-    // Configuration helpers
-    void createTestGrid();  // Create a test configuration
-    
 private:
     int getIndex(int x, int y, int z) const;
     bool hasGroundSupport(const glm::ivec3& tilePos) const;
+    bool rebuildTiles();
+    void registerTextureAlias(const std::string& alias, const std::string& path);
+    std::shared_ptr<Texture> loadTexture(const std::string& identifier);
+    std::shared_ptr<Texture> loadTextureFromPath(const std::string& path);
+    std::string resolveTexturePath(const std::string& identifier) const;
 };

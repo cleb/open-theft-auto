@@ -1,6 +1,7 @@
 #include "Scene.hpp"
 #include "Renderer.hpp"
 #include <iostream>
+#include <string>
 #include <glm/glm.hpp>
 #include <glm/geometric.hpp>
 
@@ -144,7 +145,10 @@ void Scene::addRoad(std::unique_ptr<Road> road) {
 void Scene::createTestScene() {
     // Configure the tile grid with test data
     if (m_tileGrid) {
-        m_tileGrid->createTestGrid();
+        const std::string levelPath = "assets/levels/test_grid.tg";
+        if (!m_tileGrid->loadFromFile(levelPath)) {
+            std::cerr << "Failed to load tile grid from " << levelPath << std::endl;
+        }
     }
     
     // Add a car nearby
