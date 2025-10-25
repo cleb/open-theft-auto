@@ -1,6 +1,7 @@
 #include "Scene.hpp"
 #include "Renderer.hpp"
 #include "InputManager.hpp"
+#include "LevelSerialization.hpp"
 #include <iostream>
 #include <string>
 #include <glm/glm.hpp>
@@ -20,7 +21,7 @@ bool Scene::initialize() {
     }
 
     m_tileGridEditor = std::make_unique<TileGridEditor>();
-    m_tileGridEditor->initialize(m_tileGrid.get());
+    m_tileGridEditor->initialize(m_tileGrid.get(), &m_levelData);
     
     // Initialize player
     m_player = std::make_unique<Player>();
@@ -237,24 +238,18 @@ void Scene::createTestScene() {
     // Configure the tile grid with test data
     if (m_tileGrid) {
         const std::string levelPath = "assets/levels/test_grid.tg";
-        if (!m_tileGrid->loadFromFile(levelPath)) {
-            std::cerr << "Failed to load tile grid from " << levelPath << std::endl;
+        if (!LevelSerialization::loadLevel(levelPath, *m_tileGrid, m_levelData)) {
+            std::cerr << "Failed to load level from " << levelPath << std::endl;
         }
         m_levelPath = levelPath;
         if (m_tileGridEditor) {
             m_tileGridEditor->setLevelPath(m_levelPath);
-            m_tileGridEditor->initialize(m_tileGrid.get());
+            m_tileGridEditor->initialize(m_tileGrid.get(), &m_levelData);
         }
+        rebuildVehiclesFromSpawns();
     }
-    
-    // Add a car nearby
-    auto car = std::make_unique<Vehicle>();
-    car->initialize("assets/textures/car.png");
-    car->setSpriteSize(glm::vec2(1.5f, 3.0f));
-    car->setPosition(glm::vec3(15.0f, 15.0f, 0.0f));  // Place on road
-    addVehicle(std::move(car));
-    
-    std::cout << "Created test scene with tile grid and " 
+
+    std::cout << "Created test scene with tile grid and "
               << m_vehicles.size() << " vehicles" << std::endl;
 }
 
@@ -320,6 +315,7 @@ void Scene::toggleEditMode() {
         std::cout << "Edit mode enabled" << std::endl;
     } else {
         m_tileGridEditor->setEnabled(false);
+        rebuildVehiclesFromSpawns();
         if (m_player) {
             m_player->setActive(true);
         }
@@ -338,4 +334,41 @@ void Scene::leaveVehicle() {
     m_player->setRotation(m_activeVehicle->getRotation());
     m_activeVehicle->setPlayerControlled(false);
     m_activeVehicle = nullptr;
+}
+
+void Scene::rebuildVehiclesFromSpawns() {
+    m_playerInVehicle = false;
+    m_activeVehicle = nullptr;
+
+    for (auto& vehicle : m_vehicles) {
+        if (vehicle) {
+            vehicle->setPlayerControlled(false);
+        }
+    }
+    m_vehicles.clear();
+
+    if (!m_tileGrid) {
+        return;
+    }
+
+    for (const auto& spawn : m_levelData.vehicleSpawns) {
+        auto vehicle = std::make_unique<Vehicle>();
+        const std::string texture = spawn.texturePath.empty() ? "assets/textures/car.png" : spawn.texturePath;
+        vehicle->initialize(texture);
+        vehicle->setSpriteSize(spawn.size);
+        glm::vec3 position(
+            spawn.gridPosition.x * m_tileGrid->getTileSize(),
+            spawn.gridPosition.y * m_tileGrid->getTileSize(),
+            spawn.gridPosition.z * m_tileGrid->getTileSize());
+        position.z += 0.1f;
+        vehicle->setPosition(position);
+        vehicle->setRotation(glm::vec3(0.0f, 0.0f, spawn.rotationDegrees));
+        addVehicle(std::move(vehicle));
+    }
+
+    if (m_player) {
+        m_player->setActive(true);
+    }
+
+    std::cout << "Rebuilt vehicles from grid: " << m_vehicles.size() << std::endl;
 }
