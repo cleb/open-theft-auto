@@ -2,7 +2,7 @@
 #include <iostream>
 #include <imgui_impl_glfw.h>
 
-std::unordered_map<GLFWwindow*, InputManager*> InputManager::s_instances;
+InputManager* InputManager::s_currentInstance = nullptr;
 
 InputManager::InputManager()
     : m_window(nullptr)
@@ -16,21 +16,15 @@ InputManager::InputManager()
 }
 
 InputManager::~InputManager() {
-    if (m_window) {
-        s_instances.erase(m_window);
-        m_window = nullptr;
+    if (s_currentInstance == this) {
+        s_currentInstance = nullptr;
     }
+    m_window = nullptr;
 }
 
 void InputManager::initialize(GLFWwindow* window) {
-    if (m_window) {
-        s_instances.erase(m_window);
-    }
-
     m_window = window;
-
-    // Register this instance so callbacks can access it
-    s_instances[window] = this;
+    s_currentInstance = this;
     
     // Set callbacks
     glfwSetKeyCallback(window, keyCallback);
@@ -85,11 +79,8 @@ bool InputManager::isMouseButtonPressed(int button) const {
 }
 
 void InputManager::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    InputManager* inputManager = nullptr;
-    auto it = s_instances.find(window);
-    if (it != s_instances.end()) {
-        inputManager = it->second;
-    }
+    (void)window;
+    InputManager* inputManager = s_currentInstance;
     if (!inputManager) return;
     
     (void)scancode; (void)mods; // Suppress unused parameter warnings
@@ -107,11 +98,8 @@ void InputManager::keyCallback(GLFWwindow* window, int key, int scancode, int ac
 }
 
 void InputManager::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-    InputManager* inputManager = nullptr;
-    auto it = s_instances.find(window);
-    if (it != s_instances.end()) {
-        inputManager = it->second;
-    }
+    (void)window;
+    InputManager* inputManager = s_currentInstance;
     if (!inputManager) return;
     
     (void)mods; // Suppress unused parameter warning
@@ -129,11 +117,8 @@ void InputManager::mouseButtonCallback(GLFWwindow* window, int button, int actio
 }
 
 void InputManager::cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
-    InputManager* inputManager = nullptr;
-    auto it = s_instances.find(window);
-    if (it != s_instances.end()) {
-        inputManager = it->second;
-    }
+    (void)window;
+    InputManager* inputManager = s_currentInstance;
     if (!inputManager) return;
     
     ImGui_ImplGlfw_CursorPosCallback(window, xpos, ypos);
@@ -143,11 +128,8 @@ void InputManager::cursorPosCallback(GLFWwindow* window, double xpos, double ypo
 }
 
 void InputManager::scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
-    InputManager* inputManager = nullptr;
-    auto it = s_instances.find(window);
-    if (it != s_instances.end()) {
-        inputManager = it->second;
-    }
+    (void)window;
+    InputManager* inputManager = s_currentInstance;
     if (!inputManager) return;
 
     (void)xoffset;
@@ -157,11 +139,8 @@ void InputManager::scrollCallback(GLFWwindow* window, double xoffset, double yof
 }
 
 void InputManager::charCallback(GLFWwindow* window, unsigned int codepoint) {
-    InputManager* inputManager = nullptr;
-    auto it = s_instances.find(window);
-    if (it != s_instances.end()) {
-        inputManager = it->second;
-    }
+    (void)window;
+    InputManager* inputManager = s_currentInstance;
     if (!inputManager) return;
 
     (void)codepoint;

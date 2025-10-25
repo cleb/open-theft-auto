@@ -11,7 +11,7 @@ private:
     std::unordered_map<int, bool> m_mouseButtons;
     std::unordered_map<int, bool> m_mouseButtonsPressed;
 
-    static std::unordered_map<GLFWwindow*, InputManager*> s_instances;
+    static InputManager* s_currentInstance;
     
     double m_mouseX, m_mouseY;
     double m_deltaMouseX, m_deltaMouseY;
