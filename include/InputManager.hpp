@@ -38,8 +38,8 @@ public:
     double getDeltaMouseY() const { return m_deltaMouseY; }
 
     // Event handlers (invoked by Window callbacks)
-    void onKey(int key, int scancode, int action, int mods);
-    void onMouseButton(int button, int action, int mods);
+    void onKey(int key, int action);
+    void onMouseButton(int button, int action);
     void onCursorPos(double xpos, double ypos);
     void onScroll(double xoffset, double yoffset);
     void onChar(unsigned int codepoint);

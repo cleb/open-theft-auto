@@ -97,7 +97,7 @@ void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, 
     }
 
     ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
-    windowInstance->m_inputManager->onKey(key, scancode, action, mods);
+    windowInstance->m_inputManager->onKey(key, action);
 }
 
 void Window::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
@@ -107,7 +107,7 @@ void Window::mouseButtonCallback(GLFWwindow* window, int button, int action, int
     }
 
     ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
-    windowInstance->m_inputManager->onMouseButton(button, action, mods);
+    windowInstance->m_inputManager->onMouseButton(button, action);
 }
 
 void Window::cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {

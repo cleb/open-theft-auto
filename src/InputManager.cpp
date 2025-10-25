@@ -75,10 +75,7 @@ bool InputManager::isMouseButtonPressed(int button) const {
     return it != m_mouseButtonsPressed.end() && it->second;
 }
 
-void InputManager::onKey(int key, int scancode, int action, int mods) {
-    (void)scancode;
-    (void)mods;
-
+void InputManager::onKey(int key, int action) {
     if (action == GLFW_PRESS) {
         m_keys[key] = true;
         m_keysPressed[key] = true;
@@ -87,9 +84,7 @@ void InputManager::onKey(int key, int scancode, int action, int mods) {
     }
 }
 
-void InputManager::onMouseButton(int button, int action, int mods) {
-    (void)mods;
-
+void InputManager::onMouseButton(int button, int action) {
     if (action == GLFW_PRESS) {
         m_mouseButtons[button] = true;
         m_mouseButtonsPressed[button] = true;
