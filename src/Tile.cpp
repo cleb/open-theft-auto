@@ -147,23 +147,6 @@ void Tile::applyUpdate(const Update& update,
     }
 }
 
-void Tile::copyFrom(const Tile& other) {
-    const TopSurfaceData& otherTop = other.getTopSurface();
-    setTopSurface(otherTop.solid, otherTop.texturePath, otherTop.carDirection);
-    if (otherTop.texture) {
-        setTopTexture(otherTop.texture);
-    }
-
-    for (int i = 0; i < 4; ++i) {
-        const auto dir = static_cast<WallDirection>(i);
-        const WallData& otherWall = other.getWall(dir);
-        setWall(dir, otherWall.walkable, otherWall.texturePath);
-        if (otherWall.texture) {
-            setWallTexture(dir, otherWall.texture);
-        }
-    }
-}
-
 void Tile::generateMeshes() {
     // Create wall meshes for non-walkable walls
     for (int i = 0; i < 4; i++) {
