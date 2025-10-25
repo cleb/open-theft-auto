@@ -68,6 +68,8 @@ private:
     std::unique_ptr<Mesh> m_cursorMesh;
     std::shared_ptr<Texture> m_cursorTexture;
     glm::vec3 m_cursorColor;
+    std::unique_ptr<Mesh> m_arrowMesh;
+    glm::vec3 m_arrowColor;
 
     bool m_helpPrinted;
     UiTileState m_uiTileState;
@@ -79,6 +81,7 @@ private:
     const Tile* currentTile() const;
 
     void ensureCursorMesh();
+    void ensureArrowMesh();
     void refreshCursorColor();
     void announceCursor();
     void announceBrush();
