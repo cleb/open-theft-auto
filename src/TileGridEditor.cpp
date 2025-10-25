@@ -397,24 +397,39 @@ void TileGridEditor::ensureArrowMesh() {
     }
 
     const float tileSize = m_grid->getTileSize();
-    const float totalLength = tileSize * 0.6f;
-    const float tailLength = tileSize * 0.25f;
-    const float halfWidth = tileSize * 0.15f;
-    const float halfLength = totalLength * 0.5f;
-    const float tailTop = -halfLength + tailLength;
+    const float arrowLength = tileSize * 0.72f;
+    const float tailLength = arrowLength * 0.45f;
+    const float transitionLength = (arrowLength - tailLength) * 0.55f;
+    const float tailStart = -arrowLength * 0.5f;
+    const float tailEnd = tailStart + tailLength;
+    const float headBase = tailEnd + transitionLength;
+    const float tipY = tailStart + arrowLength;
+
+    const float halfTailWidth = tileSize * 0.11f;
+    const float halfHeadWidth = tileSize * 0.27f;
+
+    const auto makeVertex = [&](float x, float y) {
+        const float u = (x + halfHeadWidth) / (2.0f * halfHeadWidth);
+        const float v = (y - tailStart) / arrowLength;
+        return Vertex{{x, y, 0.0f}, {0.0f, 0.0f, 1.0f}, {u, v}};
+    };
 
     std::vector<Vertex> vertices = {
-        {{-halfWidth, -halfLength, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
-        {{ halfWidth, -halfLength, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
-        {{ halfWidth, tailTop, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.5f}},
-        {{-halfWidth, tailTop, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.5f}},
-        {{0.0f, halfLength, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.5f, 1.0f}},
+        makeVertex(-halfTailWidth, tailStart),
+        makeVertex(halfTailWidth, tailStart),
+        makeVertex(-halfTailWidth, tailEnd),
+        makeVertex(halfTailWidth, tailEnd),
+        makeVertex(-halfHeadWidth, headBase),
+        makeVertex(halfHeadWidth, headBase),
+        makeVertex(0.0f, tipY),
     };
 
     std::vector<GLuint> indices = {
         0, 1, 2,
-        2, 3, 0,
-        3, 2, 4,
+        1, 3, 2,
+        2, 3, 5,
+        2, 5, 4,
+        4, 5, 6,
     };
 
     m_arrowMesh = std::make_unique<Mesh>(vertices, indices);
