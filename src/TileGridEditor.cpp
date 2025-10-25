@@ -84,7 +84,9 @@ TileGridEditor::TileGridEditor()
     , m_lastAnnouncedBrush(BrushType::Empty)
     , m_roadDirection(CarDirection::NorthSouth)
     , m_cursorColor(0.3f, 0.9f, 0.3f)
-    , m_helpPrinted(false) {
+    , m_helpPrinted(false)
+    , m_pendingGridSize(0)
+    , m_gridResizeError() {
 }
 
 TileGridEditor::~TileGridEditor() = default;
@@ -97,6 +99,8 @@ void TileGridEditor::initialize(TileGrid* grid) {
     refreshCursorColor();
     rebuildAliasList();
     refreshUiStateFromTile();
+    syncPendingGridSizeFromGrid();
+    m_gridResizeError.clear();
 }
 
 void TileGridEditor::setLevelPath(const std::string& path) {
@@ -129,6 +133,8 @@ void TileGridEditor::setEnabled(bool enabled) {
         announceBrush();
         rebuildAliasList();
         refreshUiStateFromTile();
+        syncPendingGridSizeFromGrid();
+        m_gridResizeError.clear();
         if (!m_helpPrinted) {
             printHelp();
             m_helpPrinted = true;
@@ -257,6 +263,7 @@ void TileGridEditor::drawGui() {
     ImGui::Separator();
     ImGui::Text("Cursor: (%d, %d, %d)", m_cursor.x, m_cursor.y, m_cursor.z);
 
+    drawGridControls();
     drawBrushControls();
 
     static bool saveErrorPopup = false;
@@ -335,6 +342,14 @@ void TileGridEditor::refreshCursorColor() {
         case BrushType::Empty:
             m_cursorColor = glm::vec3(0.9f, 0.3f, 0.3f);
             break;
+    }
+}
+
+void TileGridEditor::syncPendingGridSizeFromGrid() {
+    if (m_grid) {
+        m_pendingGridSize = m_grid->getGridSize();
+    } else {
+        m_pendingGridSize = glm::ivec3(0);
     }
 }
 
@@ -448,6 +463,43 @@ void TileGridEditor::drawBrushControls() {
             }
             announceBrush();
         }
+    }
+}
+
+void TileGridEditor::drawGridControls() {
+    ImGui::SeparatorText("Grid");
+
+    const glm::ivec3 currentSize = m_grid->getGridSize();
+    ImGui::Text("Current Size: %d x %d x %d", currentSize.x, currentSize.y, currentSize.z);
+
+    int pendingSize[3] = {m_pendingGridSize.x, m_pendingGridSize.y, m_pendingGridSize.z};
+    if (ImGui::InputInt3("New Size", pendingSize)) {
+        m_pendingGridSize = glm::ivec3(pendingSize[0], pendingSize[1], pendingSize[2]);
+        m_gridResizeError.clear();
+    }
+
+    const bool pendingValid = m_pendingGridSize.x > 0 && m_pendingGridSize.y > 0 && m_pendingGridSize.z > 0;
+    if (!pendingValid) {
+        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "All grid dimensions must be greater than zero.");
+    }
+
+    ImGui::BeginDisabled(!pendingValid || m_pendingGridSize == currentSize);
+    if (ImGui::Button("Apply Grid Size")) {
+        if (pendingValid) {
+            if (m_grid->resize(m_pendingGridSize)) {
+                syncPendingGridSizeFromGrid();
+                clampCursor();
+                refreshUiStateFromTile();
+                m_gridResizeError.clear();
+            } else {
+                m_gridResizeError = "Failed to resize grid.";
+            }
+        }
+    }
+    ImGui::EndDisabled();
+
+    if (!m_gridResizeError.empty()) {
+        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "%s", m_gridResizeError.c_str());
     }
 }
 

@@ -72,6 +72,8 @@ private:
     bool m_helpPrinted;
     UiTileState m_uiTileState;
     std::vector<AliasEntry> m_aliasEntries;
+    glm::ivec3 m_pendingGridSize;
+    std::string m_gridResizeError;
 
     Tile* currentTile();
     const Tile* currentTile() const;
@@ -88,10 +90,12 @@ private:
     void drawTileFaceTabs();
     void drawTopFaceControls(Tile* tile);
     void drawWallControls(Tile* tile, WallDirection direction, int wallIndex);
+    void drawGridControls();
     bool drawTexturePicker(const char* label, std::array<char, TextureBufferSize>& buffer);
     std::string findAliasForPath(const std::string& path) const;
     void applyTopSurfaceFromUi();
     void applyWallFromUi(int wallIndex, WallDirection direction);
+    void syncPendingGridSizeFromGrid();
 
     void applyBrush();
     void toggleWall(WallDirection direction);
