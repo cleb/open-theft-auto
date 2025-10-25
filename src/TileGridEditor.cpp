@@ -868,6 +868,7 @@ void TileGridEditor::applyPrefab(std::size_t index) {
     }
 
     tile->copyFrom(*entry.tile);
+    m_selectedPrefabIndex = static_cast<int>(index);
 
     announceCursor();
     refreshUiStateFromTile();
