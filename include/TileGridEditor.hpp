@@ -42,6 +42,12 @@ private:
         Vehicle
     };
 
+    enum class VehiclePlacementStatus {
+        Valid,
+        OutOfBounds,
+        MissingSupport
+    };
+
     static constexpr std::size_t TextureBufferSize = 256;
 
     struct UiTileState {
@@ -91,6 +97,8 @@ private:
 
     VehicleSpawnDefinition* findVehicleSpawn(const glm::ivec3& gridPos);
     const VehicleSpawnDefinition* findVehicleSpawn(const glm::ivec3& gridPos) const;
+
+    VehiclePlacementStatus evaluateVehiclePlacement(const glm::ivec3& position) const;
 
     void ensureCursorMesh();
     void refreshCursorColor();

@@ -338,6 +338,19 @@ const VehicleSpawnDefinition* TileGridEditor::findVehicleSpawn(const glm::ivec3&
     return const_cast<TileGridEditor*>(this)->findVehicleSpawn(gridPos);
 }
 
+TileGridEditor::VehiclePlacementStatus TileGridEditor::evaluateVehiclePlacement(const glm::ivec3& position) const {
+    if (!m_grid || !m_grid->isValidPosition(position)) {
+        return VehiclePlacementStatus::OutOfBounds;
+    }
+
+    const Tile* tile = m_grid->getTile(position);
+    if (!tile || !tile->isTopSolid()) {
+        return VehiclePlacementStatus::MissingSupport;
+    }
+
+    return VehiclePlacementStatus::Valid;
+}
+
 void TileGridEditor::ensureCursorMesh() {
     if (!m_grid || m_cursorMesh) {
         return;
@@ -368,6 +381,18 @@ void TileGridEditor::ensureCursorMesh() {
 }
 
 void TileGridEditor::refreshCursorColor() {
+    if (m_brush == BrushType::Vehicle) {
+        if (m_uiVehicleState.removeMode) {
+            m_cursorColor = m_uiVehicleState.cursorHasVehicle ? glm::vec3(0.9f, 0.6f, 0.2f)
+                                                              : glm::vec3(0.6f, 0.6f, 0.6f);
+        } else {
+            const VehiclePlacementStatus status = evaluateVehiclePlacement(m_cursor);
+            m_cursorColor = (status == VehiclePlacementStatus::Valid) ? glm::vec3(0.3f, 0.3f, 0.9f)
+                                                                      : glm::vec3(0.9f, 0.2f, 0.2f);
+        }
+        return;
+    }
+
     switch (m_brush) {
         case BrushType::Grass:
             m_cursorColor = glm::vec3(0.3f, 0.9f, 0.3f);
@@ -748,16 +773,15 @@ void TileGridEditor::applyVehicleBrush() {
         return;
     }
 
-    if (!m_grid->isValidPosition(m_cursor)) {
-        std::cout << "Cannot place vehicle outside of grid bounds at (" << m_cursor.x << ", "
-                  << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
-        return;
-    }
-
-    Tile* supportTile = m_grid->getTile(m_cursor);
-    if (!supportTile || !supportTile->isTopSolid()) {
-        std::cout << "Cannot place vehicle without solid ground at (" << m_cursor.x << ", "
-                  << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+    const VehiclePlacementStatus placement = evaluateVehiclePlacement(m_cursor);
+    if (placement != VehiclePlacementStatus::Valid) {
+        if (placement == VehiclePlacementStatus::OutOfBounds) {
+            std::cout << "Cannot place vehicle outside of grid bounds at (" << m_cursor.x << ", "
+                      << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+        } else {
+            std::cout << "Cannot place vehicle without solid ground at (" << m_cursor.x << ", "
+                      << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+        }
         return;
     }
 
@@ -837,6 +861,7 @@ void TileGridEditor::refreshUiStateFromTile() {
         for (auto& texture : m_uiTileState.wallTextures) {
             texture.fill('\0');
         }
+        refreshCursorColor();
         return;
     }
 
@@ -856,6 +881,8 @@ void TileGridEditor::refreshUiStateFromTile() {
                       "%s",
                       wall.texturePath.c_str());
     }
+
+    refreshCursorColor();
 }
 
 void TileGridEditor::rebuildAliasList() {
