@@ -59,5 +59,6 @@ private:
     std::shared_ptr<Texture> loadTextureFromPath(const std::string& path);
     std::string resolveTexturePath(const std::string& identifier) const;
 
+    friend struct LevelSerialization::GridAccess;
     friend bool LevelSerialization::loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data);
 };

@@ -14,6 +14,18 @@
 #include <utility>
 #include <vector>
 
+namespace LevelSerialization {
+struct GridAccess {
+    static std::string resolveTexturePath(const TileGrid& grid, const std::string& identifier) {
+        return grid.resolveTexturePath(identifier);
+    }
+
+    static std::shared_ptr<Texture> loadTextureFromPath(TileGrid& grid, const std::string& path) {
+        return grid.loadTextureFromPath(path);
+    }
+};
+} // namespace LevelSerialization
+
 namespace {
 std::string trimCopy(const std::string& text) {
     size_t begin = 0;
@@ -253,10 +265,10 @@ bool parseTileProperty(const std::string& key, const std::string& value, TileCon
 void applyTileConfig(TileGrid& grid, Tile& tile, const TileConfig& config) {
     if (config.topSpecified) {
         if (config.topSolid) {
-            const std::string resolved = grid.resolveTexturePath(config.topTextureId);
+            const std::string resolved = LevelSerialization::GridAccess::resolveTexturePath(grid, config.topTextureId);
             std::shared_ptr<Texture> texture;
             if (!resolved.empty()) {
-                texture = grid.loadTextureFromPath(resolved);
+                texture = LevelSerialization::GridAccess::loadTextureFromPath(grid, resolved);
             }
             tile.setTopSurface(true, resolved, CarDirection::None);
             if (texture) {
@@ -280,13 +292,13 @@ void applyTileConfig(TileGrid& grid, Tile& tile, const TileConfig& config) {
 
         std::string resolved;
         if (!wall.textureId.empty()) {
-            resolved = grid.resolveTexturePath(wall.textureId);
+            resolved = LevelSerialization::GridAccess::resolveTexturePath(grid, wall.textureId);
         }
 
         tile.setWall(dir, wall.walkable, resolved);
 
         if (!resolved.empty()) {
-            auto texture = grid.loadTextureFromPath(resolved);
+            auto texture = LevelSerialization::GridAccess::loadTextureFromPath(grid, resolved);
             if (texture) {
                 tile.setWallTexture(dir, texture);
             }
@@ -333,7 +345,7 @@ bool parseVehicleProperty(const std::string& key,
     }
 
     if (lowerKey == "texture" || lowerKey == "tex") {
-        spawn.texturePath = grid.resolveTexturePath(value);
+        spawn.texturePath = LevelSerialization::GridAccess::resolveTexturePath(grid, value);
         return true;
     }
 
