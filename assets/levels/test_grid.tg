@@ -1,12 +1,13 @@
 # Tile grid exported by editor
 grid 16 16 4
 tile_size 3
+texture car assets/textures/car.png
 texture grass assets/textures/grass.png
 texture road assets/textures/road.png
+texture roof assets/textures/roof.png
 texture wall assets/textures/wall.png
 texture wall01 assets/textures/wall01.png
-texture roof assets/textures/roof.png
-vehicle 5 5 0 rotation=0 texture=car size=1.5x3.0
+vehicle 5 5 0 rotation=0.00 texture=car size=1.50x3.00
 tile 0 0 0 top=solid:grass
 tile 1 0 0 top=solid:grass
 tile 2 0 0 top=solid:grass
@@ -267,36 +268,36 @@ tile 2 1 1 top=solid:roof south=solid:wall01 west=solid:wall01
 tile 3 1 1 top=solid:roof south=solid:wall01 east=solid:wall01
 tile 2 2 1 top=solid:roof west=solid:wall01
 tile 3 2 1 top=solid:roof east=solid:wall01
-tile 6 2 1 top=solid:roof south=solid:wall01 west=solid:wall01
-tile 7 2 1 top=solid:roof south=solid:wall01 east=solid:wall01
-tile 10 2 1 top=solid:roof south=solid:wall01 west=solid:wall01
-tile 11 2 1 top=solid:roof south=solid:wall01 east=solid:wall01
+tile 7 2 1 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 8 2 1 top=solid:roof south=solid:wall01 east=solid:wall01
+tile 12 2 1 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 13 2 1 top=solid:roof south=solid:wall01 east=solid:wall01
 tile 2 3 1 top=solid:roof north=solid:wall01 west=solid:wall01
 tile 3 3 1 top=solid:roof north=solid:wall01 east=solid:wall01
-tile 6 3 1 top=solid:roof north=solid:wall01 west=solid:wall01
-tile 7 3 1 top=solid:roof north=solid:wall01 east=solid:wall01
-tile 10 3 1 top=solid:roof north=solid:wall01 west=solid:wall01
-tile 11 3 1 top=solid:roof north=solid:wall01 east=solid:wall01
-tile 2 6 1 top=solid:roof south=solid:wall01 west=solid:wall01
-tile 3 6 1 top=solid:roof south=solid:wall01 east=solid:wall01
-tile 10 6 1 top=solid:roof south=solid:wall01 west=solid:wall01
-tile 11 6 1 top=solid:roof south=solid:wall01 east=solid:wall01
-tile 2 7 1 top=solid:roof north=solid:wall01 west=solid:wall01
-tile 3 7 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 7 3 1 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 8 3 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 12 3 1 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 13 3 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 1 7 1 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 2 7 1 top=solid:roof south=solid:wall01 east=solid:wall01
 tile 7 7 1 top=solid:roof south=solid:wall01 west=solid:wall01
 tile 8 7 1 top=solid:roof south=solid:wall01 east=solid:wall01
-tile 10 7 1 top=solid:roof north=solid:wall01 west=solid:wall01
-tile 11 7 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 12 7 1 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 13 7 1 top=solid:roof south=solid:wall01 east=solid:wall01
+tile 1 8 1 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 2 8 1 top=solid:roof north=solid:wall01 east=solid:wall01
 tile 7 8 1 top=solid:roof north=solid:wall01 west=solid:wall01
 tile 8 8 1 top=solid:roof north=solid:wall01 east=solid:wall01
-tile 2 10 1 top=solid:roof south=solid:wall01 west=solid:wall01
-tile 3 10 1 top=solid:roof south=solid:wall01 east=solid:wall01
-tile 6 10 1 top=solid:roof south=solid:wall01 west=solid:wall01
-tile 7 10 1 top=solid:roof south=solid:wall01 east=solid:wall01
-tile 2 11 1 top=solid:roof north=solid:wall01 west=solid:wall01
-tile 3 11 1 top=solid:roof north=solid:wall01 east=solid:wall01
-tile 6 11 1 top=solid:roof north=solid:wall01 west=solid:wall01
-tile 7 11 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 12 8 1 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 13 8 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 1 12 1 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 2 12 1 top=solid:roof south=solid:wall01 east=solid:wall01
+tile 7 12 1 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 8 12 1 top=solid:roof south=solid:wall01 east=solid:wall01
+tile 1 13 1 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 2 13 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 7 13 1 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 8 13 1 top=solid:roof north=solid:wall01 east=solid:wall01
 tile 7 7 2 top=solid:roof south=solid:wall01 west=solid:wall01
 tile 8 7 2 top=solid:roof south=solid:wall01 east=solid:wall01
 tile 7 8 2 top=solid:roof north=solid:wall01 west=solid:wall01
