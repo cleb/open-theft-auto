@@ -10,12 +10,12 @@ tile 1 0 0 top=solid:grass
 tile 2 0 0 top=solid:grass
 tile 3 0 0 top=solid:grass
 tile 4 0 0 top=solid:grass
-tile 5 0 0 top=solid:road car=north_south
+tile 5 0 0 top=solid:road car=south_north
 tile 6 0 0 top=solid:grass
 tile 7 0 0 top=solid:grass
 tile 8 0 0 top=solid:grass
 tile 9 0 0 top=solid:grass
-tile 10 0 0 top=solid:road car=north_south
+tile 10 0 0 top=solid:road car=south_north
 tile 11 0 0 top=solid:grass
 tile 12 0 0 top=solid:grass
 tile 13 0 0 top=solid:grass
@@ -26,12 +26,12 @@ tile 1 1 0 top=solid:grass
 tile 2 1 0 top=solid:grass
 tile 3 1 0 top=solid:grass
 tile 4 1 0 top=solid:grass
-tile 5 1 0 top=solid:road car=north_south
+tile 5 1 0 top=solid:road car=south_north
 tile 6 1 0 top=solid:grass
 tile 7 1 0 top=solid:grass
 tile 8 1 0 top=solid:grass
 tile 9 1 0 top=solid:grass
-tile 10 1 0 top=solid:road car=north_south
+tile 10 1 0 top=solid:road car=south_north
 tile 11 1 0 top=solid:grass
 tile 12 1 0 top=solid:grass
 tile 13 1 0 top=solid:grass
@@ -42,12 +42,12 @@ tile 1 2 0 top=solid:grass
 tile 2 2 0 top=solid:grass
 tile 3 2 0 top=solid:grass
 tile 4 2 0 top=solid:grass
-tile 5 2 0 top=solid:road car=north_south
+tile 5 2 0 top=solid:road car=south_north
 tile 6 2 0 top=solid:grass
 tile 7 2 0 top=solid:grass
 tile 8 2 0 top=solid:grass
 tile 9 2 0 top=solid:grass
-tile 10 2 0 top=solid:road car=north_south
+tile 10 2 0 top=solid:road car=south_north
 tile 11 2 0 top=solid:grass
 tile 12 2 0 top=solid:grass
 tile 13 2 0 top=solid:grass
@@ -58,12 +58,12 @@ tile 1 3 0 top=solid:grass
 tile 2 3 0 top=solid:grass
 tile 3 3 0 top=solid:grass
 tile 4 3 0 top=solid:grass
-tile 5 3 0 top=solid:road car=north_south
+tile 5 3 0 top=solid:road car=south_north
 tile 6 3 0 top=solid:grass
 tile 7 3 0 top=solid:grass
 tile 8 3 0 top=solid:grass
 tile 9 3 0 top=solid:grass
-tile 10 3 0 top=solid:road car=north_south
+tile 10 3 0 top=solid:road car=south_north
 tile 11 3 0 top=solid:grass
 tile 12 3 0 top=solid:grass
 tile 13 3 0 top=solid:grass
@@ -74,44 +74,44 @@ tile 1 4 0 top=solid:grass
 tile 2 4 0 top=solid:grass
 tile 3 4 0 top=solid:grass
 tile 4 4 0 top=solid:grass
-tile 5 4 0 top=solid:road car=north_south
+tile 5 4 0 top=solid:road car=south_north
 tile 6 4 0 top=solid:grass
 tile 7 4 0 top=solid:grass
 tile 8 4 0 top=solid:grass
 tile 9 4 0 top=solid:grass
-tile 10 4 0 top=solid:road car=north_south
+tile 10 4 0 top=solid:road car=south_north
 tile 11 4 0 top=solid:grass
 tile 12 4 0 top=solid:grass
 tile 13 4 0 top=solid:grass
 tile 14 4 0 top=solid:grass
 tile 15 4 0 top=solid:grass
-tile 0 5 0 top=solid:road car=east_west
-tile 1 5 0 top=solid:road car=east_west
-tile 2 5 0 top=solid:road car=east_west
-tile 3 5 0 top=solid:road car=east_west
-tile 4 5 0 top=solid:road car=east_west
-tile 5 5 0 top=solid:road car=north_south
-tile 6 5 0 top=solid:road car=east_west
-tile 7 5 0 top=solid:road car=east_west
-tile 8 5 0 top=solid:road car=east_west
-tile 9 5 0 top=solid:road car=east_west
-tile 10 5 0 top=solid:road car=north_south
-tile 11 5 0 top=solid:road car=east_west
-tile 12 5 0 top=solid:road car=east_west
-tile 13 5 0 top=solid:road car=east_west
-tile 14 5 0 top=solid:road car=east_west
-tile 15 5 0 top=solid:road car=east_west
+tile 0 5 0 top=solid:road car=west_east
+tile 1 5 0 top=solid:road car=west_east
+tile 2 5 0 top=solid:road car=west_east
+tile 3 5 0 top=solid:road car=west_east
+tile 4 5 0 top=solid:road car=west_east
+tile 5 5 0 top=solid:road car=south_north
+tile 6 5 0 top=solid:road car=west_east
+tile 7 5 0 top=solid:road car=west_east
+tile 8 5 0 top=solid:road car=west_east
+tile 9 5 0 top=solid:road car=west_east
+tile 10 5 0 top=solid:road car=south_north
+tile 11 5 0 top=solid:road car=west_east
+tile 12 5 0 top=solid:road car=west_east
+tile 13 5 0 top=solid:road car=west_east
+tile 14 5 0 top=solid:road car=west_east
+tile 15 5 0 top=solid:road car=west_east
 tile 0 6 0 top=solid:grass
 tile 1 6 0 top=solid:grass
 tile 2 6 0 top=solid:grass
 tile 3 6 0 top=solid:grass
 tile 4 6 0 top=solid:grass
-tile 5 6 0 top=solid:road car=north_south
+tile 5 6 0 top=solid:road car=south_north
 tile 6 6 0 top=solid:grass
 tile 7 6 0 top=solid:grass
 tile 8 6 0 top=solid:grass
 tile 9 6 0 top=solid:grass
-tile 10 6 0 top=solid:road car=north_south
+tile 10 6 0 top=solid:road car=south_north
 tile 11 6 0 top=solid:grass
 tile 12 6 0 top=solid:grass
 tile 13 6 0 top=solid:grass
@@ -122,12 +122,12 @@ tile 1 7 0 top=solid:grass
 tile 2 7 0 top=solid:grass
 tile 3 7 0 top=solid:grass
 tile 4 7 0 top=solid:grass
-tile 5 7 0 top=solid:road car=north_south
+tile 5 7 0 top=solid:road car=south_north
 tile 6 7 0 top=solid:grass
 tile 7 7 0 top=solid:grass
 tile 8 7 0 top=solid:grass
 tile 9 7 0 top=solid:grass
-tile 10 7 0 top=solid:road car=north_south
+tile 10 7 0 top=solid:road car=south_north
 tile 11 7 0 top=solid:grass
 tile 12 7 0 top=solid:grass
 tile 13 7 0 top=solid:grass
@@ -138,12 +138,12 @@ tile 1 8 0 top=solid:grass
 tile 2 8 0 top=solid:grass
 tile 3 8 0 top=solid:grass
 tile 4 8 0 top=solid:grass
-tile 5 8 0 top=solid:road car=north_south
+tile 5 8 0 top=solid:road car=south_north
 tile 6 8 0 top=solid:grass
 tile 7 8 0 top=solid:grass
 tile 8 8 0 top=solid:grass
 tile 9 8 0 top=solid:grass
-tile 10 8 0 top=solid:road car=north_south
+tile 10 8 0 top=solid:road car=south_north
 tile 11 8 0 top=solid:grass
 tile 12 8 0 top=solid:grass
 tile 13 8 0 top=solid:grass
@@ -154,44 +154,44 @@ tile 1 9 0 top=solid:grass
 tile 2 9 0 top=solid:grass
 tile 3 9 0 top=solid:grass
 tile 4 9 0 top=solid:grass
-tile 5 9 0 top=solid:road car=north_south
+tile 5 9 0 top=solid:road car=south_north
 tile 6 9 0 top=solid:grass
 tile 7 9 0 top=solid:grass
 tile 8 9 0 top=solid:grass
 tile 9 9 0 top=solid:grass
-tile 10 9 0 top=solid:road car=north_south
+tile 10 9 0 top=solid:road car=south_north
 tile 11 9 0 top=solid:grass
 tile 12 9 0 top=solid:grass
 tile 13 9 0 top=solid:grass
 tile 14 9 0 top=solid:grass
 tile 15 9 0 top=solid:grass
-tile 0 10 0 top=solid:road car=east_west
-tile 1 10 0 top=solid:road car=east_west
-tile 2 10 0 top=solid:road car=east_west
-tile 3 10 0 top=solid:road car=east_west
-tile 4 10 0 top=solid:road car=east_west
-tile 5 10 0 top=solid:road car=north_south
-tile 6 10 0 top=solid:road car=east_west
-tile 7 10 0 top=solid:road car=east_west
-tile 8 10 0 top=solid:road car=east_west
-tile 9 10 0 top=solid:road car=east_west
-tile 10 10 0 top=solid:road car=north_south
-tile 11 10 0 top=solid:road car=east_west
-tile 12 10 0 top=solid:road car=east_west
-tile 13 10 0 top=solid:road car=east_west
-tile 14 10 0 top=solid:road car=east_west
-tile 15 10 0 top=solid:road car=east_west
+tile 0 10 0 top=solid:road car=west_east
+tile 1 10 0 top=solid:road car=west_east
+tile 2 10 0 top=solid:road car=west_east
+tile 3 10 0 top=solid:road car=west_east
+tile 4 10 0 top=solid:road car=west_east
+tile 5 10 0 top=solid:road car=south_north
+tile 6 10 0 top=solid:road car=west_east
+tile 7 10 0 top=solid:road car=west_east
+tile 8 10 0 top=solid:road car=west_east
+tile 9 10 0 top=solid:road car=west_east
+tile 10 10 0 top=solid:road car=south_north
+tile 11 10 0 top=solid:road car=west_east
+tile 12 10 0 top=solid:road car=west_east
+tile 13 10 0 top=solid:road car=west_east
+tile 14 10 0 top=solid:road car=west_east
+tile 15 10 0 top=solid:road car=west_east
 tile 0 11 0 top=solid:grass
 tile 1 11 0 top=solid:grass
 tile 2 11 0 top=solid:grass
 tile 3 11 0 top=solid:grass
 tile 4 11 0 top=solid:grass
-tile 5 11 0 top=solid:road car=north_south
+tile 5 11 0 top=solid:road car=south_north
 tile 6 11 0 top=solid:grass
 tile 7 11 0 top=solid:grass
 tile 8 11 0 top=solid:grass
 tile 9 11 0 top=solid:grass
-tile 10 11 0 top=solid:road car=north_south
+tile 10 11 0 top=solid:road car=south_north
 tile 11 11 0 top=solid:grass
 tile 12 11 0 top=solid:grass
 tile 13 11 0 top=solid:grass
@@ -202,12 +202,12 @@ tile 1 12 0 top=solid:grass
 tile 2 12 0 top=solid:grass
 tile 3 12 0 top=solid:grass
 tile 4 12 0 top=solid:grass
-tile 5 12 0 top=solid:road car=north_south
+tile 5 12 0 top=solid:road car=south_north
 tile 6 12 0 top=solid:grass
 tile 7 12 0 top=solid:grass
 tile 8 12 0 top=solid:grass
 tile 9 12 0 top=solid:grass
-tile 10 12 0 top=solid:road car=north_south
+tile 10 12 0 top=solid:road car=south_north
 tile 11 12 0 top=solid:grass
 tile 12 12 0 top=solid:grass
 tile 13 12 0 top=solid:grass
@@ -218,12 +218,12 @@ tile 1 13 0 top=solid:grass
 tile 2 13 0 top=solid:grass
 tile 3 13 0 top=solid:grass
 tile 4 13 0 top=solid:grass
-tile 5 13 0 top=solid:road car=north_south
+tile 5 13 0 top=solid:road car=south_north
 tile 6 13 0 top=solid:grass
 tile 7 13 0 top=solid:grass
 tile 8 13 0 top=solid:grass
 tile 9 13 0 top=solid:grass
-tile 10 13 0 top=solid:road car=north_south
+tile 10 13 0 top=solid:road car=south_north
 tile 11 13 0 top=solid:grass
 tile 12 13 0 top=solid:grass
 tile 13 13 0 top=solid:grass
@@ -234,12 +234,12 @@ tile 1 14 0 top=solid:grass
 tile 2 14 0 top=solid:grass
 tile 3 14 0 top=solid:grass
 tile 4 14 0 top=solid:grass
-tile 5 14 0 top=solid:road car=north_south
+tile 5 14 0 top=solid:road car=south_north
 tile 6 14 0 top=solid:grass
 tile 7 14 0 top=solid:grass
 tile 8 14 0 top=solid:grass
 tile 9 14 0 top=solid:grass
-tile 10 14 0 top=solid:road car=north_south
+tile 10 14 0 top=solid:road car=south_north
 tile 11 14 0 top=solid:grass
 tile 12 14 0 top=solid:grass
 tile 13 14 0 top=solid:grass
@@ -250,56 +250,56 @@ tile 1 15 0 top=solid:grass
 tile 2 15 0 top=solid:grass
 tile 3 15 0 top=solid:grass
 tile 4 15 0 top=solid:grass
-tile 5 15 0 top=solid:road car=north_south
+tile 5 15 0 top=solid:road car=south_north
 tile 6 15 0 top=solid:grass
 tile 7 15 0 top=solid:grass
 tile 8 15 0 top=solid:grass
 tile 9 15 0 top=solid:grass
-tile 10 15 0 top=solid:road car=north_south
+tile 10 15 0 top=solid:road car=south_north
 tile 11 15 0 top=solid:grass
 tile 12 15 0 top=solid:grass
 tile 13 15 0 top=solid:grass
 tile 14 15 0 top=solid:grass
 tile 15 15 0 top=solid:grass
-tile 2 1 1 top=solid:grass north=solid:wall east=solid:wall
-tile 3 1 1 top=solid:grass north=solid:wall west=solid:wall
-tile 2 2 1 top=solid:grass east=solid:wall
-tile 3 2 1 top=solid:grass west=solid:wall
-tile 6 2 1 top=solid:grass north=solid:wall east=solid:wall
-tile 7 2 1 top=solid:grass north=solid:wall west=solid:wall
-tile 10 2 1 top=solid:grass north=solid:wall east=solid:wall
-tile 11 2 1 top=solid:grass north=solid:wall west=solid:wall
-tile 2 3 1 top=solid:grass south=solid:wall east=solid:wall
-tile 3 3 1 top=solid:grass south=solid:wall west=solid:wall
-tile 6 3 1 top=solid:grass south=solid:wall east=solid:wall
-tile 7 3 1 top=solid:grass south=solid:wall west=solid:wall
-tile 10 3 1 top=solid:grass south=solid:wall east=solid:wall
-tile 11 3 1 top=solid:grass south=solid:wall west=solid:wall
-tile 2 6 1 top=solid:grass north=solid:wall east=solid:wall
-tile 3 6 1 top=solid:grass north=solid:wall west=solid:wall
-tile 10 6 1 top=solid:grass north=solid:wall east=solid:wall
-tile 11 6 1 top=solid:grass north=solid:wall west=solid:wall
-tile 2 7 1 top=solid:grass south=solid:wall east=solid:wall
-tile 3 7 1 top=solid:grass south=solid:wall west=solid:wall
-tile 7 7 1 top=solid:grass north=solid:wall east=solid:wall
-tile 8 7 1 top=solid:grass north=solid:wall west=solid:wall
-tile 10 7 1 top=solid:grass south=solid:wall east=solid:wall
-tile 11 7 1 top=solid:grass south=solid:wall west=solid:wall
-tile 7 8 1 top=solid:grass south=solid:wall east=solid:wall
-tile 8 8 1 top=solid:grass south=solid:wall west=solid:wall
-tile 2 10 1 top=solid:grass north=solid:wall east=solid:wall
-tile 3 10 1 top=solid:grass north=solid:wall west=solid:wall
-tile 6 10 1 top=solid:grass north=solid:wall east=solid:wall
-tile 7 10 1 top=solid:grass north=solid:wall west=solid:wall
-tile 2 11 1 top=solid:grass south=solid:wall east=solid:wall
-tile 3 11 1 top=solid:grass south=solid:wall west=solid:wall
-tile 6 11 1 top=solid:grass south=solid:wall east=solid:wall
-tile 7 11 1 top=solid:grass south=solid:wall west=solid:wall
-tile 7 7 2 top=solid:grass north=solid:wall east=solid:wall
-tile 8 7 2 top=solid:grass north=solid:wall west=solid:wall
-tile 7 8 2 top=solid:grass south=solid:wall east=solid:wall
-tile 8 8 2 top=solid:grass south=solid:wall west=solid:wall
-tile 7 7 3 top=solid:grass north=solid:wall east=solid:wall
-tile 8 7 3 top=solid:grass north=solid:wall west=solid:wall
-tile 7 8 3 top=solid:grass south=solid:wall east=solid:wall
-tile 8 8 3 top=solid:grass south=solid:wall west=solid:wall
+tile 2 1 1 top=solid:grass south=solid:wall west=solid:wall
+tile 3 1 1 top=solid:grass south=solid:wall east=solid:wall
+tile 2 2 1 top=solid:grass west=solid:wall
+tile 3 2 1 top=solid:grass east=solid:wall
+tile 6 2 1 top=solid:grass south=solid:wall west=solid:wall
+tile 7 2 1 top=solid:grass south=solid:wall east=solid:wall
+tile 10 2 1 top=solid:grass south=solid:wall west=solid:wall
+tile 11 2 1 top=solid:grass south=solid:wall east=solid:wall
+tile 2 3 1 top=solid:grass north=solid:wall west=solid:wall
+tile 3 3 1 top=solid:grass north=solid:wall east=solid:wall
+tile 6 3 1 top=solid:grass north=solid:wall west=solid:wall
+tile 7 3 1 top=solid:grass north=solid:wall east=solid:wall
+tile 10 3 1 top=solid:grass north=solid:wall west=solid:wall
+tile 11 3 1 top=solid:grass north=solid:wall east=solid:wall
+tile 2 6 1 top=solid:grass south=solid:wall west=solid:wall
+tile 3 6 1 top=solid:grass south=solid:wall east=solid:wall
+tile 10 6 1 top=solid:grass south=solid:wall west=solid:wall
+tile 11 6 1 top=solid:grass south=solid:wall east=solid:wall
+tile 2 7 1 top=solid:grass north=solid:wall west=solid:wall
+tile 3 7 1 top=solid:grass north=solid:wall east=solid:wall
+tile 7 7 1 top=solid:grass south=solid:wall west=solid:wall
+tile 8 7 1 top=solid:grass south=solid:wall east=solid:wall
+tile 10 7 1 top=solid:grass north=solid:wall west=solid:wall
+tile 11 7 1 top=solid:grass north=solid:wall east=solid:wall
+tile 7 8 1 top=solid:grass north=solid:wall west=solid:wall
+tile 8 8 1 top=solid:grass north=solid:wall east=solid:wall
+tile 2 10 1 top=solid:grass south=solid:wall west=solid:wall
+tile 3 10 1 top=solid:grass south=solid:wall east=solid:wall
+tile 6 10 1 top=solid:grass south=solid:wall west=solid:wall
+tile 7 10 1 top=solid:grass south=solid:wall east=solid:wall
+tile 2 11 1 top=solid:grass north=solid:wall west=solid:wall
+tile 3 11 1 top=solid:grass north=solid:wall east=solid:wall
+tile 6 11 1 top=solid:grass north=solid:wall west=solid:wall
+tile 7 11 1 top=solid:grass north=solid:wall east=solid:wall
+tile 7 7 2 top=solid:grass south=solid:wall west=solid:wall
+tile 8 7 2 top=solid:grass south=solid:wall east=solid:wall
+tile 7 8 2 top=solid:grass north=solid:wall west=solid:wall
+tile 8 8 2 top=solid:grass north=solid:wall east=solid:wall
+tile 7 7 3 top=solid:grass south=solid:wall west=solid:wall
+tile 8 7 3 top=solid:grass south=solid:wall east=solid:wall
+tile 7 8 3 top=solid:grass north=solid:wall west=solid:wall
+tile 8 8 3 top=solid:grass north=solid:wall east=solid:wall

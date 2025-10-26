@@ -253,17 +253,17 @@ bool TileGrid::canOccupy(const glm::vec3& startPos, const glm::vec3& endPos) con
     WallDirection toDir;
 
     if (diff.x == 1) {
-        fromDir = WallDirection::West;
-        toDir = WallDirection::East;
-    } else if (diff.x == -1) {
         fromDir = WallDirection::East;
         toDir = WallDirection::West;
+    } else if (diff.x == -1) {
+        fromDir = WallDirection::West;
+        toDir = WallDirection::East;
     } else if (diff.y == 1) {
-        fromDir = WallDirection::South;
-        toDir = WallDirection::North;
-    } else if (diff.y == -1) {
         fromDir = WallDirection::North;
         toDir = WallDirection::South;
+    } else if (diff.y == -1) {
+        fromDir = WallDirection::South;
+        toDir = WallDirection::North;
     } else {
         return hasGroundSupport(endTile);
     }

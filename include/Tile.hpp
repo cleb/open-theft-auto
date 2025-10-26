@@ -8,10 +8,10 @@
 #include "Texture.hpp"
 
 enum class WallDirection {
-    North = 0,  // -Y
-    South = 1,  // +Y
-    East = 2,   // -X
-    West = 3    // +X
+    North = 0,  // +Y
+    South = 1,  // -Y
+    East = 2,   // +X
+    West = 3    // -X
 };
 
 enum class CarDirection {
@@ -20,8 +20,8 @@ enum class CarDirection {
     South,
     East,
     West,
-    NorthSouth,  // Bidirectional
-    EastWest     // Bidirectional
+    SouthNorth,  // Bidirectional
+    WestEast     // Bidirectional
 };
 
 struct WallData {

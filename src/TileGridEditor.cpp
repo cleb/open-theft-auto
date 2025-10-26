@@ -46,8 +46,8 @@ const char* carDirectionToString(CarDirection dir) {
         case CarDirection::South: return "south";
         case CarDirection::East: return "east";
         case CarDirection::West: return "west";
-        case CarDirection::NorthSouth: return "north_south";
-        case CarDirection::EastWest: return "east_west";
+        case CarDirection::SouthNorth: return "south_north";
+        case CarDirection::WestEast: return "west_east";
         case CarDirection::None:
         default: return "none";
     }
@@ -70,8 +70,8 @@ int carDirectionToIndex(CarDirection dir) {
         case CarDirection::South: return 2;
         case CarDirection::East: return 3;
         case CarDirection::West: return 4;
-        case CarDirection::NorthSouth: return 5;
-        case CarDirection::EastWest: return 6;
+        case CarDirection::SouthNorth: return 5;
+        case CarDirection::WestEast: return 6;
     }
     return 0;
 }
@@ -82,8 +82,8 @@ CarDirection indexToCarDirection(int index) {
         case 2: return CarDirection::South;
         case 3: return CarDirection::East;
         case 4: return CarDirection::West;
-        case 5: return CarDirection::NorthSouth;
-        case 6: return CarDirection::EastWest;
+        case 5: return CarDirection::SouthNorth;
+        case 6: return CarDirection::WestEast;
         default: return CarDirection::None;
     }
 }
@@ -114,7 +114,7 @@ TileGridEditor::TileGridEditor()
           std::numeric_limits<int>::min())
     , m_brush(BrushType::Grass)
     , m_lastAnnouncedBrush(BrushType::Empty)
-    , m_roadDirection(CarDirection::NorthSouth)
+    , m_roadDirection(CarDirection::SouthNorth)
     , m_cursorColor(0.3f, 0.9f, 0.3f)
     , m_arrowColor(0.95f, 0.7f, 0.1f)
     , m_helpPrinted(false)
@@ -207,16 +207,16 @@ void TileGridEditor::processInput(InputManager* input) {
         handlePrefabHotkeys(input);
 
         if (input->isKeyPressed(GLFW_KEY_UP) || input->isKeyPressed(GLFW_KEY_W)) {
-            moveCursor(0, -1);
-        }
-        if (input->isKeyPressed(GLFW_KEY_DOWN) || input->isKeyPressed(GLFW_KEY_S)) {
             moveCursor(0, 1);
         }
+        if (input->isKeyPressed(GLFW_KEY_DOWN) || input->isKeyPressed(GLFW_KEY_S)) {
+            moveCursor(0, -1);
+        }
         if (input->isKeyPressed(GLFW_KEY_LEFT) || input->isKeyPressed(GLFW_KEY_A)) {
-            moveCursor(1, 0);
+            moveCursor(-1, 0);
         }
         if (input->isKeyPressed(GLFW_KEY_RIGHT) || input->isKeyPressed(GLFW_KEY_D)) {
-            moveCursor(-1, 0);
+            moveCursor(1, 0);
         }
 
         if (input->isKeyPressed(GLFW_KEY_Q)) {
@@ -228,10 +228,10 @@ void TileGridEditor::processInput(InputManager* input) {
 
         if (m_brush == BrushType::Road && input->isKeyPressed(GLFW_KEY_R)) {
             switch (m_roadDirection) {
-                case CarDirection::NorthSouth:
-                    m_roadDirection = CarDirection::EastWest;
+                case CarDirection::SouthNorth:
+                    m_roadDirection = CarDirection::WestEast;
                     break;
-                case CarDirection::EastWest:
+                case CarDirection::WestEast:
                     m_roadDirection = CarDirection::North;
                     break;
                 case CarDirection::North:
@@ -245,7 +245,7 @@ void TileGridEditor::processInput(InputManager* input) {
                     break;
                 case CarDirection::West:
                 default:
-                    m_roadDirection = CarDirection::NorthSouth;
+                    m_roadDirection = CarDirection::SouthNorth;
                     break;
             }
             announceBrush();
@@ -301,22 +301,22 @@ void TileGridEditor::render(Renderer* renderer) {
 
                     switch (top.carDirection) {
                         case CarDirection::North:
-                            renderArrow(glm::pi<float>());
+                            renderArrow(0.0f);
                             break;
                         case CarDirection::South:
-                            renderArrow(0.0f);
+                            renderArrow(glm::pi<float>());
                             break;
                         case CarDirection::East:
-                            renderArrow(glm::half_pi<float>());
-                            break;
-                        case CarDirection::West:
                             renderArrow(-glm::half_pi<float>());
                             break;
-                        case CarDirection::NorthSouth:
+                        case CarDirection::West:
+                            renderArrow(glm::half_pi<float>());
+                            break;
+                        case CarDirection::SouthNorth:
                             renderArrow(0.0f);
                             renderArrow(glm::pi<float>());
                             break;
-                        case CarDirection::EastWest:
+                        case CarDirection::WestEast:
                             renderArrow(glm::half_pi<float>());
                             renderArrow(-glm::half_pi<float>());
                             break;
@@ -679,7 +679,7 @@ void TileGridEditor::drawBrushControls() {
         if (ImGui::Combo("Road Direction", &directionIndex, directionLabels, IM_ARRAYSIZE(directionLabels))) {
             m_roadDirection = indexToCarDirection(directionIndex);
             if (m_roadDirection == CarDirection::None) {
-                m_roadDirection = CarDirection::NorthSouth;
+                m_roadDirection = CarDirection::SouthNorth;
             }
             announceBrush();
         }
@@ -831,7 +831,7 @@ void TileGridEditor::drawTopFaceControls(Tile* tile) {
     }
 
     int directionIndex = carDirectionToIndex(m_uiTileState.topCarDirection);
-    const char* directionLabels[] = {"None", "North", "South", "East", "West", "North-South", "East-West"};
+    const char* directionLabels[] = {"None", "North", "South", "East", "West", "South-North", "West-East"};
     if (ImGui::Combo("Traffic Direction", &directionIndex, directionLabels, IM_ARRAYSIZE(directionLabels))) {
         m_uiTileState.topCarDirection = indexToCarDirection(directionIndex);
         applyTopSurfaceFromUi();
@@ -1329,16 +1329,16 @@ void TileGridEditor::handleBrushHotkeys(InputManager* input) {
 
 void TileGridEditor::handleWallHotkeys(InputManager* input) {
     if (input->isKeyPressed(GLFW_KEY_I)) {
-        toggleWall(WallDirection::North);
-    }
-    if (input->isKeyPressed(GLFW_KEY_K)) {
         toggleWall(WallDirection::South);
     }
+    if (input->isKeyPressed(GLFW_KEY_K)) {
+        toggleWall(WallDirection::North);
+    }
     if (input->isKeyPressed(GLFW_KEY_L)) {
-        toggleWall(WallDirection::East);
+        toggleWall(WallDirection::West);
     }
     if (input->isKeyPressed(GLFW_KEY_J)) {
-        toggleWall(WallDirection::West);
+        toggleWall(WallDirection::East);
     }
 }
 
@@ -1393,22 +1393,22 @@ void TileGridEditor::drawVehicleBrushControls() {
         }
 
         if (ImGui::Button("North##VehicleRot")) {
-            m_uiVehicleState.rotationDegrees = 0.0f;
-            announceBrush();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("East##VehicleRot")) {
-            m_uiVehicleState.rotationDegrees = 90.0f;
-            announceBrush();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("South##VehicleRot")) {
             m_uiVehicleState.rotationDegrees = 180.0f;
             announceBrush();
         }
         ImGui::SameLine();
-        if (ImGui::Button("West##VehicleRot")) {
+        if (ImGui::Button("East##VehicleRot")) {
             m_uiVehicleState.rotationDegrees = 270.0f;
+            announceBrush();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("South##VehicleRot")) {
+            m_uiVehicleState.rotationDegrees = 0.0f;
+            announceBrush();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("West##VehicleRot")) {
+            m_uiVehicleState.rotationDegrees = 90.0f;
             announceBrush();
         }
 

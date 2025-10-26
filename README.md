@@ -106,7 +106,7 @@ mingw32-make -j4
 - **Q / E**: Change layer
 - **1 / 2 / 3**: Select grass, road, or empty brush
 - **R**: Cycle road direction when road brush active
-- **I / J / K / L**: Toggle north / west / south / east walls
+- **I / J / K / L**: Toggle south / east / north / west walls
 - **Space / Left Click**: Apply selected brush
 - **Ctrl + S**: Save current level file
 
