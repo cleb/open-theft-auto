@@ -1,10 +1,10 @@
 # GTA-Style 2.5D Game
 
-A top-down 2.5D game engine inspired by GTA 1 & 2, featuring 2D sprites for cars and characters with 3D buildings. Built with C++ and OpenGL for cross-platform compatibility.
+A top-down 2.5D game engine inspired by GTA 1 & 2, featuring 2D sprites for cars and characters with 3D tile-based world. Built with C++ and OpenGL for cross-platform compatibility.
 
 ## Features
 
-- **2.5D Rendering**: Combines 2D sprites for characters/vehicles with 3D geometry for buildings
+- **2.5D Rendering**: Combines 2D sprites for characters/vehicles with 3D tile-based world
 - **Top-down Camera**: Follows the player with smooth movement
 - **Cross-platform**: Runs on Linux and Windows
 - **Modern OpenGL**: Uses OpenGL 3.3 core profile with shaders
@@ -24,7 +24,8 @@ A top-down 2.5D game engine inspired by GTA 1 & 2, featuring 2D sprites for cars
 - **GameObject**: Base class for all game entities
 - **Player**: Player character with movement controls
 - **Vehicle**: Drivable vehicles (extensible)
-- **Building**: 3D building structures
+- **Tile**: Tile-based world system
+- **TileGrid**: Grid management for tile-based world
 
 ## Prerequisites
 
@@ -138,7 +139,6 @@ gta-cpp/
 │   ├── GameObject.hpp
 │   ├── Player.hpp
 │   ├── Vehicle.hpp
-│   ├── Building.hpp
 │   ├── Shader.hpp
 │   ├── Texture.hpp
 │   └── Mesh.hpp
@@ -152,7 +152,6 @@ gta-cpp/
     ├── Scene.cpp
     ├── GameObject.cpp
     ├── Player.cpp
-    ├── Building.cpp
     ├── Shader.cpp
     ├── Texture.cpp
     └── Mesh.cpp
@@ -166,7 +165,6 @@ gta-cpp/
 - ✅ Basic 3D rendering pipeline
 - ✅ Top-down camera system
 - ✅ Input handling
-- ✅ Basic building generation
 - ✅ Player movement
 - 🚧 Texture loading (placeholder implementation)
 - 🚧 Vehicle system (structure ready)
@@ -208,7 +206,6 @@ sudo apt install libglfw3-dev libglew-dev libglm-dev
 ### Performance Tips
 - The engine uses VSync by default (limits to 60 FPS)
 - Adjust the camera view size in `Renderer::initialize()` for different zoom levels
-- Building LOD system can be implemented for better performance with many buildings
 
 ## License
 

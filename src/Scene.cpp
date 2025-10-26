@@ -65,20 +65,6 @@ void Scene::update(float deltaTime) {
             vehicle->update(deltaTime);
         }
     }
-    
-    // Update buildings (they're static, but for consistency)
-    for (auto& building : m_buildings) {
-        if (building && building->isActive()) {
-            building->update(deltaTime);
-        }
-    }
-    
-    // Update roads (they're static, but for consistency)
-    for (auto& road : m_roads) {
-        if (road && road->isActive()) {
-            road->update(deltaTime);
-        }
-    }
 }
 
 void Scene::render(Renderer* renderer) {
@@ -106,20 +92,6 @@ void Scene::render(Renderer* renderer) {
 
     if (m_tileGridEditor) {
         m_tileGridEditor->render(renderer);
-    }
-    
-    // Render roads first (bottom layer) - legacy, can be removed
-    for (auto& road : m_roads) {
-        if (road && road->isActive()) {
-            road->render(renderer);
-        }
-    }
-    
-    // Render buildings - legacy, can be removed
-    for (auto& building : m_buildings) {
-        if (building && building->isActive()) {
-            building->render(renderer);
-        }
     }
     
     // Render vehicles
@@ -224,14 +196,6 @@ void Scene::addVehicle(std::unique_ptr<Vehicle> vehicle) {
         vehicle->setTileGrid(m_tileGrid.get());
     }
     m_vehicles.push_back(std::move(vehicle));
-}
-
-void Scene::addBuilding(std::unique_ptr<Building> building) {
-    m_buildings.push_back(std::move(building));
-}
-
-void Scene::addRoad(std::unique_ptr<Road> road) {
-    m_roads.push_back(std::move(road));
 }
 
 void Scene::createTestScene() {
