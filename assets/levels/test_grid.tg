@@ -3,7 +3,7 @@ grid 16 16 4
 tile_size 3
 texture grass assets/textures/grass.png
 texture road assets/textures/road.png
-texture wall assets/textures/wall.png
+texture wall assets/textures/wall01.png
 vehicle 5 5 0 rotation=0 texture=car size=1.5x3.0
 tile 0 0 0 top=solid:grass
 tile 1 0 0 top=solid:grass

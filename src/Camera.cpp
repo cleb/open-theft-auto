@@ -1,7 +1,7 @@
 #include "Camera.hpp"
 
 Camera::Camera() 
-    : m_position(0.0f, 0.0f, 6.0f)  // Position at angle for isometric-like view
+    : m_position(0.0f, 0.0f, 32.0f)
     , m_target(0.0f, 0.0f, 0.0f)
     , m_up(0.0f, 1.0f, 0.0f) {  // Y-axis is up
     updateViewMatrix();
@@ -28,8 +28,7 @@ void Camera::move(const glm::vec3& offset) {
 }
 
 void Camera::followTarget(const glm::vec3& targetPos) {
-    // Camera offset: angled view like original GTA
-    glm::vec3 offset(0.0f, 0.0f, 6.0f);
+    glm::vec3 offset(0.0f, 0.0f, 32.0f);
     glm::vec3 desiredPosition = targetPos + offset;
 
     setPosition(desiredPosition);
