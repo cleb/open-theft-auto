@@ -3,7 +3,9 @@ grid 16 16 4
 tile_size 3
 texture grass assets/textures/grass.png
 texture road assets/textures/road.png
-texture wall assets/textures/wall01.png
+texture wall assets/textures/wall.png
+texture wall01 assets/textures/wall01.png
+texture roof assets/textures/roof.png
 vehicle 5 5 0 rotation=0 texture=car size=1.5x3.0
 tile 0 0 0 top=solid:grass
 tile 1 0 0 top=solid:grass
@@ -261,45 +263,45 @@ tile 12 15 0 top=solid:grass
 tile 13 15 0 top=solid:grass
 tile 14 15 0 top=solid:grass
 tile 15 15 0 top=solid:grass
-tile 2 1 1 top=solid:grass south=solid:wall west=solid:wall
-tile 3 1 1 top=solid:grass south=solid:wall east=solid:wall
-tile 2 2 1 top=solid:grass west=solid:wall
-tile 3 2 1 top=solid:grass east=solid:wall
-tile 6 2 1 top=solid:grass south=solid:wall west=solid:wall
-tile 7 2 1 top=solid:grass south=solid:wall east=solid:wall
-tile 10 2 1 top=solid:grass south=solid:wall west=solid:wall
-tile 11 2 1 top=solid:grass south=solid:wall east=solid:wall
-tile 2 3 1 top=solid:grass north=solid:wall west=solid:wall
-tile 3 3 1 top=solid:grass north=solid:wall east=solid:wall
-tile 6 3 1 top=solid:grass north=solid:wall west=solid:wall
-tile 7 3 1 top=solid:grass north=solid:wall east=solid:wall
-tile 10 3 1 top=solid:grass north=solid:wall west=solid:wall
-tile 11 3 1 top=solid:grass north=solid:wall east=solid:wall
-tile 2 6 1 top=solid:grass south=solid:wall west=solid:wall
-tile 3 6 1 top=solid:grass south=solid:wall east=solid:wall
-tile 10 6 1 top=solid:grass south=solid:wall west=solid:wall
-tile 11 6 1 top=solid:grass south=solid:wall east=solid:wall
-tile 2 7 1 top=solid:grass north=solid:wall west=solid:wall
-tile 3 7 1 top=solid:grass north=solid:wall east=solid:wall
-tile 7 7 1 top=solid:grass south=solid:wall west=solid:wall
-tile 8 7 1 top=solid:grass south=solid:wall east=solid:wall
-tile 10 7 1 top=solid:grass north=solid:wall west=solid:wall
-tile 11 7 1 top=solid:grass north=solid:wall east=solid:wall
-tile 7 8 1 top=solid:grass north=solid:wall west=solid:wall
-tile 8 8 1 top=solid:grass north=solid:wall east=solid:wall
-tile 2 10 1 top=solid:grass south=solid:wall west=solid:wall
-tile 3 10 1 top=solid:grass south=solid:wall east=solid:wall
-tile 6 10 1 top=solid:grass south=solid:wall west=solid:wall
-tile 7 10 1 top=solid:grass south=solid:wall east=solid:wall
-tile 2 11 1 top=solid:grass north=solid:wall west=solid:wall
-tile 3 11 1 top=solid:grass north=solid:wall east=solid:wall
-tile 6 11 1 top=solid:grass north=solid:wall west=solid:wall
-tile 7 11 1 top=solid:grass north=solid:wall east=solid:wall
-tile 7 7 2 top=solid:grass south=solid:wall west=solid:wall
-tile 8 7 2 top=solid:grass south=solid:wall east=solid:wall
-tile 7 8 2 top=solid:grass north=solid:wall west=solid:wall
-tile 8 8 2 top=solid:grass north=solid:wall east=solid:wall
-tile 7 7 3 top=solid:grass south=solid:wall west=solid:wall
-tile 8 7 3 top=solid:grass south=solid:wall east=solid:wall
-tile 7 8 3 top=solid:grass north=solid:wall west=solid:wall
-tile 8 8 3 top=solid:grass north=solid:wall east=solid:wall
+tile 2 1 1 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 3 1 1 top=solid:roof south=solid:wall01 east=solid:wall01
+tile 2 2 1 top=solid:roof west=solid:wall01
+tile 3 2 1 top=solid:roof east=solid:wall01
+tile 6 2 1 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 7 2 1 top=solid:roof south=solid:wall01 east=solid:wall01
+tile 10 2 1 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 11 2 1 top=solid:roof south=solid:wall01 east=solid:wall01
+tile 2 3 1 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 3 3 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 6 3 1 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 7 3 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 10 3 1 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 11 3 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 2 6 1 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 3 6 1 top=solid:roof south=solid:wall01 east=solid:wall01
+tile 10 6 1 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 11 6 1 top=solid:roof south=solid:wall01 east=solid:wall01
+tile 2 7 1 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 3 7 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 7 7 1 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 8 7 1 top=solid:roof south=solid:wall01 east=solid:wall01
+tile 10 7 1 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 11 7 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 7 8 1 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 8 8 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 2 10 1 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 3 10 1 top=solid:roof south=solid:wall01 east=solid:wall01
+tile 6 10 1 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 7 10 1 top=solid:roof south=solid:wall01 east=solid:wall01
+tile 2 11 1 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 3 11 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 6 11 1 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 7 11 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 7 7 2 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 8 7 2 top=solid:roof south=solid:wall01 east=solid:wall01
+tile 7 8 2 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 8 8 2 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 7 7 3 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 8 7 3 top=solid:roof south=solid:wall01 east=solid:wall01
+tile 7 8 3 top=solid:roof north=solid:wall01 west=solid:wall01
+tile 8 8 3 top=solid:roof north=solid:wall01 east=solid:wall01
