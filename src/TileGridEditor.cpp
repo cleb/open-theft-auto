@@ -477,7 +477,6 @@ void TileGridEditor::ensureArrowMesh() {
     const float tileSize = m_grid->getTileSize();
     const float arrowLength = tileSize * 0.7f;
     const float tailLength = arrowLength * 0.55f;
-    const float headLength = arrowLength * 0.45f;
 
     const float tailStart = -arrowLength * 0.5f;
     const float tailEnd = tailStart + tailLength;

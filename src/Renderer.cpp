@@ -23,7 +23,6 @@ bool Renderer::initialize(int windowWidth, int windowHeight) {
     
     // Initialize projection matrix (orthographic for 2.5D)
     float aspectRatio = static_cast<float>(windowWidth) / static_cast<float>(windowHeight);
-    float viewSize = 20.0f; // World units visible on screen
     m_projectionMatrix = glm::perspective(1.57f, aspectRatio, 0.1f, 64.0f);
     
     // Initialize camera
