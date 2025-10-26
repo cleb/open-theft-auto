@@ -6,12 +6,14 @@
 #include "Renderer.hpp"
 #include "InputManager.hpp"
 #include "Scene.hpp"
+#include "GameLogic.hpp"
 
 class Engine {
 private:
     std::unique_ptr<Window> m_window;
     std::unique_ptr<Renderer> m_renderer;
     std::unique_ptr<InputManager> m_inputManager;
+    std::unique_ptr<GameLogic> m_gameLogic;
     std::unique_ptr<Scene> m_scene;
     
     bool m_running;

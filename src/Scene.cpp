@@ -2,6 +2,7 @@
 #include "Renderer.hpp"
 #include "InputManager.hpp"
 #include "LevelSerialization.hpp"
+#include "GameLogic.hpp"
 #include <iostream>
 #include <string>
 #include <glm/glm.hpp>
@@ -9,10 +10,12 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-Scene::Scene() {
+Scene::Scene() : m_gameLogic(nullptr) {
 }
 
-bool Scene::initialize() {
+bool Scene::initialize(GameLogic* gameLogic) {
+    m_gameLogic = gameLogic;
+    
     // Initialize tile grid
     m_tileGrid = std::make_unique<TileGrid>(glm::ivec3(16, 16, 4), 3.0f);
     if (!m_tileGrid->initialize()) {
@@ -31,6 +34,10 @@ bool Scene::initialize() {
     }
     m_player->setTileGrid(m_tileGrid.get());
     
+    // Initialize game logic
+    m_gameLogic->setPlayer(m_player.get());
+    m_gameLogic->setVehicles(&m_vehicles);
+    
     // Create test scene
     createTestScene();
     
@@ -47,9 +54,9 @@ void Scene::update(float deltaTime) {
         m_tileGridEditor->update(deltaTime);
     }
 
-    if (m_playerInVehicle && m_activeVehicle && m_player) {
-        m_player->setPosition(m_activeVehicle->getPosition());
-        m_player->setRotation(m_activeVehicle->getRotation());
+    // Update game logic (handles player/vehicle synchronization)
+    if (m_gameLogic) {
+        m_gameLogic->update(deltaTime);
     }
     
     // Update all game objects
@@ -77,8 +84,11 @@ void Scene::render(Renderer* renderer) {
             const glm::ivec3 cursor = m_tileGridEditor->getCursor();
             target = m_tileGrid->gridToWorld(cursor);
             target.z += m_tileGrid->getTileSize();
-        } else if (m_playerInVehicle && m_activeVehicle) {
-            target = m_activeVehicle->getPosition();
+        } else if (m_gameLogic && m_gameLogic->isPlayerInVehicle()) {
+            Vehicle* activeVehicle = m_gameLogic->getActiveVehicle();
+            if (activeVehicle) {
+                target = activeVehicle->getPosition();
+            }
         } else if (m_player) {
             target = m_player->getPosition();
         }
@@ -102,7 +112,7 @@ void Scene::render(Renderer* renderer) {
     }
     
     // Render player (on top)
-    if (m_player && !m_playerInVehicle) {
+    if (m_player && (!m_gameLogic || !m_gameLogic->isPlayerInVehicle())) {
         m_player->render(renderer);
     }
     
@@ -142,48 +152,9 @@ void Scene::processInput(InputManager* input, float deltaTime) {
         return;
     }
 
-    const bool enterPressed = input->isKeyPressed(GLFW_KEY_ENTER) || input->isKeyPressed(GLFW_KEY_KP_ENTER);
-    if (enterPressed) {
-        if (m_playerInVehicle) {
-            leaveVehicle();
-        } else {
-            m_playerInVehicle = tryEnterNearestVehicle();
-        }
-    }
-
-    if (input->isKeyPressed(GLFW_KEY_F) && m_playerInVehicle) {
-        leaveVehicle();
-    }
-
-    if (m_playerInVehicle && m_activeVehicle) {
-        if (input->isKeyDown(GLFW_KEY_W) || input->isKeyDown(GLFW_KEY_UP)) {
-            m_activeVehicle->accelerate(deltaTime);
-        }
-        if (input->isKeyDown(GLFW_KEY_S) || input->isKeyDown(GLFW_KEY_DOWN)) {
-            m_activeVehicle->brake(deltaTime);
-        }
-        if (input->isKeyDown(GLFW_KEY_A) || input->isKeyDown(GLFW_KEY_LEFT)) {
-            m_activeVehicle->turnRight(deltaTime);
-        }
-        if (input->isKeyDown(GLFW_KEY_D) || input->isKeyDown(GLFW_KEY_RIGHT)) {
-            m_activeVehicle->turnLeft(deltaTime);
-        }
-        return;
-    }
-
-    if (Player* player = m_player.get()) {
-        if (input->isKeyDown(GLFW_KEY_W) || input->isKeyDown(GLFW_KEY_UP)) {
-            player->moveForward(deltaTime);
-        }
-        if (input->isKeyDown(GLFW_KEY_S) || input->isKeyDown(GLFW_KEY_DOWN)) {
-            player->moveBackward(deltaTime);
-        }
-        if (input->isKeyDown(GLFW_KEY_A) || input->isKeyDown(GLFW_KEY_LEFT)) {
-            player->turnLeft(deltaTime);
-        }
-        if (input->isKeyDown(GLFW_KEY_D) || input->isKeyDown(GLFW_KEY_RIGHT)) {
-            player->turnRight(deltaTime);
-        }
+    // Delegate all game input to GameLogic
+    if (m_gameLogic) {
+        m_gameLogic->processInput(input, deltaTime);
     }
 }
 
@@ -217,49 +188,12 @@ void Scene::createTestScene() {
               << m_vehicles.size() << " vehicles" << std::endl;
 }
 
-bool Scene::tryEnterNearestVehicle(float radius) {
-    if (!m_player || m_playerInVehicle) {
-        return false;
-    }
-
-    Vehicle* nearestVehicle = nullptr;
-    float nearestDistance = radius;
-    const glm::vec2 playerPos(m_player->getPosition().x, m_player->getPosition().y);
-
-    for (auto& vehicle : m_vehicles) {
-        if (!vehicle || !vehicle->isActive()) {
-            continue;
-        }
-
-        const glm::vec3 vehiclePos3 = vehicle->getPosition();
-        const glm::vec2 vehiclePos(vehiclePos3.x, vehiclePos3.y);
-        const float distance = glm::length(vehiclePos - playerPos);
-
-        if (distance <= nearestDistance) {
-            nearestVehicle = vehicle.get();
-            nearestDistance = distance;
-        }
-    }
-
-    if (!nearestVehicle) {
-        return false;
-    }
-
-    m_playerInVehicle = true;
-    m_activeVehicle = nearestVehicle;
-    m_activeVehicle->setPlayerControlled(true);
-    m_player->setActive(false);
-    m_player->setPosition(m_activeVehicle->getPosition());
-    m_player->setRotation(m_activeVehicle->getRotation());
-    return true;
-}
-
 void Scene::toggleEditMode() {
     if (!m_tileGridEditor || !m_tileGrid) {
         return;
     }
 
-    if (m_playerInVehicle) {
+    if (m_gameLogic && m_gameLogic->isPlayerInVehicle()) {
         std::cout << "Exit the vehicle before entering edit mode." << std::endl;
         return;
     }
@@ -287,28 +221,12 @@ void Scene::toggleEditMode() {
     }
 }
 
-void Scene::leaveVehicle() {
-    if (!m_playerInVehicle || !m_activeVehicle || !m_player) {
-        return;
-    }
-
-    m_playerInVehicle = false;
-    m_player->setActive(true);
-    m_player->setPosition(m_activeVehicle->getPosition());
-    m_player->setRotation(m_activeVehicle->getRotation());
-    m_activeVehicle->setPlayerControlled(false);
-    m_activeVehicle = nullptr;
-}
-
 void Scene::rebuildVehiclesFromSpawns() {
-    m_playerInVehicle = false;
-    m_activeVehicle = nullptr;
-
-    for (auto& vehicle : m_vehicles) {
-        if (vehicle) {
-            vehicle->setPlayerControlled(false);
-        }
+    // Reset game logic
+    if (m_gameLogic) {
+        m_gameLogic->reset();
     }
+
     m_vehicles.clear();
 
     if (!m_tileGrid) {

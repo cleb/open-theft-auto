@@ -8,6 +8,7 @@
 #include "TileGrid.hpp"
 #include "TileGridEditor.hpp"
 #include "LevelData.hpp"
+#include "GameLogic.hpp"
 
 #include <string>
 
@@ -25,14 +26,14 @@ private:
     LevelData m_levelData;
     std::string m_levelPath;
 
-    bool m_playerInVehicle = false;
-    Vehicle* m_activeVehicle = nullptr;
+    // Game logic handler (owned by Engine)
+    GameLogic* m_gameLogic;
 
 public:
     Scene();
     ~Scene() = default;
     
-    bool initialize();
+    bool initialize(GameLogic* gameLogic);
     void update(float deltaTime);
     void render(class Renderer* renderer);
     void processInput(InputManager* input, float deltaTime);
@@ -40,17 +41,14 @@ public:
     
     void addGameObject(std::unique_ptr<GameObject> object);
     void addVehicle(std::unique_ptr<Vehicle> vehicle);
-    
+
     Player* getPlayer() const { return m_player.get(); }
     TileGrid* getTileGrid() const { return m_tileGrid.get(); }
-    bool tryEnterNearestVehicle(float radius = 2.0f);
-    bool isPlayerInVehicle() const { return m_playerInVehicle; }
-    Vehicle* getActiveVehicle() const { return m_activeVehicle; }
+    GameLogic* getGameLogic() const { return m_gameLogic; }
     bool isEditModeActive() const { return m_tileGridEditor && m_tileGridEditor->isEnabled(); }
     
 private:
     void createTestScene();
     void toggleEditMode();
-    void leaveVehicle();
     void rebuildVehiclesFromSpawns();
 };

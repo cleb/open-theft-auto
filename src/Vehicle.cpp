@@ -147,7 +147,7 @@ void Vehicle::render(Renderer* renderer) {
     renderer->renderMesh(*carMesh, modelMatrix, "vehicle");
 }
 
-void Vehicle::accelerate(float deltaTime) {
+void Vehicle::moveForward(float deltaTime) {
     m_speed += m_acceleration * deltaTime;
     float maxSpeed = getCurrentMaxSpeed();
     if (m_speed > maxSpeed) {
@@ -155,7 +155,7 @@ void Vehicle::accelerate(float deltaTime) {
     }
 }
 
-void Vehicle::brake(float deltaTime) {
+void Vehicle::moveBackward(float deltaTime) {
     m_speed -= m_acceleration * deltaTime;
     float maxSpeed = getCurrentMaxSpeed() * 0.5f;
     if (m_speed < -maxSpeed) { // Reverse is slower
@@ -163,7 +163,7 @@ void Vehicle::brake(float deltaTime) {
     }
 }
 
-void Vehicle::turnLeft(float deltaTime) {
+void Vehicle::turnRight(float deltaTime) {
     if (std::abs(m_speed) > 0.1f) {
         float maxSpeed = getCurrentMaxSpeed();
         if (maxSpeed <= 0.0f) return;
@@ -177,7 +177,7 @@ void Vehicle::turnLeft(float deltaTime) {
     }
 }
 
-void Vehicle::turnRight(float deltaTime) {
+void Vehicle::turnLeft(float deltaTime) {
     if (std::abs(m_speed) > 0.1f) {
         float maxSpeed = getCurrentMaxSpeed();
         if (maxSpeed <= 0.0f) return;

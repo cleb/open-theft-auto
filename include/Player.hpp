@@ -1,11 +1,11 @@
 #pragma once
 
-#include "GameObject.hpp"
+#include "ControllableObject.hpp"
 #include <memory>
 
 class TileGrid;
 
-class Player : public GameObject {
+class Player : public ControllableObject {
 private:
     std::unique_ptr<Texture> m_texture;
     float m_speed;
