@@ -33,7 +33,7 @@ public:
     Scene();
     ~Scene() = default;
     
-    bool initialize(GameLogic* gameLogic);
+    bool initialize(GameLogic* gameLogic, class Window* window, class Renderer* renderer);
     void update(float deltaTime);
     void render(class Renderer* renderer);
     void processInput(InputManager* input, float deltaTime);

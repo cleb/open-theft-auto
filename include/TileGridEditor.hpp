@@ -15,6 +15,7 @@ class Renderer;
 class InputManager;
 class Mesh;
 class Texture;
+class Window;
 
 class TileGridEditor {
 public:
@@ -25,6 +26,9 @@ public:
     void setLevelPath(const std::string& path);
     void setCursor(const glm::ivec3& gridPos);
     const glm::ivec3& getCursor() const { return m_cursor; }
+
+    void setWindow(Window* window) { m_window = window; }
+    void setRenderer(Renderer* renderer) { m_renderer = renderer; }
 
     void setEnabled(bool enabled);
     bool isEnabled() const { return m_enabled; }
@@ -81,6 +85,8 @@ private:
 
     TileGrid* m_grid;
     LevelData* m_levelData;
+    Window* m_window;
+    Renderer* m_renderer;
     bool m_enabled;
     glm::ivec3 m_cursor;
     glm::ivec3 m_lastAnnouncedCursor;
@@ -94,6 +100,19 @@ private:
     glm::vec3 m_cursorColor;
     std::unique_ptr<Mesh> m_arrowMesh;
     glm::vec3 m_arrowColor;
+
+    // Selection state
+    std::vector<glm::ivec3> m_selectedTiles;
+    bool m_isSelecting;
+    glm::ivec3 m_selectionStart;
+    glm::ivec3 m_selectionEnd;
+    std::unique_ptr<Mesh> m_selectionMesh;
+    glm::vec3 m_selectionColor;
+    bool m_moveMode;
+    glm::ivec3 m_moveOffset;
+    bool m_hasHoverTile;
+    glm::ivec3 m_hoverTile;
+    glm::vec3 m_hoverColor;
 
     bool m_helpPrinted;
     UiTileState m_uiTileState;
@@ -116,6 +135,7 @@ private:
 
     void ensureCursorMesh();
     void ensureArrowMesh();
+    void ensureSelectionMesh();
     void refreshCursorColor();
     void announceCursor();
     void announceBrush();
@@ -150,4 +170,19 @@ private:
     void handleWallHotkeys(InputManager* input);
     void handlePrefabHotkeys(InputManager* input);
     void handleSaveHotkey(InputManager* input);
+    void handleSelectionHotkeys(InputManager* input);
+
+    // Selection methods
+    void clearSelection();
+    void addToSelection(const glm::ivec3& pos);
+    void removeFromSelection(const glm::ivec3& pos);
+    bool isSelected(const glm::ivec3& pos) const;
+    void selectArea(const glm::ivec3& start, const glm::ivec3& end);
+    void selectAll();
+    void handleMouseSelection(InputManager* input);
+    void startMove();
+    void applyMove(const glm::ivec3& offset);
+    void renderSelection(Renderer* renderer);
+    void drawSelectionControls();
+    bool getTileAtScreenPosition(double mouseX, double mouseY, glm::ivec3& outTilePos) const;
 };

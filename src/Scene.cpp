@@ -13,7 +13,7 @@
 Scene::Scene() : m_gameLogic(nullptr) {
 }
 
-bool Scene::initialize(GameLogic* gameLogic) {
+bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer) {
     m_gameLogic = gameLogic;
     
     // Initialize tile grid
@@ -25,6 +25,8 @@ bool Scene::initialize(GameLogic* gameLogic) {
 
     m_tileGridEditor = std::make_unique<TileGridEditor>();
     m_tileGridEditor->initialize(m_tileGrid.get(), &m_levelData);
+    m_tileGridEditor->setWindow(window);
+    m_tileGridEditor->setRenderer(renderer);
     
     // Initialize player
     m_player = std::make_unique<Player>();

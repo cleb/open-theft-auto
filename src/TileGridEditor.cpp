@@ -8,6 +8,8 @@
 #include "Texture.hpp"
 #include "LevelData.hpp"
 #include "LevelSerialization.hpp"
+#include "Window.hpp"
+#include "Camera.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -106,6 +108,8 @@ std::string trimCopy(const std::string& value) {
 TileGridEditor::TileGridEditor()
     : m_grid(nullptr)
     , m_levelData(nullptr)
+    , m_window(nullptr)
+    , m_renderer(nullptr)
     , m_enabled(false)
     , m_cursor(0)
     , m_lastAnnouncedCursor(
@@ -117,6 +121,15 @@ TileGridEditor::TileGridEditor()
     , m_roadDirection(CarDirection::SouthNorth)
     , m_cursorColor(0.3f, 0.9f, 0.3f)
     , m_arrowColor(0.95f, 0.7f, 0.1f)
+    , m_isSelecting(false)
+    , m_selectionStart(0)
+    , m_selectionEnd(0)
+    , m_selectionColor(0.2f, 0.6f, 0.9f)
+    , m_moveMode(false)
+    , m_moveOffset(0)
+    , m_hasHoverTile(false)
+    , m_hoverTile(0)
+    , m_hoverColor(1.0f, 1.0f, 0.3f)
     , m_helpPrinted(false)
     , m_pendingGridSize(0)
     , m_gridResizeError() {
@@ -130,8 +143,11 @@ void TileGridEditor::initialize(TileGrid* grid, LevelData* levelData) {
     m_levelData = levelData;
     m_cursorMesh.reset();
     m_arrowMesh.reset();
+    m_selectionMesh.reset();
+    clearSelection();
     clampCursor();
     ensureCursorMesh();
+    ensureSelectionMesh();
     refreshCursorColor();
     rebuildAliasList();
     refreshUiStateFromTile();
@@ -205,25 +221,29 @@ void TileGridEditor::processInput(InputManager* input) {
         handleBrushHotkeys(input);
         handleWallHotkeys(input);
         handlePrefabHotkeys(input);
+        handleSelectionHotkeys(input);
 
-        if (input->isKeyPressed(GLFW_KEY_UP) || input->isKeyPressed(GLFW_KEY_W)) {
-            moveCursor(0, 1);
-        }
-        if (input->isKeyPressed(GLFW_KEY_DOWN) || input->isKeyPressed(GLFW_KEY_S)) {
-            moveCursor(0, -1);
-        }
-        if (input->isKeyPressed(GLFW_KEY_LEFT) || input->isKeyPressed(GLFW_KEY_A)) {
-            moveCursor(-1, 0);
-        }
-        if (input->isKeyPressed(GLFW_KEY_RIGHT) || input->isKeyPressed(GLFW_KEY_D)) {
-            moveCursor(1, 0);
-        }
+        // Don't handle cursor movement or layer changes in move mode
+        if (!m_moveMode) {
+            if (input->isKeyPressed(GLFW_KEY_UP) || input->isKeyPressed(GLFW_KEY_W)) {
+                moveCursor(0, 1);
+            }
+            if (input->isKeyPressed(GLFW_KEY_DOWN) || input->isKeyPressed(GLFW_KEY_S)) {
+                moveCursor(0, -1);
+            }
+            if (input->isKeyPressed(GLFW_KEY_LEFT) || input->isKeyPressed(GLFW_KEY_A)) {
+                moveCursor(-1, 0);
+            }
+            if (input->isKeyPressed(GLFW_KEY_RIGHT) || input->isKeyPressed(GLFW_KEY_D)) {
+                moveCursor(1, 0);
+            }
 
-        if (input->isKeyPressed(GLFW_KEY_Q)) {
-            changeLayer(-1);
-        }
-        if (input->isKeyPressed(GLFW_KEY_E)) {
-            changeLayer(1);
+            if (input->isKeyPressed(GLFW_KEY_Q)) {
+                changeLayer(-1);
+            }
+            if (input->isKeyPressed(GLFW_KEY_E)) {
+                changeLayer(1);
+            }
         }
 
         if (m_brush == BrushType::Road && input->isKeyPressed(GLFW_KEY_R)) {
@@ -258,8 +278,30 @@ void TileGridEditor::processInput(InputManager* input) {
         }
     }
 
+    // Handle mouse selection
+    if (!captureMouse) {
+        // Update hover tile
+        m_hasHoverTile = getTileAtScreenPosition(input->getMouseX(), input->getMouseY(), m_hoverTile);
+        
+        static int hoverDebugCounter = 0;
+        if (++hoverDebugCounter % 60 == 0) {
+            if (m_hasHoverTile) {
+                std::cout << "Hover tile: (" << m_hoverTile.x << ", " << m_hoverTile.y << ", " << m_hoverTile.z << ")" << std::endl;
+            } else {
+                std::cout << "No hover tile detected. Window: " << (m_window ? "OK" : "NULL") 
+                          << ", Renderer: " << (m_renderer ? "OK" : "NULL") 
+                          << ", Camera: " << (m_renderer && m_renderer->getCamera() ? "OK" : "NULL") << std::endl;
+            }
+        }
+        
+        handleMouseSelection(input);
+    }
+
+    const bool shiftDown = input->isKeyDown(GLFW_KEY_LEFT_SHIFT) || input->isKeyDown(GLFW_KEY_RIGHT_SHIFT);
+    const bool ctrlDown = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
     const bool applySpace = !captureKeyboard && input->isKeyPressed(GLFW_KEY_SPACE);
-    const bool applyClick = !captureMouse && input->isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT);
+    const bool applyClick = !captureMouse && input->isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT) 
+                            && !m_isSelecting && !shiftDown && !ctrlDown;
     if (applySpace || applyClick) {
         applyBrush();
     }
@@ -271,6 +313,7 @@ void TileGridEditor::render(Renderer* renderer) {
     }
     ensureCursorMesh();
     ensureArrowMesh();
+    ensureSelectionMesh();
 
     if (m_arrowMesh) {
         const glm::ivec3 gridSize = m_grid->getGridSize();
@@ -329,6 +372,17 @@ void TileGridEditor::render(Renderer* renderer) {
         }
     }
 
+    // Render selection boxes
+    renderSelection(renderer);
+
+    // Render hover tile with cursor mesh (more visible)
+    if (m_hasHoverTile && m_cursorMesh && !isSelected(m_hoverTile)) {
+        const glm::vec3 worldPos = m_grid->gridToWorld(m_hoverTile);
+        const float offset = m_grid->getTileSize() * 0.08f; // Higher than selection
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), worldPos + glm::vec3(0.0f, 0.0f, offset));
+        renderer->renderMesh(*m_cursorMesh, model, "model", m_hoverColor);
+    }
+
     if (m_cursorMesh) {
         const glm::vec3 base = m_grid->gridToWorld(m_cursor);
         const float offset = m_grid->getTileSize() * 0.02f;
@@ -369,6 +423,7 @@ void TileGridEditor::drawGui() {
 
     drawGridControls();
     drawBrushControls();
+    drawSelectionControls();
     drawPrefabControls();
 
     static bool saveErrorPopup = false;
@@ -510,6 +565,57 @@ void TileGridEditor::ensureArrowMesh() {
     m_arrowMesh = std::make_unique<Mesh>(vertices, indices);
 }
 
+void TileGridEditor::ensureSelectionMesh() {
+    if (!m_grid || m_selectionMesh) {
+        return;
+    }
+
+    const float tileSize = m_grid->getTileSize();
+    const float halfSize = tileSize * 0.5f;
+    const float height = tileSize * 0.8f;
+    const float lineWidth = tileSize * 0.08f;
+
+    std::vector<Vertex> vertices;
+    std::vector<GLuint> indices;
+
+    // Create a hollow box outline
+    // Top edge
+    vertices.push_back({{-halfSize, -halfSize, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}});
+    vertices.push_back({{halfSize, -halfSize, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}});
+    vertices.push_back({{halfSize, -halfSize + lineWidth, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.1f}});
+    vertices.push_back({{-halfSize, -halfSize + lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.1f}});
+    indices.insert(indices.end(), {0, 1, 2, 2, 3, 0});
+
+    // Bottom edge
+    GLuint offset = 4;
+    vertices.push_back({{-halfSize, halfSize - lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.9f}});
+    vertices.push_back({{halfSize, halfSize - lineWidth, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.9f}});
+    vertices.push_back({{halfSize, halfSize, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}});
+    vertices.push_back({{-halfSize, halfSize, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}});
+    indices.insert(indices.end(), {offset, offset+1, offset+2, offset+2, offset+3, offset});
+
+    // Left edge
+    offset = 8;
+    vertices.push_back({{-halfSize, -halfSize + lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.1f}});
+    vertices.push_back({{-halfSize + lineWidth, -halfSize + lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.1f, 0.1f}});
+    vertices.push_back({{-halfSize + lineWidth, halfSize - lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.1f, 0.9f}});
+    vertices.push_back({{-halfSize, halfSize - lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.9f}});
+    indices.insert(indices.end(), {offset, offset+1, offset+2, offset+2, offset+3, offset});
+
+    // Right edge
+    offset = 12;
+    vertices.push_back({{halfSize - lineWidth, -halfSize + lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.9f, 0.1f}});
+    vertices.push_back({{halfSize, -halfSize + lineWidth, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.1f}});
+    vertices.push_back({{halfSize, halfSize - lineWidth, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.9f}});
+    vertices.push_back({{halfSize - lineWidth, halfSize - lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.9f, 0.9f}});
+    indices.insert(indices.end(), {offset, offset+1, offset+2, offset+2, offset+3, offset});
+
+    m_selectionMesh = std::make_unique<Mesh>(vertices, indices);
+    auto selectionTexture = std::make_shared<Texture>();
+    selectionTexture->createSolidColor(255, 255, 255, 128);
+    m_selectionMesh->setTexture(selectionTexture);
+}
+
 void TileGridEditor::refreshCursorColor() {
     if (m_brush == BrushType::Vehicle) {
         if (m_uiVehicleState.removeMode) {
@@ -639,6 +745,11 @@ void TileGridEditor::printHelp() const {
               << "  Delete: remove vehicle at cursor\n"
               << "  I/J/K/L: toggle wall (north/west/south/east)\n"
               << "  Space or Left Click: apply brush\n"
+              << "  Shift+Drag (mouse): select area of tiles\n"
+              << "  Ctrl+Click (mouse): toggle individual tile selection\n"
+              << "  Ctrl+A: select all\n"
+              << "  M: move selected tiles\n"
+              << "  Escape: clear selection / cancel move\n"
               << "  Ctrl+1-9: apply prefab\n"
               << "  Ctrl+S: save level\n"
               << "  F1: exit edit mode" << std::endl;
@@ -1446,3 +1557,495 @@ void TileGridEditor::drawVehicleBrushControls() {
         }
     }
 }
+
+// Selection methods
+
+void TileGridEditor::clearSelection() {
+    m_selectedTiles.clear();
+    m_isSelecting = false;
+    m_moveMode = false;
+}
+
+void TileGridEditor::addToSelection(const glm::ivec3& pos) {
+    if (!m_grid || !m_grid->isValidPosition(pos)) {
+        return;
+    }
+    if (!isSelected(pos)) {
+        m_selectedTiles.push_back(pos);
+    }
+}
+
+void TileGridEditor::removeFromSelection(const glm::ivec3& pos) {
+    auto it = std::find(m_selectedTiles.begin(), m_selectedTiles.end(), pos);
+    if (it != m_selectedTiles.end()) {
+        m_selectedTiles.erase(it);
+    }
+}
+
+bool TileGridEditor::isSelected(const glm::ivec3& pos) const {
+    return std::find(m_selectedTiles.begin(), m_selectedTiles.end(), pos) != m_selectedTiles.end();
+}
+
+void TileGridEditor::selectArea(const glm::ivec3& start, const glm::ivec3& end) {
+    if (!m_grid) {
+        return;
+    }
+
+    const glm::ivec3 minPos = glm::min(start, end);
+    const glm::ivec3 maxPos = glm::max(start, end);
+
+    for (int z = minPos.z; z <= maxPos.z; ++z) {
+        for (int y = minPos.y; y <= maxPos.y; ++y) {
+            for (int x = minPos.x; x <= maxPos.x; ++x) {
+                const glm::ivec3 pos(x, y, z);
+                if (m_grid->isValidPosition(pos)) {
+                    addToSelection(pos);
+                }
+            }
+        }
+    }
+
+    std::cout << "Selected " << m_selectedTiles.size() << " tiles" << std::endl;
+}
+
+void TileGridEditor::selectAll() {
+    if (!m_grid) {
+        return;
+    }
+
+    clearSelection();
+    const glm::ivec3& size = m_grid->getGridSize();
+    for (int z = 0; z < size.z; ++z) {
+        for (int y = 0; y < size.y; ++y) {
+            for (int x = 0; x < size.x; ++x) {
+                m_selectedTiles.push_back(glm::ivec3(x, y, z));
+            }
+        }
+    }
+    std::cout << "Selected all " << m_selectedTiles.size() << " tiles" << std::endl;
+}
+
+void TileGridEditor::handleMouseSelection(InputManager* input) {
+    if (!m_grid) {
+        return;
+    }
+
+    const bool shiftDown = input->isKeyDown(GLFW_KEY_LEFT_SHIFT) || input->isKeyDown(GLFW_KEY_RIGHT_SHIFT);
+    const bool ctrlDown = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
+
+    // Get tile at mouse cursor position
+    glm::ivec3 mouseTile;
+    const bool hasMouseTile = getTileAtScreenPosition(input->getMouseX(), input->getMouseY(), mouseTile);
+
+    if (!hasMouseTile) {
+        return; // Mouse not pointing at any valid tile
+    }
+
+    // Start selection with Shift+Left Mouse Button
+    if (shiftDown && input->isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT)) {
+        m_isSelecting = true;
+        m_selectionStart = mouseTile;
+        m_selectionEnd = mouseTile;
+        if (!ctrlDown) {
+            clearSelection();
+        }
+    }
+
+    // Update selection area while dragging (Shift must still be held)
+    if (m_isSelecting && shiftDown && input->isMouseButtonDown(GLFW_MOUSE_BUTTON_LEFT)) {
+        m_selectionEnd = mouseTile;
+    }
+
+    // Complete selection on release or when Shift is released
+    if (m_isSelecting && (!input->isMouseButtonDown(GLFW_MOUSE_BUTTON_LEFT) || !shiftDown)) {
+        if (input->isMouseButtonDown(GLFW_MOUSE_BUTTON_LEFT) || 
+            m_selectionStart != m_selectionEnd) {
+            selectArea(m_selectionStart, m_selectionEnd);
+        }
+        m_isSelecting = false;
+    }
+
+    // Single tile selection with Ctrl+Click (not during Shift selection)
+    if (ctrlDown && !shiftDown && input->isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT) && !m_isSelecting) {
+        if (isSelected(mouseTile)) {
+            removeFromSelection(mouseTile);
+            std::cout << "Removed tile (" << mouseTile.x << ", " << mouseTile.y << ", " << mouseTile.z 
+                      << ") from selection. Total: " << m_selectedTiles.size() << std::endl;
+        } else {
+            addToSelection(mouseTile);
+            std::cout << "Added tile (" << mouseTile.x << ", " << mouseTile.y << ", " << mouseTile.z 
+                      << ") to selection. Total: " << m_selectedTiles.size() << std::endl;
+        }
+    }
+}
+
+void TileGridEditor::startMove() {
+    if (m_selectedTiles.empty()) {
+        std::cout << "No tiles selected to move" << std::endl;
+        return;
+    }
+
+    m_moveMode = true;
+    m_moveOffset = glm::ivec3(0);
+    std::cout << "Move mode activated. Use arrow keys to move, Enter to apply, Escape to cancel" << std::endl;
+}
+
+void TileGridEditor::applyMove(const glm::ivec3& offset) {
+    if (!m_grid || m_selectedTiles.empty() || offset == glm::ivec3(0)) {
+        return;
+    }
+
+    // Store original tiles data
+    std::vector<std::pair<glm::ivec3, std::unique_ptr<Tile>>> tileData;
+    for (const auto& pos : m_selectedTiles) {
+        Tile* tile = m_grid->getTile(pos);
+        if (tile) {
+            auto copy = std::make_unique<Tile>(pos, tile->getTileSize());
+            copy->copyFrom(*tile);
+            tileData.push_back({pos, std::move(copy)});
+        }
+    }
+
+    // Clear original tiles
+    for (const auto& pos : m_selectedTiles) {
+        Tile* tile = m_grid->getTile(pos);
+        if (tile) {
+            tile->setTopSurface(false, "", CarDirection::None);
+            for (int i = 0; i < 4; ++i) {
+                tile->setWall(static_cast<WallDirection>(i), true);
+            }
+        }
+    }
+
+    // Apply tiles to new positions
+    std::vector<glm::ivec3> newSelection;
+    for (const auto& [oldPos, tilePtr] : tileData) {
+        const glm::ivec3 newPos = oldPos + offset;
+        if (m_grid->isValidPosition(newPos)) {
+            Tile* destTile = m_grid->getTile(newPos);
+            if (destTile) {
+                destTile->copyFrom(*tilePtr);
+                newSelection.push_back(newPos);
+            }
+        }
+    }
+
+    m_selectedTiles = newSelection;
+    m_moveMode = false;
+    m_moveOffset = glm::ivec3(0);
+
+    std::cout << "Moved " << newSelection.size() << " tiles" << std::endl;
+}
+
+void TileGridEditor::renderSelection(Renderer* renderer) {
+    if (!m_grid || !renderer || !m_selectionMesh) {
+        return;
+    }
+
+    const float tileSize = m_grid->getTileSize();
+    const float offset = tileSize * 0.04f;
+
+    // Render selection preview during drag
+    if (m_isSelecting) {
+        const glm::ivec3 minPos = glm::min(m_selectionStart, m_selectionEnd);
+        const glm::ivec3 maxPos = glm::max(m_selectionStart, m_selectionEnd);
+
+        for (int z = minPos.z; z <= maxPos.z; ++z) {
+            for (int y = minPos.y; y <= maxPos.y; ++y) {
+                for (int x = minPos.x; x <= maxPos.x; ++x) {
+                    const glm::ivec3 pos(x, y, z);
+                    if (m_grid->isValidPosition(pos)) {
+                        const glm::vec3 worldPos = m_grid->gridToWorld(pos);
+                        glm::mat4 model = glm::translate(glm::mat4(1.0f), worldPos + glm::vec3(0.0f, 0.0f, offset));
+                        renderer->renderMesh(*m_selectionMesh, model, "model", glm::vec3(1.0f, 1.0f, 0.5f));
+                    }
+                }
+            }
+        }
+    }
+
+    // Render selected tiles
+    glm::vec3 color = m_moveMode ? glm::vec3(0.9f, 0.5f, 0.2f) : m_selectionColor;
+    for (const auto& pos : m_selectedTiles) {
+        glm::vec3 worldPos = m_grid->gridToWorld(pos);
+        if (m_moveMode) {
+            worldPos += glm::vec3(m_moveOffset.x * tileSize, m_moveOffset.y * tileSize, m_moveOffset.z * tileSize);
+        }
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), worldPos + glm::vec3(0.0f, 0.0f, offset));
+        renderer->renderMesh(*m_selectionMesh, model, "model", color);
+    }
+}
+
+void TileGridEditor::drawSelectionControls() {
+    ImGui::SeparatorText("Selection");
+
+    ImGui::Text("Selected: %zu tiles", m_selectedTiles.size());
+
+    if (ImGui::Button("Select All")) {
+        selectAll();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Clear Selection")) {
+        clearSelection();
+    }
+
+    if (m_selectedTiles.empty()) {
+        ImGui::TextDisabled("Mouse: Shift+Drag to select area");
+        ImGui::TextDisabled("Mouse: Ctrl+Click to toggle selection");
+        return;
+    }
+
+    ImGui::Separator();
+
+    if (m_moveMode) {
+        ImGui::Text("Move Mode Active");
+        ImGui::Text("Offset: (%d, %d, %d)", m_moveOffset.x, m_moveOffset.y, m_moveOffset.z);
+        
+        if (ImGui::Button("Apply Move")) {
+            applyMove(m_moveOffset);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            m_moveMode = false;
+            m_moveOffset = glm::ivec3(0);
+        }
+    } else {
+        if (ImGui::Button("Move Selected")) {
+            startMove();
+        }
+    }
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Batch Edit");
+
+    static bool applyTopSurface = false;
+    static bool applyTopSolid = true;
+    static std::array<char, 256> applyTopTexture = {};
+    static int applyCarDirection = 0;
+
+    ImGui::Checkbox("Modify Top Surface", &applyTopSurface);
+    if (applyTopSurface) {
+        ImGui::Indent();
+        ImGui::Checkbox("Solid##BatchTop", &applyTopSolid);
+        if (applyTopSolid) {
+            ImGui::InputText("Texture##BatchTop", applyTopTexture.data(), applyTopTexture.size());
+            const char* directionLabels[] = {"None", "North", "South", "East", "West", "North-South", "East-West"};
+            ImGui::Combo("Traffic##Batch", &applyCarDirection, directionLabels, IM_ARRAYSIZE(directionLabels));
+        }
+        ImGui::Unindent();
+    }
+
+    static bool applyWalls = false;
+    static bool applyWallWalkable = true;
+    static std::array<char, 256> applyWallTexture = {};
+
+    ImGui::Checkbox("Modify All Walls", &applyWalls);
+    if (applyWalls) {
+        ImGui::Indent();
+        ImGui::Checkbox("Walkable##BatchWall", &applyWallWalkable);
+        if (!applyWallWalkable) {
+            ImGui::InputText("Texture##BatchWall", applyWallTexture.data(), applyWallTexture.size());
+        }
+        ImGui::Unindent();
+    }
+
+    if (ImGui::Button("Apply to Selection")) {
+        for (const auto& pos : m_selectedTiles) {
+            Tile* tile = m_grid->getTile(pos);
+            if (!tile) continue;
+
+            if (applyTopSurface) {
+                if (applyTopSolid) {
+                    tile->setTopSurface(true, std::string(applyTopTexture.data()), indexToCarDirection(applyCarDirection));
+                } else {
+                    tile->setTopSurface(false, "", CarDirection::None);
+                }
+            }
+
+            if (applyWalls) {
+                std::string wallTexture = applyWallWalkable ? "" : std::string(applyWallTexture.data());
+                for (int i = 0; i < 4; ++i) {
+                    tile->setWall(static_cast<WallDirection>(i), applyWallWalkable, wallTexture);
+                }
+            }
+        }
+        std::cout << "Applied batch edits to " << m_selectedTiles.size() << " tiles" << std::endl;
+    }
+}
+
+bool TileGridEditor::getTileAtScreenPosition(double mouseX, double mouseY, glm::ivec3& outTilePos) const {
+    if (!m_grid || !m_window || !m_renderer) {
+        return false;
+    }
+
+    Camera* camera = m_renderer->getCamera();
+    if (!camera) {
+        return false;
+    }
+
+    // Get window dimensions
+    const int windowWidth = m_window->getWidth();
+    const int windowHeight = m_window->getHeight();
+
+    if (windowWidth <= 0 || windowHeight <= 0) {
+        return false;
+    }
+
+    // Convert screen coordinates to NDC (Normalized Device Coordinates)
+    // Note: OpenGL has origin at bottom-left, but mouse Y is top-down
+    const float x = (2.0f * static_cast<float>(mouseX)) / static_cast<float>(windowWidth) - 1.0f;
+    const float y = 1.0f - (2.0f * static_cast<float>(mouseY)) / static_cast<float>(windowHeight);
+
+    // Debug output (only log occasionally to avoid spam)
+    static int debugCounter = 0;
+    if (++debugCounter % 60 == 0) {
+        std::cout << "Mouse: (" << mouseX << ", " << mouseY << ") -> NDC: (" << x << ", " << y << ")" << std::endl;
+    }
+
+    // Get projection and view matrices
+    const glm::mat4 projection = glm::perspective(
+        glm::radians(90.0f),
+        static_cast<float>(windowWidth) / static_cast<float>(windowHeight),
+        0.1f,
+        64.0f
+    );
+    const glm::mat4 view = camera->getViewMatrix();
+
+    // Create ray in NDC space
+    glm::vec4 rayClip(x, y, -1.0f, 1.0f);
+
+    // Transform to view space
+    glm::vec4 rayEye = glm::inverse(projection) * rayClip;
+    rayEye = glm::vec4(rayEye.x, rayEye.y, -1.0f, 0.0f);
+
+    // Transform to world space
+    glm::vec3 rayWorld = glm::vec3(glm::inverse(view) * rayEye);
+    rayWorld = glm::normalize(rayWorld);
+
+    const glm::vec3 rayOrigin = camera->getPosition();
+    const glm::vec3 rayDirection = rayWorld;
+
+    const glm::ivec3& gridSize = m_grid->getGridSize();
+    const float tileSize = m_grid->getTileSize();
+
+    // Since camera points straight down, we can directly calculate the intersection
+    // Ray-plane intersection with z-planes at each layer
+    const glm::vec3 planeNormal(0.0f, 0.0f, 1.0f); // Top surface faces up
+    const float denom = glm::dot(rayDirection, planeNormal);
+    
+    if (std::abs(denom) < 1e-6f) {
+        // Ray is parallel to the plane (shouldn't happen with top-down camera)
+        return false;
+    }
+
+    // Check layers from top to bottom to find the first valid tile
+    for (int z = gridSize.z - 1; z >= 0; --z) {
+        // Calculate intersection with this z-layer
+        const float planeZ = static_cast<float>(z + 1) * tileSize;
+        const glm::vec3 planePoint(0.0f, 0.0f, planeZ);
+        const glm::vec3 p0ToOrigin = planePoint - rayOrigin;
+        const float t = glm::dot(p0ToOrigin, planeNormal) / denom;
+
+        if (t < 0.0f) {
+            // Intersection is behind the camera
+            continue;
+        }
+
+        const glm::vec3 intersectionPoint = rayOrigin + rayDirection * t;
+
+        // Convert world position to grid coordinates
+        const float halfTile = tileSize * 0.5f;
+        const int gridX = static_cast<int>(std::floor((intersectionPoint.x + halfTile) / tileSize));
+        const int gridY = static_cast<int>(std::floor((intersectionPoint.y + halfTile) / tileSize));
+
+        // Check if within grid bounds
+        if (gridX < 0 || gridX >= gridSize.x || gridY < 0 || gridY >= gridSize.y) {
+            continue;
+        }
+
+        const glm::ivec3 gridPos(gridX, gridY, z);
+        const Tile* tile = m_grid->getTile(gridPos);
+        
+        if (!tile) {
+            continue;
+        }
+        
+        // Check if tile has solid top or any walls
+        if (tile->isTopSolid()) {
+            outTilePos = gridPos;
+            if (debugCounter % 60 == 0) {
+                std::cout << "  Found tile at (" << gridPos.x << ", " << gridPos.y << ", " << gridPos.z 
+                          << ") with solid top" << std::endl;
+            }
+            return true;
+        }
+        
+        // Check for walls
+        for (int i = 0; i < 4; ++i) {
+            if (!tile->getWall(static_cast<WallDirection>(i)).walkable) {
+                outTilePos = gridPos;
+                if (debugCounter % 60 == 0) {
+                    std::cout << "  Found tile at (" << gridPos.x << ", " << gridPos.y << ", " << gridPos.z 
+                              << ") with walls" << std::endl;
+                }
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+void TileGridEditor::handleSelectionHotkeys(InputManager* input) {
+    const bool ctrlDown = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
+
+    // Ctrl+A to select all
+    if (ctrlDown && input->isKeyPressed(GLFW_KEY_A)) {
+        selectAll();
+    }
+
+    // Escape to clear selection or cancel move
+    if (input->isKeyPressed(GLFW_KEY_ESCAPE)) {
+        if (m_moveMode) {
+            m_moveMode = false;
+            m_moveOffset = glm::ivec3(0);
+            std::cout << "Move cancelled" << std::endl;
+        } else if (!m_selectedTiles.empty()) {
+            clearSelection();
+            std::cout << "Selection cleared" << std::endl;
+        }
+    }
+
+    // M to start move mode
+    if (input->isKeyPressed(GLFW_KEY_M) && !m_selectedTiles.empty() && !m_moveMode) {
+        startMove();
+    }
+
+    // Arrow keys to adjust move offset in move mode
+    if (m_moveMode) {
+        if (input->isKeyPressed(GLFW_KEY_UP) || input->isKeyPressed(GLFW_KEY_W)) {
+            m_moveOffset.y++;
+        }
+        if (input->isKeyPressed(GLFW_KEY_DOWN) || input->isKeyPressed(GLFW_KEY_S)) {
+            m_moveOffset.y--;
+        }
+        if (input->isKeyPressed(GLFW_KEY_LEFT) || input->isKeyPressed(GLFW_KEY_A)) {
+            m_moveOffset.x--;
+        }
+        if (input->isKeyPressed(GLFW_KEY_RIGHT) || input->isKeyPressed(GLFW_KEY_D)) {
+            m_moveOffset.x++;
+        }
+        if (input->isKeyPressed(GLFW_KEY_Q)) {
+            m_moveOffset.z--;
+        }
+        if (input->isKeyPressed(GLFW_KEY_E)) {
+            m_moveOffset.z++;
+        }
+
+        // Enter to apply move
+        if (input->isKeyPressed(GLFW_KEY_ENTER)) {
+            applyMove(m_moveOffset);
+        }
+    }
+}
+

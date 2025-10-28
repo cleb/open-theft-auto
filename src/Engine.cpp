@@ -64,7 +64,7 @@ bool Engine::initialize(int width, int height, const std::string& title) {
     
     // Initialize scene
     m_scene = std::make_unique<Scene>();
-    m_scene->initialize(m_gameLogic.get());
+    m_scene->initialize(m_gameLogic.get(), m_window.get(), m_renderer.get());
     
     m_running = true;
     m_lastTime = std::chrono::high_resolution_clock::now();
