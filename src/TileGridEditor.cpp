@@ -1878,89 +1878,37 @@ bool TileGridEditor::getTileAtScreenPosition(double mouseX, double mouseY, glm::
         return false;
     }
 
-    Camera* camera = m_renderer->getCamera();
-    if (!camera) {
-        return false;
-    }
-
-    // Get window dimensions
     const int windowWidth = m_window->getWidth();
     const int windowHeight = m_window->getHeight();
-
-    if (windowWidth <= 0 || windowHeight <= 0) {
-        return false;
-    }
-
-    // Convert screen coordinates to NDC (Normalized Device Coordinates)
-    // Note: OpenGL has origin at bottom-left, but mouse Y is top-down
-    const float x = (2.0f * static_cast<float>(mouseX)) / static_cast<float>(windowWidth) - 1.0f;
-    const float y = 1.0f - (2.0f * static_cast<float>(mouseY)) / static_cast<float>(windowHeight);
+    const glm::ivec3& gridSize = m_grid->getGridSize();
+    const float tileSize = m_grid->getTileSize();
 
     // Debug output (only log occasionally to avoid spam)
     static int debugCounter = 0;
     if (++debugCounter % 60 == 0) {
-        std::cout << "Mouse: (" << mouseX << ", " << mouseY << ") -> NDC: (" << x << ", " << y << ")" << std::endl;
-    }
-
-    // Get projection and view matrices
-    const glm::mat4 projection = glm::perspective(
-        glm::radians(90.0f),
-        static_cast<float>(windowWidth) / static_cast<float>(windowHeight),
-        0.1f,
-        64.0f
-    );
-    const glm::mat4 view = camera->getViewMatrix();
-
-    // Create ray in NDC space
-    glm::vec4 rayClip(x, y, -1.0f, 1.0f);
-
-    // Transform to view space
-    glm::vec4 rayEye = glm::inverse(projection) * rayClip;
-    rayEye = glm::vec4(rayEye.x, rayEye.y, -1.0f, 0.0f);
-
-    // Transform to world space
-    glm::vec3 rayWorld = glm::vec3(glm::inverse(view) * rayEye);
-    rayWorld = glm::normalize(rayWorld);
-
-    const glm::vec3 rayOrigin = camera->getPosition();
-    const glm::vec3 rayDirection = rayWorld;
-
-    const glm::ivec3& gridSize = m_grid->getGridSize();
-    const float tileSize = m_grid->getTileSize();
-
-    // Since camera points straight down, we can directly calculate the intersection
-    // Ray-plane intersection with z-planes at each layer
-    const glm::vec3 planeNormal(0.0f, 0.0f, 1.0f); // Top surface faces up
-    const float denom = glm::dot(rayDirection, planeNormal);
-    
-    if (std::abs(denom) < 1e-6f) {
-        // Ray is parallel to the plane (shouldn't happen with top-down camera)
-        return false;
+        std::cout << "Checking mouse position: (" << mouseX << ", " << mouseY << ")" << std::endl;
     }
 
     // Check layers from top to bottom to find the first valid tile
     for (int z = gridSize.z - 1; z >= 0; --z) {
-        // Calculate intersection with this z-layer
+        // Calculate the Z height of the top surface of tiles at this layer
         const float planeZ = static_cast<float>(z + 1) * tileSize;
-        const glm::vec3 planePoint(0.0f, 0.0f, planeZ);
-        const glm::vec3 p0ToOrigin = planePoint - rayOrigin;
-        const float t = glm::dot(p0ToOrigin, planeNormal) / denom;
-
-        if (t < 0.0f) {
-            // Intersection is behind the camera
-            continue;
+        
+        // Use renderer to convert screen position to world position at this Z height
+        glm::vec3 worldPos;
+        if (!m_renderer->screenToWorldPosition(mouseX, mouseY, windowWidth, windowHeight, planeZ, worldPos)) {
+            continue; // Ray doesn't intersect this plane
         }
 
-        const glm::vec3 intersectionPoint = rayOrigin + rayDirection * t;
-
         // Convert world position to grid coordinates
+        // Grid cells are centered at their grid position, so we need to account for tile size
         const float halfTile = tileSize * 0.5f;
-        const int gridX = static_cast<int>(std::floor((intersectionPoint.x + halfTile) / tileSize));
-        const int gridY = static_cast<int>(std::floor((intersectionPoint.y + halfTile) / tileSize));
+        const int gridX = static_cast<int>(std::floor((worldPos.x + halfTile) / tileSize));
+        const int gridY = static_cast<int>(std::floor((worldPos.y + halfTile) / tileSize));
 
-        // Check if within grid bounds
+        // Check if the calculated grid position is within bounds
         if (gridX < 0 || gridX >= gridSize.x || gridY < 0 || gridY >= gridSize.y) {
-            continue;
+            continue; // Outside grid bounds at this layer
         }
 
         const glm::ivec3 gridPos(gridX, gridY, z);
@@ -1970,7 +1918,7 @@ bool TileGridEditor::getTileAtScreenPosition(double mouseX, double mouseY, glm::
             continue;
         }
         
-        // Check if tile has solid top or any walls
+        // Check if tile has solid top surface
         if (tile->isTopSolid()) {
             outTilePos = gridPos;
             if (debugCounter % 60 == 0) {
@@ -1980,7 +1928,7 @@ bool TileGridEditor::getTileAtScreenPosition(double mouseX, double mouseY, glm::
             return true;
         }
         
-        // Check for walls
+        // Check if tile has any walls
         for (int i = 0; i < 4; ++i) {
             if (!tile->getWall(static_cast<WallDirection>(i)).walkable) {
                 outTilePos = gridPos;

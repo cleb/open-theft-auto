@@ -50,6 +50,12 @@ public:
     
     // Camera
     Camera* getCamera() const { return m_camera.get(); }
-    
+
     void onWindowResize(int width, int height);
+    
+    // Raycasting utilities
+    // Get world position where mouse ray intersects a horizontal plane at given Z height
+    // Returns true if intersection found, false otherwise
+    bool screenToWorldPosition(double mouseX, double mouseY, int windowWidth, int windowHeight,
+                               float planeZ, glm::vec3& outWorldPos) const;
 };

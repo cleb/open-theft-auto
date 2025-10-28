@@ -186,10 +186,68 @@ Shader* Renderer::getShader(const std::string& name) {
 
 void Renderer::onWindowResize(int width, int height) {
     glViewport(0, 0, width, height);
-    
+
     // Update projection matrix
     float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
     float viewSize = 20.0f;
-    m_projectionMatrix = glm::ortho(-viewSize * aspectRatio, viewSize * aspectRatio, 
+    m_projectionMatrix = glm::ortho(-viewSize * aspectRatio, viewSize * aspectRatio,
                                    -viewSize, viewSize, 0.1f, 100.0f);
+}
+
+bool Renderer::screenToWorldPosition(double mouseX, double mouseY, int windowWidth, int windowHeight,
+                                      float planeZ, glm::vec3& outWorldPos) const {
+    if (!m_camera || windowWidth <= 0 || windowHeight <= 0) {
+        return false;
+    }
+
+    // Step 1: Convert screen coordinates to Normalized Device Coordinates (NDC)
+    // Screen space: origin at top-left, Y increases downward
+    // NDC space: origin at center, X and Y range from -1 to 1
+    const float ndcX = (2.0f * static_cast<float>(mouseX)) / static_cast<float>(windowWidth) - 1.0f;
+    const float ndcY = 1.0f - (2.0f * static_cast<float>(mouseY)) / static_cast<float>(windowHeight);
+    
+    // Step 2: Create a ray in clip space (NDC with depth and w component)
+    // Z = -1 points into the screen (near plane in NDC)
+    glm::vec4 rayClipSpace(ndcX, ndcY, -1.0f, 1.0f);
+    
+    // Step 3: Transform ray from clip space to view space (camera space)
+    // Inverse projection removes the perspective/orthographic transformation
+    glm::vec4 rayViewSpace = glm::inverse(m_projectionMatrix) * rayClipSpace;
+    // For direction vector, we want w=0 (vector, not point)
+    rayViewSpace = glm::vec4(rayViewSpace.x, rayViewSpace.y, -1.0f, 0.0f);
+    
+    // Step 4: Transform ray from view space to world space
+    glm::vec3 rayWorldDirection = glm::vec3(glm::inverse(m_viewMatrix) * rayViewSpace);
+    rayWorldDirection = glm::normalize(rayWorldDirection);
+    
+    // Step 5: Get ray origin (camera position in world space)
+    const glm::vec3 rayOrigin = m_camera->getPosition();
+    
+    // Step 6: Perform ray-plane intersection
+    // Plane equation: all points where Z = planeZ
+    // Plane normal: (0, 0, 1) pointing up along Z-axis
+    const glm::vec3 planeNormal(0.0f, 0.0f, 1.0f);
+    const glm::vec3 planePoint(0.0f, 0.0f, planeZ);
+    
+    // Calculate denominator: how aligned is the ray with the plane normal?
+    const float denominator = glm::dot(rayWorldDirection, planeNormal);
+    
+    // Check if ray is parallel to plane (denominator near zero)
+    if (std::abs(denominator) < 1e-6f) {
+        return false; // No intersection or ray lies in plane
+    }
+    
+    // Calculate distance along ray to intersection point
+    // Formula: t = dot(planePoint - rayOrigin, planeNormal) / dot(rayDirection, planeNormal)
+    const glm::vec3 originToPlane = planePoint - rayOrigin;
+    const float t = glm::dot(originToPlane, planeNormal) / denominator;
+    
+    // Check if intersection is behind the camera (negative t)
+    if (t < 0.0f) {
+        return false;
+    }
+    
+    // Calculate final world position of intersection
+    outWorldPos = rayOrigin + rayWorldDirection * t;
+    return true;
 }
