@@ -27,7 +27,7 @@ bool Renderer::initialize(int windowWidth, int windowHeight) {
     
     // Initialize camera
     m_camera = std::make_unique<Camera>();
-    m_camera->setPosition(glm::vec3(0.0f, -8.0f, 12.0f));
+    m_camera->setPosition(glm::vec3(0.0f, 0.0f, 12.0f));
     m_camera->lookAt(glm::vec3(0.0f, 0.0f, 0.0f));
     
     // Initialize sprite rendering data
@@ -200,54 +200,47 @@ bool Renderer::screenToWorldPosition(double mouseX, double mouseY, int windowWid
         return false;
     }
 
-    // Step 1: Convert screen coordinates to Normalized Device Coordinates (NDC)
-    // Screen space: origin at top-left, Y increases downward
-    // NDC space: origin at center, X and Y range from -1 to 1
+    // Convert screen coordinates to Normalized Device Coordinates (NDC)
+    // Screen: origin at top-left, Y down. NDC: origin at center, both X and Y in [-1, 1]
     const float ndcX = (2.0f * static_cast<float>(mouseX)) / static_cast<float>(windowWidth) - 1.0f;
     const float ndcY = 1.0f - (2.0f * static_cast<float>(mouseY)) / static_cast<float>(windowHeight);
+
+    // For orthographic projection, we can directly map NDC to world space
+    // by inverting the view-projection transformation
+    const glm::mat4 viewProjection = m_projectionMatrix * m_viewMatrix;
+    const glm::mat4 inverseViewProjection = glm::inverse(viewProjection);
     
-    // Step 2: Create a ray in clip space (NDC with depth and w component)
-    // Z = -1 points into the screen (near plane in NDC)
-    glm::vec4 rayClipSpace(ndcX, ndcY, -1.0f, 1.0f);
+    // Create a point in NDC space at the target Z plane
+    // We need to find the correct NDC Z value that corresponds to our world Z
+    // For now, we'll use a point and solve for where it intersects planeZ
     
-    // Step 3: Transform ray from clip space to view space (camera space)
-    // Inverse projection removes the perspective/orthographic transformation
-    glm::vec4 rayViewSpace = glm::inverse(m_projectionMatrix) * rayClipSpace;
-    // For direction vector, we want w=0 (vector, not point)
-    rayViewSpace = glm::vec4(rayViewSpace.x, rayViewSpace.y, -1.0f, 0.0f);
+    // Transform NDC point to world space (at near plane, z=-1 in NDC)
+    glm::vec4 nearPoint = inverseViewProjection * glm::vec4(ndcX, ndcY, -1.0f, 1.0f);
+    nearPoint /= nearPoint.w; // Perspective divide
     
-    // Step 4: Transform ray from view space to world space
-    glm::vec3 rayWorldDirection = glm::vec3(glm::inverse(m_viewMatrix) * rayViewSpace);
-    rayWorldDirection = glm::normalize(rayWorldDirection);
+    // Transform NDC point to world space (at far plane, z=1 in NDC)
+    glm::vec4 farPoint = inverseViewProjection * glm::vec4(ndcX, ndcY, 1.0f, 1.0f);
+    farPoint /= farPoint.w; // Perspective divide
     
-    // Step 5: Get ray origin (camera position in world space)
-    const glm::vec3 rayOrigin = m_camera->getPosition();
+    // Now we have a ray from nearPoint to farPoint in world space
+    // Find where this ray intersects the plane at Z = planeZ
+    const float nearZ = nearPoint.z;
+    const float farZ = farPoint.z;
     
-    // Step 6: Perform ray-plane intersection
-    // Plane equation: all points where Z = planeZ
-    // Plane normal: (0, 0, 1) pointing up along Z-axis
-    const glm::vec3 planeNormal(0.0f, 0.0f, 1.0f);
-    const glm::vec3 planePoint(0.0f, 0.0f, planeZ);
-    
-    // Calculate denominator: how aligned is the ray with the plane normal?
-    const float denominator = glm::dot(rayWorldDirection, planeNormal);
-    
-    // Check if ray is parallel to plane (denominator near zero)
-    if (std::abs(denominator) < 1e-6f) {
-        return false; // No intersection or ray lies in plane
+    // Check if the plane is between near and far points
+    if ((planeZ < nearZ && planeZ < farZ) || (planeZ > nearZ && planeZ > farZ)) {
+        return false; // Plane is outside the ray
     }
     
-    // Calculate distance along ray to intersection point
-    // Formula: t = dot(planePoint - rayOrigin, planeNormal) / dot(rayDirection, planeNormal)
-    const glm::vec3 originToPlane = planePoint - rayOrigin;
-    const float t = glm::dot(originToPlane, planeNormal) / denominator;
+    // Linear interpolation to find the intersection point
+    // t = (planeZ - nearZ) / (farZ - nearZ)
+    const float t = (planeZ - nearZ) / (farZ - nearZ);
     
-    // Check if intersection is behind the camera (negative t)
-    if (t < 0.0f) {
-        return false;
-    }
+    outWorldPos = glm::vec3(
+        nearPoint.x + t * (farPoint.x - nearPoint.x),
+        nearPoint.y + t * (farPoint.y - nearPoint.y),
+        planeZ
+    );
     
-    // Calculate final world position of intersection
-    outWorldPos = rayOrigin + rayWorldDirection * t;
     return true;
 }

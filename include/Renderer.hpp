@@ -53,9 +53,8 @@ public:
 
     void onWindowResize(int width, int height);
     
-    // Raycasting utilities
-    // Get world position where mouse ray intersects a horizontal plane at given Z height
-    // Returns true if intersection found, false otherwise
+    // Convert screen coordinates to world position at a given Z plane
+    // Uses inverse view-projection matrix to unproject screen coordinates
     bool screenToWorldPosition(double mouseX, double mouseY, int windowWidth, int windowHeight,
                                float planeZ, glm::vec3& outWorldPos) const;
 };
