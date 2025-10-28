@@ -23,7 +23,7 @@ private:
     GLuint m_spriteVAO;
     GLuint m_spriteVBO;
     void initializeSpriteData();
-    
+
 public:
     Renderer();
     ~Renderer();

@@ -1892,7 +1892,7 @@ bool TileGridEditor::getTileAtScreenPosition(double mouseX, double mouseY, glm::
     // Check layers from top to bottom to find the first valid tile
     for (int z = gridSize.z - 1; z >= 0; --z) {
         // Calculate the Z height of the top surface of tiles at this layer
-        const float planeZ = static_cast<float>(z + 1) * tileSize;
+        const float planeZ = static_cast<float>(z) * tileSize;
         
         // Use renderer to convert screen position to world position at this Z height
         glm::vec3 worldPos;
