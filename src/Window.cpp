@@ -3,7 +3,7 @@
 #include <iostream>
 #include <imgui_impl_glfw.h>
 
-Window::Window() : m_window(nullptr), m_width(0), m_height(0), m_inputManager(nullptr) {
+Window::Window() : m_window(nullptr), m_width(0), m_height(0), m_inputManager(nullptr), m_resizeCallback(nullptr) {
 }
 
 Window::~Window() {
@@ -87,6 +87,9 @@ void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height) 
         windowInstance->m_width = width;
         windowInstance->m_height = height;
         glViewport(0, 0, width, height);
+        if (windowInstance->m_resizeCallback) {
+            windowInstance->m_resizeCallback(width, height);
+        }
     }
 }
 

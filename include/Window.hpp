@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <functional>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
@@ -13,6 +14,7 @@ private:
     int m_height;
     std::string m_title;
     InputManager* m_inputManager;
+    std::function<void(int, int)> m_resizeCallback;
 
 public:
     Window();
@@ -29,6 +31,8 @@ public:
     int getWidth() const { return m_width; }
     int getHeight() const { return m_height; }
     float getAspectRatio() const { return static_cast<float>(m_width) / static_cast<float>(m_height); }
+    
+    void setResizeCallback(std::function<void(int, int)> callback) { m_resizeCallback = callback; }
     
     // Callbacks
     static void framebufferSizeCallback(GLFWwindow* window, int width, int height);

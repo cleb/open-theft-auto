@@ -187,11 +187,9 @@ Shader* Renderer::getShader(const std::string& name) {
 void Renderer::onWindowResize(int width, int height) {
     glViewport(0, 0, width, height);
 
-    // Update projection matrix
+    // Update projection matrix (use perspective to match initialize)
     float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
-    float viewSize = 20.0f;
-    m_projectionMatrix = glm::ortho(-viewSize * aspectRatio, viewSize * aspectRatio,
-                                   -viewSize, viewSize, 0.1f, 100.0f);
+    m_projectionMatrix = glm::perspective(1.57f, aspectRatio, 0.1f, 64.0f);
 }
 
 bool Renderer::screenToWorldPosition(double mouseX, double mouseY, int windowWidth, int windowHeight,

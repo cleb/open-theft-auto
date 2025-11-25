@@ -43,6 +43,13 @@ bool Engine::initialize(int width, int height, const std::string& title) {
         return false;
     }
     
+    // Set up window resize callback to update renderer projection
+    m_window->setResizeCallback([this](int w, int h) {
+        if (m_renderer) {
+            m_renderer->onWindowResize(w, h);
+        }
+    });
+    
     // Initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
