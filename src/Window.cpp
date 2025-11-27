@@ -48,6 +48,7 @@ bool Window::create(int width, int height, const std::string& title, InputManage
     glfwSetKeyCallback(m_window, keyCallback);
     glfwSetMouseButtonCallback(m_window, mouseButtonCallback);
     glfwSetCursorPosCallback(m_window, cursorPosCallback);
+    glfwSetCursorEnterCallback(m_window, cursorEnterCallback);
     glfwSetScrollCallback(m_window, scrollCallback);
     glfwSetCharCallback(m_window, charCallback);
 
@@ -121,6 +122,15 @@ void Window::cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
 
     ImGui_ImplGlfw_CursorPosCallback(window, xpos, ypos);
     windowInstance->m_inputManager->onCursorPos(xpos, ypos);
+}
+
+void Window::cursorEnterCallback(GLFWwindow* window, int entered) {
+    Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
+    if (!windowInstance || !windowInstance->m_inputManager) {
+        return;
+    }
+
+    windowInstance->m_inputManager->onCursorEnter(entered == GLFW_TRUE);
 }
 
 void Window::scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {

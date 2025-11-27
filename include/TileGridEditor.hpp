@@ -34,7 +34,7 @@ public:
     bool isEnabled() const { return m_enabled; }
 
     void update(float deltaTime);
-    void processInput(InputManager* input);
+    void processInput(InputManager* input, float deltaTime);
     void render(Renderer* renderer);
     void drawGui();
 
@@ -113,6 +113,11 @@ private:
     bool m_hasHoverTile;
     glm::ivec3 m_hoverTile;
     glm::vec3 m_hoverColor;
+    int m_hoverLayerOffset;
+    
+    // Edge scrolling
+    float m_edgeScrollSpeed;
+    float m_edgeScrollMargin;
 
     bool m_helpPrinted;
     UiTileState m_uiTileState;

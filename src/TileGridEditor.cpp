@@ -130,6 +130,9 @@ TileGridEditor::TileGridEditor()
     , m_hasHoverTile(false)
     , m_hoverTile(0)
     , m_hoverColor(1.0f, 1.0f, 0.3f)
+    , m_hoverLayerOffset(0)
+    , m_edgeScrollSpeed(15.0f)
+    , m_edgeScrollMargin(50.0f)
     , m_helpPrinted(false)
     , m_pendingGridSize(0)
     , m_gridResizeError() {
@@ -206,7 +209,7 @@ void TileGridEditor::update(float deltaTime) {
     clampCursor();
 }
 
-void TileGridEditor::processInput(InputManager* input) {
+void TileGridEditor::processInput(InputManager* input, float deltaTime) {
     if (!m_enabled || !m_grid || !input) {
         return;
     }
@@ -216,6 +219,35 @@ void TileGridEditor::processInput(InputManager* input) {
     ImGuiIO& io = ImGui::GetIO();
     const bool captureKeyboard = io.WantCaptureKeyboard;
     const bool captureMouse = io.WantCaptureMouse;
+
+    // Edge scrolling - move camera when mouse is near window edges (but inside window)
+    if (!captureMouse && m_window && m_renderer && input->isCursorInWindow()) {
+        const int windowWidth = m_window->getWidth();
+        const int windowHeight = m_window->getHeight();
+        const double mouseX = input->getMouseX();
+        const double mouseY = input->getMouseY();
+        
+        glm::vec3 scrollDir(0.0f);
+        
+        if (mouseX < m_edgeScrollMargin) {
+            scrollDir.x = -1.0f;
+        } else if (mouseX > windowWidth - m_edgeScrollMargin) {
+            scrollDir.x = 1.0f;
+        }
+        
+        if (mouseY < m_edgeScrollMargin) {
+            scrollDir.y = 1.0f;  // Y is inverted in screen coords
+        } else if (mouseY > windowHeight - m_edgeScrollMargin) {
+            scrollDir.y = -1.0f;
+        }
+        
+        if (scrollDir != glm::vec3(0.0f)) {
+            Camera* camera = m_renderer->getCamera();
+            if (camera) {
+                camera->move(scrollDir * m_edgeScrollSpeed * deltaTime);
+            }
+        }
+    }
 
     if (!captureKeyboard) {
         handleBrushHotkeys(input);
@@ -283,6 +315,25 @@ void TileGridEditor::processInput(InputManager* input) {
         // Update hover tile
         m_hasHoverTile = getTileAtScreenPosition(input->getMouseX(), input->getMouseY(), m_hoverTile);
         
+        // Apply hover layer offset from scroll wheel
+        if (m_hasHoverTile && m_grid) {
+            const glm::ivec3& gridSize = m_grid->getGridSize();
+            m_hoverTile.z = std::clamp(m_hoverTile.z + m_hoverLayerOffset, 0, gridSize.z - 1);
+        }
+        
+        // Handle scroll wheel to change hover layer offset
+        double scrollY = input->getScrollDeltaY();
+        if (scrollY != 0.0) {
+            if (m_grid) {
+                const glm::ivec3& gridSize = m_grid->getGridSize();
+                if (scrollY > 0) {
+                    m_hoverLayerOffset = std::min(m_hoverLayerOffset + 1, gridSize.z - 1);
+                } else {
+                    m_hoverLayerOffset = std::max(m_hoverLayerOffset - 1, -(gridSize.z - 1));
+                }
+            }
+        }
+        
         static int hoverDebugCounter = 0;
         if (++hoverDebugCounter % 60 == 0) {
             if (m_hasHoverTile) {
@@ -300,9 +351,29 @@ void TileGridEditor::processInput(InputManager* input) {
     const bool shiftDown = input->isKeyDown(GLFW_KEY_LEFT_SHIFT) || input->isKeyDown(GLFW_KEY_RIGHT_SHIFT);
     const bool ctrlDown = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
     const bool applySpace = !captureKeyboard && input->isKeyPressed(GLFW_KEY_SPACE);
-    const bool applyClick = !captureMouse && input->isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT) 
+    
+    // Left click without modifiers: if a prefab is selected, apply it; otherwise navigate to tile
+    const bool plainClick = !captureMouse && input->isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT) 
                             && !m_isSelecting && !shiftDown && !ctrlDown;
-    if (applySpace || applyClick) {
+    if (plainClick && m_hasHoverTile) {
+        if (m_selectedPrefabIndex >= 0 && m_selectedPrefabIndex < static_cast<int>(m_prefabs.size())) {
+            // Prefab selected: navigate and apply
+            m_cursor = m_hoverTile;
+            clampCursor();
+            announceCursor();
+            refreshUiStateFromTile();
+            applyPrefab(static_cast<std::size_t>(m_selectedPrefabIndex));
+        } else {
+            // No prefab selected: just navigate to the tile (like keyboard navigation)
+            m_cursor = m_hoverTile;
+            clampCursor();
+            announceCursor();
+            refreshUiStateFromTile();
+        }
+    }
+    
+    // Space always applies the current brush at the cursor position
+    if (applySpace) {
         applyBrush();
     }
 }
@@ -503,18 +574,78 @@ void TileGridEditor::ensureCursorMesh() {
     const float tileSize = m_grid->getTileSize();
     const float halfSize = tileSize * 0.5f;
     const float height = tileSize;
+    const float lineWidth = tileSize * 0.06f;
 
-    std::vector<Vertex> vertices = {
-        {{-halfSize, -halfSize, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}},
-        {{ halfSize, -halfSize, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
-        {{ halfSize,  halfSize, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-        {{-halfSize,  halfSize, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+    std::vector<Vertex> vertices;
+    std::vector<GLuint> indices;
+
+    // Helper to add a face outline (4 edges as thin quads)
+    auto addFaceOutline = [&](const glm::vec3& corner0, const glm::vec3& corner1, 
+                               const glm::vec3& corner2, const glm::vec3& corner3,
+                               const glm::vec3& normal) {
+        // Edge 0-1
+        GLuint base = static_cast<GLuint>(vertices.size());
+        glm::vec3 dir01 = glm::normalize(corner1 - corner0);
+        glm::vec3 perp01 = glm::cross(normal, dir01) * lineWidth * 0.5f;
+        vertices.push_back({corner0 - perp01, normal, {0.0f, 0.0f}});
+        vertices.push_back({corner0 + perp01, normal, {0.0f, 1.0f}});
+        vertices.push_back({corner1 + perp01, normal, {1.0f, 1.0f}});
+        vertices.push_back({corner1 - perp01, normal, {1.0f, 0.0f}});
+        indices.insert(indices.end(), {base, base+1, base+2, base+2, base+3, base});
+
+        // Edge 1-2
+        base = static_cast<GLuint>(vertices.size());
+        glm::vec3 dir12 = glm::normalize(corner2 - corner1);
+        glm::vec3 perp12 = glm::cross(normal, dir12) * lineWidth * 0.5f;
+        vertices.push_back({corner1 - perp12, normal, {0.0f, 0.0f}});
+        vertices.push_back({corner1 + perp12, normal, {0.0f, 1.0f}});
+        vertices.push_back({corner2 + perp12, normal, {1.0f, 1.0f}});
+        vertices.push_back({corner2 - perp12, normal, {1.0f, 0.0f}});
+        indices.insert(indices.end(), {base, base+1, base+2, base+2, base+3, base});
+
+        // Edge 2-3
+        base = static_cast<GLuint>(vertices.size());
+        glm::vec3 dir23 = glm::normalize(corner3 - corner2);
+        glm::vec3 perp23 = glm::cross(normal, dir23) * lineWidth * 0.5f;
+        vertices.push_back({corner2 - perp23, normal, {0.0f, 0.0f}});
+        vertices.push_back({corner2 + perp23, normal, {0.0f, 1.0f}});
+        vertices.push_back({corner3 + perp23, normal, {1.0f, 1.0f}});
+        vertices.push_back({corner3 - perp23, normal, {1.0f, 0.0f}});
+        indices.insert(indices.end(), {base, base+1, base+2, base+2, base+3, base});
+
+        // Edge 3-0
+        base = static_cast<GLuint>(vertices.size());
+        glm::vec3 dir30 = glm::normalize(corner0 - corner3);
+        glm::vec3 perp30 = glm::cross(normal, dir30) * lineWidth * 0.5f;
+        vertices.push_back({corner3 - perp30, normal, {0.0f, 0.0f}});
+        vertices.push_back({corner3 + perp30, normal, {0.0f, 1.0f}});
+        vertices.push_back({corner0 + perp30, normal, {1.0f, 1.0f}});
+        vertices.push_back({corner0 - perp30, normal, {1.0f, 0.0f}});
+        indices.insert(indices.end(), {base, base+1, base+2, base+2, base+3, base});
     };
 
-    std::vector<GLuint> indices = {
-        0, 1, 2,
-        2, 3, 0
-    };
+    // Define the 8 corners of the cube
+    glm::vec3 v0(-halfSize, -halfSize, 0.0f);      // bottom front left
+    glm::vec3 v1( halfSize, -halfSize, 0.0f);      // bottom front right
+    glm::vec3 v2( halfSize,  halfSize, 0.0f);      // bottom back right
+    glm::vec3 v3(-halfSize,  halfSize, 0.0f);      // bottom back left
+    glm::vec3 v4(-halfSize, -halfSize, height);    // top front left
+    glm::vec3 v5( halfSize, -halfSize, height);    // top front right
+    glm::vec3 v6( halfSize,  halfSize, height);    // top back right
+    glm::vec3 v7(-halfSize,  halfSize, height);    // top back left
+
+    // Top face (Z+)
+    addFaceOutline(v4, v5, v6, v7, glm::vec3(0.0f, 0.0f, 1.0f));
+    // Bottom face (Z-)
+    addFaceOutline(v0, v3, v2, v1, glm::vec3(0.0f, 0.0f, -1.0f));
+    // Front face (Y-)
+    addFaceOutline(v0, v1, v5, v4, glm::vec3(0.0f, -1.0f, 0.0f));
+    // Back face (Y+)
+    addFaceOutline(v2, v3, v7, v6, glm::vec3(0.0f, 1.0f, 0.0f));
+    // Left face (X-)
+    addFaceOutline(v3, v0, v4, v7, glm::vec3(-1.0f, 0.0f, 0.0f));
+    // Right face (X+)
+    addFaceOutline(v1, v2, v6, v5, glm::vec3(1.0f, 0.0f, 0.0f));
 
     m_cursorMesh = std::make_unique<Mesh>(vertices, indices);
     if (!m_cursorTexture) {
@@ -572,43 +703,79 @@ void TileGridEditor::ensureSelectionMesh() {
 
     const float tileSize = m_grid->getTileSize();
     const float halfSize = tileSize * 0.5f;
-    const float height = tileSize * 0.8f;
-    const float lineWidth = tileSize * 0.08f;
+    const float height = tileSize;
+    const float lineWidth = tileSize * 0.06f;
 
     std::vector<Vertex> vertices;
     std::vector<GLuint> indices;
 
-    // Create a hollow box outline
-    // Top edge
-    vertices.push_back({{-halfSize, -halfSize, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}});
-    vertices.push_back({{halfSize, -halfSize, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}});
-    vertices.push_back({{halfSize, -halfSize + lineWidth, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.1f}});
-    vertices.push_back({{-halfSize, -halfSize + lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.1f}});
-    indices.insert(indices.end(), {0, 1, 2, 2, 3, 0});
+    // Helper to add a face outline (4 edges as thin quads)
+    auto addFaceOutline = [&](const glm::vec3& corner0, const glm::vec3& corner1, 
+                               const glm::vec3& corner2, const glm::vec3& corner3,
+                               const glm::vec3& normal) {
+        // Edge 0-1
+        GLuint base = static_cast<GLuint>(vertices.size());
+        glm::vec3 dir01 = glm::normalize(corner1 - corner0);
+        glm::vec3 perp01 = glm::cross(normal, dir01) * lineWidth * 0.5f;
+        vertices.push_back({corner0 - perp01, normal, {0.0f, 0.0f}});
+        vertices.push_back({corner0 + perp01, normal, {0.0f, 1.0f}});
+        vertices.push_back({corner1 + perp01, normal, {1.0f, 1.0f}});
+        vertices.push_back({corner1 - perp01, normal, {1.0f, 0.0f}});
+        indices.insert(indices.end(), {base, base+1, base+2, base+2, base+3, base});
 
-    // Bottom edge
-    GLuint offset = 4;
-    vertices.push_back({{-halfSize, halfSize - lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.9f}});
-    vertices.push_back({{halfSize, halfSize - lineWidth, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.9f}});
-    vertices.push_back({{halfSize, halfSize, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}});
-    vertices.push_back({{-halfSize, halfSize, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}});
-    indices.insert(indices.end(), {offset, offset+1, offset+2, offset+2, offset+3, offset});
+        // Edge 1-2
+        base = static_cast<GLuint>(vertices.size());
+        glm::vec3 dir12 = glm::normalize(corner2 - corner1);
+        glm::vec3 perp12 = glm::cross(normal, dir12) * lineWidth * 0.5f;
+        vertices.push_back({corner1 - perp12, normal, {0.0f, 0.0f}});
+        vertices.push_back({corner1 + perp12, normal, {0.0f, 1.0f}});
+        vertices.push_back({corner2 + perp12, normal, {1.0f, 1.0f}});
+        vertices.push_back({corner2 - perp12, normal, {1.0f, 0.0f}});
+        indices.insert(indices.end(), {base, base+1, base+2, base+2, base+3, base});
 
-    // Left edge
-    offset = 8;
-    vertices.push_back({{-halfSize, -halfSize + lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.1f}});
-    vertices.push_back({{-halfSize + lineWidth, -halfSize + lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.1f, 0.1f}});
-    vertices.push_back({{-halfSize + lineWidth, halfSize - lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.1f, 0.9f}});
-    vertices.push_back({{-halfSize, halfSize - lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.9f}});
-    indices.insert(indices.end(), {offset, offset+1, offset+2, offset+2, offset+3, offset});
+        // Edge 2-3
+        base = static_cast<GLuint>(vertices.size());
+        glm::vec3 dir23 = glm::normalize(corner3 - corner2);
+        glm::vec3 perp23 = glm::cross(normal, dir23) * lineWidth * 0.5f;
+        vertices.push_back({corner2 - perp23, normal, {0.0f, 0.0f}});
+        vertices.push_back({corner2 + perp23, normal, {0.0f, 1.0f}});
+        vertices.push_back({corner3 + perp23, normal, {1.0f, 1.0f}});
+        vertices.push_back({corner3 - perp23, normal, {1.0f, 0.0f}});
+        indices.insert(indices.end(), {base, base+1, base+2, base+2, base+3, base});
 
-    // Right edge
-    offset = 12;
-    vertices.push_back({{halfSize - lineWidth, -halfSize + lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.9f, 0.1f}});
-    vertices.push_back({{halfSize, -halfSize + lineWidth, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.1f}});
-    vertices.push_back({{halfSize, halfSize - lineWidth, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.9f}});
-    vertices.push_back({{halfSize - lineWidth, halfSize - lineWidth, height}, {0.0f, 0.0f, 1.0f}, {0.9f, 0.9f}});
-    indices.insert(indices.end(), {offset, offset+1, offset+2, offset+2, offset+3, offset});
+        // Edge 3-0
+        base = static_cast<GLuint>(vertices.size());
+        glm::vec3 dir30 = glm::normalize(corner0 - corner3);
+        glm::vec3 perp30 = glm::cross(normal, dir30) * lineWidth * 0.5f;
+        vertices.push_back({corner3 - perp30, normal, {0.0f, 0.0f}});
+        vertices.push_back({corner3 + perp30, normal, {0.0f, 1.0f}});
+        vertices.push_back({corner0 + perp30, normal, {1.0f, 1.0f}});
+        vertices.push_back({corner0 - perp30, normal, {1.0f, 0.0f}});
+        indices.insert(indices.end(), {base, base+1, base+2, base+2, base+3, base});
+    };
+
+    // Define the 8 corners of the cube
+    glm::vec3 v0(-halfSize, -halfSize, 0.0f);      // bottom front left
+    glm::vec3 v1( halfSize, -halfSize, 0.0f);      // bottom front right
+    glm::vec3 v2( halfSize,  halfSize, 0.0f);      // bottom back right
+    glm::vec3 v3(-halfSize,  halfSize, 0.0f);      // bottom back left
+    glm::vec3 v4(-halfSize, -halfSize, height);    // top front left
+    glm::vec3 v5( halfSize, -halfSize, height);    // top front right
+    glm::vec3 v6( halfSize,  halfSize, height);    // top back right
+    glm::vec3 v7(-halfSize,  halfSize, height);    // top back left
+
+    // Top face (Z+)
+    addFaceOutline(v4, v5, v6, v7, glm::vec3(0.0f, 0.0f, 1.0f));
+    // Bottom face (Z-)
+    addFaceOutline(v0, v3, v2, v1, glm::vec3(0.0f, 0.0f, -1.0f));
+    // Front face (Y-)
+    addFaceOutline(v0, v1, v5, v4, glm::vec3(0.0f, -1.0f, 0.0f));
+    // Back face (Y+)
+    addFaceOutline(v2, v3, v7, v6, glm::vec3(0.0f, 1.0f, 0.0f));
+    // Left face (X-)
+    addFaceOutline(v3, v0, v4, v7, glm::vec3(-1.0f, 0.0f, 0.0f));
+    // Right face (X+)
+    addFaceOutline(v1, v2, v6, v5, glm::vec3(1.0f, 0.0f, 0.0f));
 
     m_selectionMesh = std::make_unique<Mesh>(vertices, indices);
     auto selectionTexture = std::make_shared<Texture>();
@@ -737,6 +904,8 @@ void TileGridEditor::printHelp() const {
     std::cout << "Edit mode controls:\n"
               << "  Arrow keys / WASD: move cursor\n"
               << "  Q / E: change layer\n"
+              << "  Scroll wheel: change hover layer offset\n"
+              << "  Mouse near edge: scroll camera\n"
               << "  1: grass brush\n"
               << "  2: road brush\n"
               << "  3: empty brush\n"
@@ -744,12 +913,13 @@ void TileGridEditor::printHelp() const {
               << "  R: cycle road direction / rotate vehicle\n"
               << "  Delete: remove vehicle at cursor\n"
               << "  I/J/K/L: toggle wall (north/west/south/east)\n"
-              << "  Space or Left Click: apply brush\n"
+              << "  Space: apply brush at cursor\n"
+              << "  Left Click: navigate to tile (or apply prefab if selected)\n"
               << "  Shift+Drag (mouse): select area of tiles\n"
               << "  Ctrl+Click (mouse): toggle individual tile selection\n"
               << "  Ctrl+A: select all\n"
               << "  M: move selected tiles\n"
-              << "  Escape: clear selection / cancel move\n"
+              << "  Escape: clear selection / cancel move / deselect prefab\n"
               << "  Ctrl+1-9: apply prefab\n"
               << "  Ctrl+S: save level\n"
               << "  F1: exit edit mode" << std::endl;
@@ -811,6 +981,18 @@ void TileGridEditor::drawPrefabControls() {
     ImGui::EndDisabled();
     ImGui::SameLine();
     ImGui::TextDisabled("Ctrl+1-9 to apply");
+
+    // Show selected prefab and allow deselection
+    if (m_selectedPrefabIndex >= 0 && m_selectedPrefabIndex < static_cast<int>(m_prefabs.size())) {
+        ImGui::Text("Selected: %s", m_prefabs[static_cast<std::size_t>(m_selectedPrefabIndex)].name.c_str());
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Deselect")) {
+            m_selectedPrefabIndex = -1;
+        }
+        ImGui::TextDisabled("Click tile to apply prefab, or deselect to navigate");
+    } else {
+        ImGui::TextDisabled("No prefab selected (click navigates to tile)");
+    }
 
     ImVec2 listSize = ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 6.0f);
     if (ImGui::BeginChild("PrefabList", listSize, true)) {
@@ -1952,7 +2134,7 @@ void TileGridEditor::handleSelectionHotkeys(InputManager* input) {
         selectAll();
     }
 
-    // Escape to clear selection or cancel move
+    // Escape to clear selection, cancel move, or deselect prefab
     if (input->isKeyPressed(GLFW_KEY_ESCAPE)) {
         if (m_moveMode) {
             m_moveMode = false;
@@ -1961,6 +2143,9 @@ void TileGridEditor::handleSelectionHotkeys(InputManager* input) {
         } else if (!m_selectedTiles.empty()) {
             clearSelection();
             std::cout << "Selection cleared" << std::endl;
+        } else if (m_selectedPrefabIndex >= 0) {
+            m_selectedPrefabIndex = -1;
+            std::cout << "Prefab deselected" << std::endl;
         }
     }
 

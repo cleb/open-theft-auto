@@ -8,6 +8,9 @@ InputManager::InputManager()
     , m_deltaMouseY(0.0)
     , m_lastMouseX(0.0)
     , m_lastMouseY(0.0)
+    , m_scrollDeltaX(0.0)
+    , m_scrollDeltaY(0.0)
+    , m_cursorInWindow(true)
     , m_firstMouse(true) {
 }
 
@@ -26,6 +29,9 @@ void InputManager::initialize() {
     m_deltaMouseY = 0.0;
     m_lastMouseX = 0.0;
     m_lastMouseY = 0.0;
+    m_scrollDeltaX = 0.0;
+    m_scrollDeltaY = 0.0;
+    m_cursorInWindow = true;
     m_firstMouse = true;
 }
 
@@ -53,6 +59,8 @@ void InputManager::update() {
 void InputManager::clearPressed() {
     m_keysPressed.clear();
     m_mouseButtonsPressed.clear();
+    m_scrollDeltaX = 0.0;
+    m_scrollDeltaY = 0.0;
 }
 
 bool InputManager::isKeyDown(int key) const {
@@ -98,9 +106,13 @@ void InputManager::onCursorPos(double xpos, double ypos) {
     m_mouseY = ypos;
 }
 
+void InputManager::onCursorEnter(bool entered) {
+    m_cursorInWindow = entered;
+}
+
 void InputManager::onScroll(double xoffset, double yoffset) {
-    (void)xoffset;
-    (void)yoffset;
+    m_scrollDeltaX += xoffset;
+    m_scrollDeltaY += yoffset;
 }
 
 void InputManager::onChar(unsigned int codepoint) {

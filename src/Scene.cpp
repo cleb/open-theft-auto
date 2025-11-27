@@ -79,22 +79,21 @@ void Scene::update(float deltaTime) {
 void Scene::render(Renderer* renderer) {
     if (!renderer) return;
     
-    // Update camera target
+    // Update camera target (skip in editor mode - edge scrolling controls camera)
     if (renderer->getCamera()) {
-        glm::vec3 target(0.0f);
-        if (m_tileGridEditor && m_tileGridEditor->isEnabled() && m_tileGrid) {
-            const glm::ivec3 cursor = m_tileGridEditor->getCursor();
-            target = m_tileGrid->gridToWorld(cursor);
-            target.z += m_tileGrid->getTileSize();
-        } else if (m_gameLogic && m_gameLogic->isPlayerInVehicle()) {
-            Vehicle* activeVehicle = m_gameLogic->getActiveVehicle();
-            if (activeVehicle) {
-                target = activeVehicle->getPosition();
+        const bool editorMode = m_tileGridEditor && m_tileGridEditor->isEnabled();
+        if (!editorMode) {
+            glm::vec3 target(0.0f);
+            if (m_gameLogic && m_gameLogic->isPlayerInVehicle()) {
+                Vehicle* activeVehicle = m_gameLogic->getActiveVehicle();
+                if (activeVehicle) {
+                    target = activeVehicle->getPosition();
+                }
+            } else if (m_player) {
+                target = m_player->getPosition();
             }
-        } else if (m_player) {
-            target = m_player->getPosition();
+            renderer->getCamera()->followTarget(target);
         }
-        renderer->getCamera()->followTarget(target);
     }
     
     // Render tile grid (replaces roads and buildings)
@@ -146,7 +145,7 @@ void Scene::processInput(InputManager* input, float deltaTime) {
     const bool captureKeyboard = io.WantCaptureKeyboard;
 
     if (editActive) {
-        m_tileGridEditor->processInput(input);
+        m_tileGridEditor->processInput(input, deltaTime);
         return;
     }
 

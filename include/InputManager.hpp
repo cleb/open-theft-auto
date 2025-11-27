@@ -13,6 +13,8 @@ private:
     double m_mouseX, m_mouseY;
     double m_deltaMouseX, m_deltaMouseY;
     double m_lastMouseX, m_lastMouseY;
+    double m_scrollDeltaX, m_scrollDeltaY;
+    bool m_cursorInWindow;
     bool m_firstMouse;
 
 public:
@@ -36,11 +38,15 @@ public:
     double getMouseY() const { return m_mouseY; }
     double getDeltaMouseX() const { return m_deltaMouseX; }
     double getDeltaMouseY() const { return m_deltaMouseY; }
+    double getScrollDeltaX() const { return m_scrollDeltaX; }
+    double getScrollDeltaY() const { return m_scrollDeltaY; }
+    bool isCursorInWindow() const { return m_cursorInWindow; }
 
     // Event handlers (invoked by Window callbacks)
     void onKey(int key, int action);
     void onMouseButton(int button, int action);
     void onCursorPos(double xpos, double ypos);
+    void onCursorEnter(bool entered);
     void onScroll(double xoffset, double yoffset);
     void onChar(unsigned int codepoint);
 };
