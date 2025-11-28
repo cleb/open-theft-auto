@@ -180,6 +180,30 @@ bool parseCarDirectionValue(const std::string& value, CarDirection& out, const L
         out = CarDirection::WestEast;
         return true;
     }
+    if (lower == "northeast" || lower == "north_east" || lower == "ne") {
+        out = CarDirection::NorthEast;
+        return true;
+    }
+    if (lower == "northwest" || lower == "north_west" || lower == "nw") {
+        out = CarDirection::NorthWest;
+        return true;
+    }
+    if (lower == "southeast" || lower == "south_east" || lower == "se") {
+        out = CarDirection::SouthEast;
+        return true;
+    }
+    if (lower == "southwest" || lower == "south_west" || lower == "sw") {
+        out = CarDirection::SouthWest;
+        return true;
+    }
+    if (lower == "northeastsouthwest" || lower == "northeast_southwest" || lower == "nesw" || lower == "ne_sw") {
+        out = CarDirection::NorthEastSouthWest;
+        return true;
+    }
+    if (lower == "northwestsoutheast" || lower == "northwest_southeast" || lower == "nwse" || lower == "nw_se") {
+        out = CarDirection::NorthWestSouthEast;
+        return true;
+    }
 
     logger.error("Unknown car direction: " + value);
     return false;
@@ -776,6 +800,12 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
             case CarDirection::West: return "west";
             case CarDirection::SouthNorth: return "south_north";
             case CarDirection::WestEast: return "west_east";
+            case CarDirection::NorthEast: return "north_east";
+            case CarDirection::NorthWest: return "north_west";
+            case CarDirection::SouthEast: return "south_east";
+            case CarDirection::SouthWest: return "south_west";
+            case CarDirection::NorthEastSouthWest: return "northeast_southwest";
+            case CarDirection::NorthWestSouthEast: return "northwest_southeast";
             case CarDirection::None:
             default: return "none";
         }

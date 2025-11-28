@@ -27,8 +27,8 @@ tile 13 0 0 top=solid:grass
 tile 14 0 0 top=solid:grass
 tile 15 0 0 top=solid:grass
 tile 0 1 0 top=solid:grass
-tile 1 1 0 top=solid:road
-tile 2 1 0 top=solid:road
+tile 1 1 0 top=solid:road car=south_east
+tile 2 1 0 top=solid:road car=east
 tile 3 1 0 top=solid:road car=east
 tile 4 1 0 top=solid:road car=east
 tile 5 1 0 top=solid:road car=east
@@ -39,12 +39,12 @@ tile 9 1 0 top=solid:road car=east
 tile 10 1 0 top=solid:road car=east
 tile 11 1 0 top=solid:road car=east
 tile 12 1 0 top=solid:road car=east
-tile 13 1 0 top=solid:road
-tile 14 1 0 top=solid:road
+tile 13 1 0 top=solid:road car=east
+tile 14 1 0 top=solid:road car=north_east
 tile 15 1 0 top=solid:grass
 tile 0 2 0 top=solid:grass
-tile 1 2 0 top=solid:road
-tile 2 2 0 top=solid:road
+tile 1 2 0 top=solid:road car=south
+tile 2 2 0 top=solid:road car=north_west
 tile 3 2 0 top=solid:road car=west
 tile 4 2 0 top=solid:road car=west
 tile 5 2 0 top=solid:road car=west
@@ -55,8 +55,8 @@ tile 9 2 0 top=solid:road car=west
 tile 10 2 0 top=solid:road car=west
 tile 11 2 0 top=solid:road car=west
 tile 12 2 0 top=solid:road car=west
-tile 13 2 0 top=solid:road
-tile 14 2 0 top=solid:road
+tile 13 2 0 top=solid:road car=south_west
+tile 14 2 0 top=solid:road car=north
 tile 15 2 0 top=solid:grass
 tile 0 3 0 top=solid:grass
 tile 1 3 0 top=solid:road car=south
@@ -219,8 +219,8 @@ tile 13 12 0 top=solid:road car=south
 tile 14 12 0 top=solid:road car=north
 tile 15 12 0 top=solid:grass
 tile 0 13 0 top=solid:grass
-tile 1 13 0 top=solid:road
-tile 2 13 0 top=solid:road
+tile 1 13 0 top=solid:road car=south
+tile 2 13 0 top=solid:road car=north_east
 tile 3 13 0 top=solid:road car=east
 tile 4 13 0 top=solid:road car=east
 tile 5 13 0 top=solid:road car=east
@@ -231,12 +231,12 @@ tile 9 13 0 top=solid:road car=east
 tile 10 13 0 top=solid:road car=east
 tile 11 13 0 top=solid:road car=east
 tile 12 13 0 top=solid:road car=east
-tile 13 13 0 top=solid:road
-tile 14 13 0 top=solid:road
+tile 13 13 0 top=solid:road car=south_east
+tile 14 13 0 top=solid:road car=north
 tile 15 13 0 top=solid:grass
 tile 0 14 0 top=solid:grass
-tile 1 14 0 top=solid:road
-tile 2 14 0 top=solid:road
+tile 1 14 0 top=solid:road car=south_west
+tile 2 14 0 top=solid:road car=west
 tile 3 14 0 top=solid:road car=west
 tile 4 14 0 top=solid:road car=west
 tile 5 14 0 top=solid:road car=west
@@ -247,8 +247,8 @@ tile 9 14 0 top=solid:road car=west
 tile 10 14 0 top=solid:road car=west
 tile 11 14 0 top=solid:road car=west
 tile 12 14 0 top=solid:road car=west
-tile 13 14 0 top=solid:road
-tile 14 14 0 top=solid:road
+tile 13 14 0 top=solid:road car=west
+tile 14 14 0 top=solid:road car=north_west
 tile 15 14 0 top=solid:grass
 tile 0 15 0 top=solid:grass
 tile 1 15 0 top=solid:grass

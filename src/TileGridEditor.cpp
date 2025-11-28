@@ -51,6 +51,12 @@ const char* carDirectionToString(CarDirection dir) {
         case CarDirection::West: return "west";
         case CarDirection::SouthNorth: return "south_north";
         case CarDirection::WestEast: return "west_east";
+        case CarDirection::NorthEast: return "north_east";
+        case CarDirection::NorthWest: return "north_west";
+        case CarDirection::SouthEast: return "south_east";
+        case CarDirection::SouthWest: return "south_west";
+        case CarDirection::NorthEastSouthWest: return "northeast_southwest";
+        case CarDirection::NorthWestSouthEast: return "northwest_southeast";
         case CarDirection::None:
         default: return "none";
     }
@@ -75,6 +81,12 @@ int carDirectionToIndex(CarDirection dir) {
         case CarDirection::West: return 4;
         case CarDirection::SouthNorth: return 5;
         case CarDirection::WestEast: return 6;
+        case CarDirection::NorthEast: return 7;
+        case CarDirection::NorthWest: return 8;
+        case CarDirection::SouthEast: return 9;
+        case CarDirection::SouthWest: return 10;
+        case CarDirection::NorthEastSouthWest: return 11;
+        case CarDirection::NorthWestSouthEast: return 12;
     }
     return 0;
 }
@@ -87,6 +99,12 @@ CarDirection indexToCarDirection(int index) {
         case 4: return CarDirection::West;
         case 5: return CarDirection::SouthNorth;
         case 6: return CarDirection::WestEast;
+        case 7: return CarDirection::NorthEast;
+        case 8: return CarDirection::NorthWest;
+        case 9: return CarDirection::SouthEast;
+        case 10: return CarDirection::SouthWest;
+        case 11: return CarDirection::NorthEastSouthWest;
+        case 12: return CarDirection::NorthWestSouthEast;
         default: return CarDirection::None;
     }
 }
@@ -308,6 +326,24 @@ void TileGridEditor::processInput(InputManager* input, float deltaTime) {
                     m_roadDirection = CarDirection::West;
                     break;
                 case CarDirection::West:
+                    m_roadDirection = CarDirection::NorthEast;
+                    break;
+                case CarDirection::NorthEast:
+                    m_roadDirection = CarDirection::NorthWest;
+                    break;
+                case CarDirection::NorthWest:
+                    m_roadDirection = CarDirection::SouthEast;
+                    break;
+                case CarDirection::SouthEast:
+                    m_roadDirection = CarDirection::SouthWest;
+                    break;
+                case CarDirection::SouthWest:
+                    m_roadDirection = CarDirection::NorthEastSouthWest;
+                    break;
+                case CarDirection::NorthEastSouthWest:
+                    m_roadDirection = CarDirection::NorthWestSouthEast;
+                    break;
+                case CarDirection::NorthWestSouthEast:
                 default:
                     m_roadDirection = CarDirection::SouthNorth;
                     break;
@@ -449,6 +485,26 @@ void TileGridEditor::render(Renderer* renderer) {
                         case CarDirection::WestEast:
                             renderArrow(glm::half_pi<float>());
                             renderArrow(-glm::half_pi<float>());
+                            break;
+                        case CarDirection::NorthEast:
+                            renderArrow(-glm::quarter_pi<float>());
+                            break;
+                        case CarDirection::NorthWest:
+                            renderArrow(glm::quarter_pi<float>());
+                            break;
+                        case CarDirection::SouthEast:
+                            renderArrow(-glm::pi<float>() + glm::quarter_pi<float>());
+                            break;
+                        case CarDirection::SouthWest:
+                            renderArrow(glm::pi<float>() - glm::quarter_pi<float>());
+                            break;
+                        case CarDirection::NorthEastSouthWest:
+                            renderArrow(-glm::quarter_pi<float>());
+                            renderArrow(glm::pi<float>() - glm::quarter_pi<float>());
+                            break;
+                        case CarDirection::NorthWestSouthEast:
+                            renderArrow(glm::quarter_pi<float>());
+                            renderArrow(-glm::pi<float>() + glm::quarter_pi<float>());
                             break;
                         case CarDirection::None:
                         default:
@@ -978,7 +1034,9 @@ void TileGridEditor::drawBrushControls() {
 
     if (m_brush == BrushType::Road) {
         int directionIndex = carDirectionToIndex(m_roadDirection);
-        const char* directionLabels[] = {"None", "North", "South", "East", "West", "North-South", "East-West"};
+        const char* directionLabels[] = {"None", "North", "South", "East", "West", "North-South", "East-West",
+                                         "NorthEast", "NorthWest", "SouthEast", "SouthWest",
+                                         "NE-SW", "NW-SE"};
         if (ImGui::Combo("Road Direction", &directionIndex, directionLabels, IM_ARRAYSIZE(directionLabels))) {
             m_roadDirection = indexToCarDirection(directionIndex);
             if (m_roadDirection == CarDirection::None) {
@@ -1148,7 +1206,9 @@ void TileGridEditor::drawTopFaceControls(Tile* tile) {
     }
 
     int directionIndex = carDirectionToIndex(m_uiTileState.topCarDirection);
-    const char* directionLabels[] = {"None", "North", "South", "East", "West", "South-North", "West-East"};
+    const char* directionLabels[] = {"None", "North", "South", "East", "West", "South-North", "West-East",
+                                     "NorthEast", "NorthWest", "SouthEast", "SouthWest",
+                                     "NE-SW", "NW-SE"};
     if (ImGui::Combo("Traffic Direction", &directionIndex, directionLabels, IM_ARRAYSIZE(directionLabels))) {
         m_uiTileState.topCarDirection = indexToCarDirection(directionIndex);
         applyTopSurfaceFromUi();
@@ -2210,7 +2270,9 @@ void TileGridEditor::drawSelectionControls() {
         ImGui::Checkbox("Solid##BatchTop", &applyTopSolid);
         if (applyTopSolid) {
             ImGui::InputText("Texture##BatchTop", applyTopTexture.data(), applyTopTexture.size());
-            const char* directionLabels[] = {"None", "North", "South", "East", "West", "North-South", "East-West"};
+            const char* directionLabels[] = {"None", "North", "South", "East", "West", "North-South", "East-West",
+                                             "NorthEast", "NorthWest", "SouthEast", "SouthWest",
+                                             "NE-SW", "NW-SE"};
             ImGui::Combo("Traffic##Batch", &applyCarDirection, directionLabels, IM_ARRAYSIZE(directionLabels));
         }
         ImGui::Unindent();

@@ -21,7 +21,15 @@ enum class CarDirection {
     East,
     West,
     SouthNorth,  // Bidirectional
-    WestEast     // Bidirectional
+    WestEast,    // Bidirectional
+    // Diagonal directions
+    NorthEast,
+    NorthWest,
+    SouthEast,
+    SouthWest,
+    // Bidirectional diagonals
+    NorthEastSouthWest,
+    NorthWestSouthEast
 };
 
 struct WallData {
