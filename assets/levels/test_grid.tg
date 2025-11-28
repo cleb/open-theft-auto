@@ -8,6 +8,7 @@ texture roof assets/textures/roof.png
 texture wall assets/textures/wall.png
 texture wall01 assets/textures/wall01.png
 vehicle 5 5 0 rotation=0.00 texture=car size=1.50x3.00
+player 5 4 0 rotation=0.00
 tile 0 0 0 top=solid:grass
 tile 1 0 0 top=solid:grass
 tile 2 0 0 top=solid:grass
@@ -278,6 +279,8 @@ tile 7 3 1 top=solid:roof north=solid:wall01 west=solid:wall01
 tile 8 3 1 top=solid:roof north=solid:wall01 east=solid:wall01
 tile 12 3 1 top=solid:roof north=solid:wall01 west=solid:wall01
 tile 13 3 1 top=solid:roof north=solid:wall01 east=solid:wall01
+tile 12 6 1 top=solid:roof south=solid:wall01 west=solid:wall01
+tile 13 6 1 top=solid:roof south=solid:wall01 east=solid:wall01
 tile 1 7 1 top=solid:roof south=solid:wall01 west=solid:wall01
 tile 2 7 1 top=solid:roof south=solid:wall01 east=solid:wall01
 tile 7 7 1 top=solid:roof south=solid:wall01 west=solid:wall01

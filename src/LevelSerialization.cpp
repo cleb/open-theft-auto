@@ -640,6 +640,37 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
                 continue;
             }
             pendingVehicles.push_back(PendingVehicle{line.number, std::move(spawn)});
+        } else if (lowerCmd == "player" || lowerCmd == "player_spawn" || lowerCmd == "playerspawn") {
+            int x = 0;
+            int y = 0;
+            int z = 0;
+            if (!(stream >> x >> y >> z)) {
+                logger.error("Expected coordinates after 'player'");
+                continue;
+            }
+
+            if (!grid.isValidPosition(x, y, z)) {
+                logger.error("Player spawn coordinates out of bounds: (" + std::to_string(x) + ", "
+                             + std::to_string(y) + ", " + std::to_string(z) + ")");
+                continue;
+            }
+
+            data.playerSpawn.gridPosition = glm::ivec3(x, y, z);
+            data.playerSpawn.isSet = true;
+
+            // Parse optional properties
+            KeyValueTokens tokens = collectKeyValueTokens(stream, logger);
+            for (const auto& entry : tokens.entries) {
+                const std::string lowerKey = toLowerCopy(entry.first);
+                if (lowerKey == "rotation" || lowerKey == "angle" || lowerKey == "yaw") {
+                    float rotation = 0.0f;
+                    if (parseFloat(entry.second, rotation)) {
+                        data.playerSpawn.rotationDegrees = rotation;
+                    } else {
+                        logger.warning("Invalid player rotation value: " + entry.second);
+                    }
+                }
+            }
         }
     }
 
@@ -725,6 +756,15 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
             output << " texture=" << identifierForSave(spawn.texturePath);
         }
         output << " size=" << formatFloat(spawn.size.x) << 'x' << formatFloat(spawn.size.y);
+        output << std::endl;
+    }
+
+    // Save player spawn
+    if (data.playerSpawn.isSet) {
+        output << "player " << data.playerSpawn.gridPosition.x << ' ' 
+               << data.playerSpawn.gridPosition.y << ' ' 
+               << data.playerSpawn.gridPosition.z;
+        output << " rotation=" << formatFloat(data.playerSpawn.rotationDegrees);
         output << std::endl;
     }
 

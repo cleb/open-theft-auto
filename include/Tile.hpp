@@ -90,6 +90,7 @@ public:
     // Top surface configuration
     void setTopSurface(bool solid, const std::string& texturePath = "", CarDirection carDir = CarDirection::None);
     void setTopSurface(bool solid, std::shared_ptr<Texture> texture, CarDirection carDir = CarDirection::None);
+    void setTopSurface(bool solid, const std::string& texturePath, std::shared_ptr<Texture> texture, CarDirection carDir = CarDirection::None);
     void setTopSolid(bool solid);
     void setTopTexture(const std::string& texturePath);
     void setTopTexture(std::shared_ptr<Texture> texture);

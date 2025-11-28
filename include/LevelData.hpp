@@ -11,6 +11,13 @@ struct VehicleSpawnDefinition {
     glm::vec2 size = glm::vec2(1.5f, 3.0f);
 };
 
+struct PlayerSpawnDefinition {
+    glm::ivec3 gridPosition{0, 0, 0};
+    float rotationDegrees = 0.0f;
+    bool isSet = false;  // Whether a spawn point has been explicitly set
+};
+
 struct LevelData {
     std::vector<VehicleSpawnDefinition> vehicleSpawns;
+    PlayerSpawnDefinition playerSpawn;
 };

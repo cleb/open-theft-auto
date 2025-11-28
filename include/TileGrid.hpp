@@ -46,6 +46,7 @@ public:
 
     // Grid management
     bool resize(const glm::ivec3& newSize);
+    void reset();  // Clear all tiles and fill bottom layer with grass
 
     // World/Grid conversion
     glm::vec3 gridToWorld(const glm::ivec3& gridPos) const;

@@ -78,6 +78,14 @@ void Tile::setTopSurface(bool solid, std::shared_ptr<Texture> texture, CarDirect
     m_meshesGenerated = false;  // Regenerate meshes
 }
 
+void Tile::setTopSurface(bool solid, const std::string& texturePath, std::shared_ptr<Texture> texture, CarDirection carDir) {
+    m_topSurface.solid = solid;
+    m_topSurface.texturePath = texturePath;
+    m_topSurface.texture = texture;
+    m_topSurface.carDirection = carDir;
+    m_meshesGenerated = false;  // Regenerate meshes
+}
+
 void Tile::setTopSolid(bool solid) {
     m_topSurface.solid = solid;
 }

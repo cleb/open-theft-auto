@@ -102,6 +102,27 @@ bool TileGrid::resize(const glm::ivec3& newSize) {
     return true;
 }
 
+void TileGrid::reset() {
+    // Clear all tiles by rebuilding them
+    rebuildTiles();
+    
+    // Load grass texture once using the cache
+    const std::string grassTexturePath = "assets/textures/grass.png";
+    std::shared_ptr<Texture> grassTexture = loadTextureFromPath(grassTexturePath);
+    
+    // Fill the bottom layer (z=0) with grass
+    for (int y = 0; y < m_gridSize.y; ++y) {
+        for (int x = 0; x < m_gridSize.x; ++x) {
+            Tile* tile = getTile(x, y, 0);
+            if (tile) {
+                tile->setTopSurface(true, grassTexturePath, grassTexture, CarDirection::None);
+            }
+        }
+    }
+    
+    std::cout << "Reset tile grid to default state with grass on bottom layer" << std::endl;
+}
+
 void TileGrid::registerTextureAlias(const std::string& alias, const std::string& path) {
     if (alias.empty() || path.empty()) {
         return;

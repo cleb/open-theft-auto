@@ -51,4 +51,5 @@ private:
     void createTestScene();
     void toggleEditMode();
     void rebuildVehiclesFromSpawns();
+    void onLevelChanged();
 };

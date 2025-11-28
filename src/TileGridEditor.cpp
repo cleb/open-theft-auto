@@ -22,6 +22,7 @@
 #include <cctype>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -135,8 +136,18 @@ TileGridEditor::TileGridEditor()
     , m_edgeScrollMargin(50.0f)
     , m_helpPrinted(false)
     , m_pendingGridSize(0)
-    , m_gridResizeError() {
+    , m_gridResizeError()
+    , m_uiPlayerSpawnState()
+    , m_playerSpawnColor(0.2f, 0.8f, 1.0f)
+    , m_showNewLevelDialog(false)
+    , m_showLoadLevelDialog(false)
+    , m_showSaveAsDialog(false)
+    , m_newLevelSize(16, 16, 4)
+    , m_newLevelTileSize(3.0f)
+    , m_filePathBuffer{}
+    , m_fileDialogError() {
     std::snprintf(m_uiVehicleState.texture.data(), m_uiVehicleState.texture.size(), "%s", kDefaultVehicleTexture);
+    std::snprintf(m_filePathBuffer.data(), m_filePathBuffer.size(), "assets/levels/new_level.tg");
 }
 
 TileGridEditor::~TileGridEditor() = default;
@@ -147,6 +158,7 @@ void TileGridEditor::initialize(TileGrid* grid, LevelData* levelData) {
     m_cursorMesh.reset();
     m_arrowMesh.reset();
     m_selectionMesh.reset();
+    m_playerSpawnMesh.reset();
     clearSelection();
     clampCursor();
     ensureCursorMesh();
@@ -304,6 +316,9 @@ void TileGridEditor::processInput(InputManager* input, float deltaTime) {
         } else if (m_brush == BrushType::Vehicle && input->isKeyPressed(GLFW_KEY_R)) {
             m_uiVehicleState.rotationDegrees = normalizeDegrees(m_uiVehicleState.rotationDegrees + 90.0f);
             announceBrush();
+        } else if (m_brush == BrushType::PlayerSpawn && input->isKeyPressed(GLFW_KEY_R)) {
+            m_uiPlayerSpawnState.rotationDegrees = normalizeDegrees(m_uiPlayerSpawnState.rotationDegrees + 90.0f);
+            announceBrush();
         }
         if (m_brush == BrushType::Vehicle && input->isKeyPressed(GLFW_KEY_DELETE)) {
             removeVehicleAtCursor();
@@ -385,6 +400,7 @@ void TileGridEditor::render(Renderer* renderer) {
     ensureCursorMesh();
     ensureArrowMesh();
     ensureSelectionMesh();
+    ensurePlayerSpawnMesh();
 
     if (m_arrowMesh) {
         const glm::ivec3 gridSize = m_grid->getGridSize();
@@ -454,6 +470,16 @@ void TileGridEditor::render(Renderer* renderer) {
         renderer->renderMesh(*m_cursorMesh, model, "model", m_hoverColor);
     }
 
+    // Render player spawn indicator
+    if (m_playerSpawnMesh && m_levelData && m_levelData->playerSpawn.isSet) {
+        const glm::vec3 worldPos = m_grid->gridToWorld(m_levelData->playerSpawn.gridPosition);
+        const float tileSize = m_grid->getTileSize();
+        const float offset = tileSize + 0.05f;  // Just above the tile surface
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), worldPos + glm::vec3(0.0f, 0.0f, offset));
+        model = glm::rotate(model, glm::radians(m_levelData->playerSpawn.rotationDegrees), glm::vec3(0.0f, 0.0f, 1.0f));
+        renderer->renderMesh(*m_playerSpawnMesh, model, "model", m_playerSpawnColor);
+    }
+
     if (m_cursorMesh) {
         const glm::vec3 base = m_grid->gridToWorld(m_cursor);
         const float offset = m_grid->getTileSize() * 0.02f;
@@ -492,36 +518,18 @@ void TileGridEditor::drawGui() {
     ImGui::Separator();
     ImGui::Text("Cursor: (%d, %d, %d)", m_cursor.x, m_cursor.y, m_cursor.z);
 
+    drawFileManagementControls();
     drawGridControls();
     drawBrushControls();
     drawSelectionControls();
     drawPrefabControls();
 
-    static bool saveErrorPopup = false;
-    if (ImGui::Button("Save Level")) {
-        if (m_levelPath.empty() || !m_grid || !m_levelData ||
-            !LevelSerialization::saveLevel(m_levelPath, *m_grid, *m_levelData)) {
-            saveErrorPopup = true;
-        }
-    }
-    if (saveErrorPopup) {
-        ImGui::OpenPopup("Save Level Error");
-        saveErrorPopup = false;
-    }
-    if (ImGui::BeginPopupModal("Save Level Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextUnformatted("Unable to save level. Ensure a valid path is configured.");
-        if (ImGui::Button("OK")) {
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
-    }
-
-    if (!m_levelPath.empty()) {
-        ImGui::SameLine();
-        ImGui::TextDisabled("%s", m_levelPath.c_str());
-    }
-
     drawTileFaceTabs();
+
+    // Draw modal dialogs
+    drawNewLevelDialog();
+    drawLoadLevelDialog();
+    drawSaveAsDialog();
 
     ImGui::End();
 }
@@ -809,6 +817,9 @@ void TileGridEditor::refreshCursorColor() {
         case BrushType::Vehicle:
             m_cursorColor = glm::vec3(0.3f, 0.3f, 0.9f);
             break;
+        case BrushType::PlayerSpawn:
+            m_cursorColor = glm::vec3(0.2f, 0.8f, 1.0f);
+            break;
     }
 }
 
@@ -895,6 +906,9 @@ void TileGridEditor::announceBrush() {
                           << 'x' << std::max(0.1f, m_uiVehicleState.size.y) << ')';
             }
             break;
+        case BrushType::PlayerSpawn:
+            std::cout << "player spawn (rotation=" << normalizeDegrees(m_uiPlayerSpawnState.rotationDegrees) << ")";
+            break;
     }
     std::cout << std::endl;
     refreshCursorColor();
@@ -910,7 +924,8 @@ void TileGridEditor::printHelp() const {
               << "  2: road brush\n"
               << "  3: empty brush\n"
               << "  4: vehicle brush\n"
-              << "  R: cycle road direction / rotate vehicle\n"
+              << "  5: player spawn brush\n"
+              << "  R: cycle road direction / rotate vehicle or player\n"
               << "  Delete: remove vehicle at cursor\n"
               << "  I/J/K/L: toggle wall (north/west/south/east)\n"
               << "  Space: apply brush at cursor\n"
@@ -921,7 +936,10 @@ void TileGridEditor::printHelp() const {
               << "  M: move selected tiles\n"
               << "  Escape: clear selection / cancel move / deselect prefab\n"
               << "  Ctrl+1-9: apply prefab\n"
+              << "  Ctrl+N: new level\n"
+              << "  Ctrl+O: open level\n"
               << "  Ctrl+S: save level\n"
+              << "  Ctrl+Shift+S: save level as\n"
               << "  F1: exit edit mode" << std::endl;
 }
 
@@ -948,6 +966,11 @@ void TileGridEditor::drawBrushControls() {
         m_brush = BrushType::Vehicle;
         changed = true;
     }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Player", m_brush == BrushType::PlayerSpawn)) {
+        m_brush = BrushType::PlayerSpawn;
+        changed = true;
+    }
 
     if (changed) {
         announceBrush();
@@ -965,6 +988,8 @@ void TileGridEditor::drawBrushControls() {
         }
     } else if (m_brush == BrushType::Vehicle) {
         drawVehicleBrushControls();
+    } else if (m_brush == BrushType::PlayerSpawn) {
+        drawPlayerSpawnBrushControls();
     }
 }
 
@@ -1456,6 +1481,9 @@ void TileGridEditor::applyBrush() {
         case BrushType::Vehicle:
             applyVehicleBrush();
             return;
+        case BrushType::PlayerSpawn:
+            applyPlayerSpawnBrush();
+            return;
     }
 
     announceCursor();
@@ -1617,6 +1645,10 @@ void TileGridEditor::handleBrushHotkeys(InputManager* input) {
         m_brush = BrushType::Vehicle;
         announceBrush();
     }
+    if (input->isKeyPressed(GLFW_KEY_5)) {
+        m_brush = BrushType::PlayerSpawn;
+        announceBrush();
+    }
 }
 
 void TileGridEditor::handleWallHotkeys(InputManager* input) {
@@ -1654,13 +1686,48 @@ void TileGridEditor::handlePrefabHotkeys(InputManager* input) {
 }
 
 void TileGridEditor::handleSaveHotkey(InputManager* input) {
-    if (m_levelPath.empty() || !m_grid || !m_levelData) {
+    if (!m_grid || !m_levelData) {
         return;
     }
 
     const bool ctrl = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
-    if (ctrl && input->isKeyPressed(GLFW_KEY_S)) {
-        if (!LevelSerialization::saveLevel(m_levelPath, *m_grid, *m_levelData)) {
+    const bool shift = input->isKeyDown(GLFW_KEY_LEFT_SHIFT) || input->isKeyDown(GLFW_KEY_RIGHT_SHIFT);
+    
+    // Ctrl+N: New Level
+    if (ctrl && input->isKeyPressed(GLFW_KEY_N)) {
+        m_showNewLevelDialog = true;
+        m_newLevelSize = glm::ivec3(16, 16, 4);
+        m_newLevelTileSize = 3.0f;
+        m_fileDialogError.clear();
+        return;
+    }
+    
+    // Ctrl+O: Open Level
+    if (ctrl && input->isKeyPressed(GLFW_KEY_O)) {
+        m_showLoadLevelDialog = true;
+        scanAvailableLevelFiles();
+        m_fileDialogError.clear();
+        return;
+    }
+    
+    if (ctrl && shift && input->isKeyPressed(GLFW_KEY_S)) {
+        // Ctrl+Shift+S: Save As
+        m_showSaveAsDialog = true;
+        if (m_levelPath.empty()) {
+            std::snprintf(m_filePathBuffer.data(), m_filePathBuffer.size(), "assets/levels/new_level.tg");
+        } else {
+            std::snprintf(m_filePathBuffer.data(), m_filePathBuffer.size(), "%s", m_levelPath.c_str());
+        }
+        scanAvailableLevelFiles();
+        m_fileDialogError.clear();
+    } else if (ctrl && input->isKeyPressed(GLFW_KEY_S)) {
+        // Ctrl+S: Quick Save (or Save As if no path)
+        if (m_levelPath.empty()) {
+            m_showSaveAsDialog = true;
+            std::snprintf(m_filePathBuffer.data(), m_filePathBuffer.size(), "assets/levels/new_level.tg");
+            scanAvailableLevelFiles();
+            m_fileDialogError.clear();
+        } else if (!LevelSerialization::saveLevel(m_levelPath, *m_grid, *m_levelData)) {
             std::cerr << "Failed to save level to " << m_levelPath << std::endl;
         }
     }
@@ -1738,6 +1805,138 @@ void TileGridEditor::drawVehicleBrushControls() {
             applyVehicleBrush();
         }
     }
+}
+
+void TileGridEditor::drawPlayerSpawnBrushControls() {
+    ImGui::SeparatorText("Player Spawn Settings");
+
+    if (m_levelData && m_levelData->playerSpawn.isSet) {
+        const auto& spawn = m_levelData->playerSpawn;
+        ImGui::Text("Current spawn: (%d, %d, %d)", spawn.gridPosition.x, spawn.gridPosition.y, spawn.gridPosition.z);
+        ImGui::Text("Rotation: %.1f°", spawn.rotationDegrees);
+    } else {
+        ImGui::TextDisabled("No player spawn set");
+    }
+
+    ImGui::Separator();
+
+    float rotation = m_uiPlayerSpawnState.rotationDegrees;
+    if (ImGui::SliderFloat("Rotation##PlayerSpawn", &rotation, 0.0f, 360.0f, "%.1f deg")) {
+        m_uiPlayerSpawnState.rotationDegrees = normalizeDegrees(rotation);
+        announceBrush();
+    }
+
+    if (ImGui::Button("North##PlayerRot")) {
+        m_uiPlayerSpawnState.rotationDegrees = 180.0f;
+        announceBrush();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("East##PlayerRot")) {
+        m_uiPlayerSpawnState.rotationDegrees = 270.0f;
+        announceBrush();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("South##PlayerRot")) {
+        m_uiPlayerSpawnState.rotationDegrees = 0.0f;
+        announceBrush();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("West##PlayerRot")) {
+        m_uiPlayerSpawnState.rotationDegrees = 90.0f;
+        announceBrush();
+    }
+
+    ImGui::Separator();
+
+    if (ImGui::Button("Set Player Spawn Here")) {
+        applyPlayerSpawnBrush();
+    }
+
+    if (m_levelData && m_levelData->playerSpawn.isSet) {
+        ImGui::SameLine();
+        if (ImGui::Button("Go to Spawn")) {
+            m_cursor = m_levelData->playerSpawn.gridPosition;
+            clampCursor();
+            announceCursor();
+            refreshUiStateFromTile();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Clear Spawn")) {
+            m_levelData->playerSpawn.isSet = false;
+            std::cout << "Cleared player spawn" << std::endl;
+        }
+    }
+}
+
+void TileGridEditor::applyPlayerSpawnBrush() {
+    if (!m_grid || !m_levelData) {
+        return;
+    }
+
+    // Check if cursor position is valid and has ground support
+    if (!m_grid->isValidPosition(m_cursor)) {
+        std::cout << "Cannot place player spawn outside of grid bounds" << std::endl;
+        return;
+    }
+
+    const Tile* tile = m_grid->getTile(m_cursor);
+    if (!tile || !tile->isTopSolid()) {
+        std::cout << "Cannot place player spawn without solid ground at (" 
+                  << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+        return;
+    }
+
+    m_levelData->playerSpawn.gridPosition = m_cursor;
+    m_levelData->playerSpawn.rotationDegrees = normalizeDegrees(m_uiPlayerSpawnState.rotationDegrees);
+    m_levelData->playerSpawn.isSet = true;
+
+    std::cout << "Set player spawn at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z 
+              << ") rotation=" << m_levelData->playerSpawn.rotationDegrees << std::endl;
+}
+
+void TileGridEditor::ensurePlayerSpawnMesh() {
+    if (!m_grid || m_playerSpawnMesh) {
+        return;
+    }
+
+    const float tileSize = m_grid->getTileSize();
+    const float size = tileSize * 0.4f;
+    const float height = tileSize * 0.1f;
+
+    std::vector<Vertex> vertices;
+    std::vector<GLuint> indices;
+
+    // Create a simple arrow/triangle pointing in the forward direction (positive Y)
+    // This represents the player spawn position and facing direction
+    
+    // Arrow body (pointing up in Y direction)
+    const float arrowLength = size * 0.8f;
+    const float arrowWidth = size * 0.3f;
+    const float headWidth = size * 0.5f;
+    const float headLength = size * 0.4f;
+    
+    const glm::vec3 normal(0.0f, 0.0f, 1.0f);
+    
+    // Arrow tail (rectangle part)
+    vertices.push_back({{-arrowWidth, -size * 0.5f, height}, normal, {0.0f, 0.0f}});       // 0
+    vertices.push_back({{ arrowWidth, -size * 0.5f, height}, normal, {1.0f, 0.0f}});       // 1
+    vertices.push_back({{ arrowWidth, arrowLength - headLength, height}, normal, {1.0f, 0.5f}}); // 2
+    vertices.push_back({{-arrowWidth, arrowLength - headLength, height}, normal, {0.0f, 0.5f}}); // 3
+    
+    // Arrow head (triangle)
+    vertices.push_back({{-headWidth, arrowLength - headLength, height}, normal, {0.0f, 0.5f}});  // 4
+    vertices.push_back({{ headWidth, arrowLength - headLength, height}, normal, {1.0f, 0.5f}});  // 5
+    vertices.push_back({{ 0.0f, size * 0.5f, height}, normal, {0.5f, 1.0f}});                    // 6
+    
+    // Tail rectangle
+    indices.insert(indices.end(), {0, 1, 2, 2, 3, 0});
+    // Arrow head triangle
+    indices.insert(indices.end(), {4, 5, 6});
+
+    m_playerSpawnMesh = std::make_unique<Mesh>(vertices, indices);
+    auto spawnTexture = std::make_shared<Texture>();
+    spawnTexture->createSolidColor(255, 255, 255, 200);
+    m_playerSpawnMesh->setTexture(spawnTexture);
 }
 
 // Selection methods
@@ -2182,3 +2381,395 @@ void TileGridEditor::handleSelectionHotkeys(InputManager* input) {
     }
 }
 
+// Level management methods
+
+bool TileGridEditor::newLevel(const glm::ivec3& gridSize, float tileSize) {
+    if (!m_grid || !m_levelData) {
+        return false;
+    }
+
+    if (gridSize.x <= 0 || gridSize.y <= 0 || gridSize.z <= 0 || tileSize <= 0.0f) {
+        return false;
+    }
+
+    // Clear existing level data
+    m_levelData->vehicleSpawns.clear();
+    m_levelData->playerSpawn = PlayerSpawnDefinition();  // Reset to default (isSet = false)
+    
+    // Resize the grid if needed
+    if (gridSize != m_grid->getGridSize()) {
+        if (!m_grid->resize(gridSize)) {
+            return false;
+        }
+    }
+    
+    // Reset to default state (clears all tiles and fills bottom with grass)
+    m_grid->reset();
+
+    // Clear the level path since this is a new unsaved level
+    m_levelPath.clear();
+
+    // Reset editor state
+    m_cursor = glm::ivec3(0);
+    clampCursor();
+    clearSelection();
+    m_prefabs.clear();
+    m_selectedPrefabIndex = -1;
+    m_prefabAutoNameCounter = 0;
+    std::snprintf(m_newPrefabName.data(), m_newPrefabName.size(), "Prefab %d", m_prefabAutoNameCounter);
+
+    // Reinitialize editor state
+    m_cursorMesh.reset();
+    m_arrowMesh.reset();
+    m_selectionMesh.reset();
+    ensureCursorMesh();
+    ensureSelectionMesh();
+    refreshCursorColor();
+    rebuildAliasList();
+    refreshUiStateFromTile();
+    syncPendingGridSizeFromGrid();
+
+    std::cout << "Created new level with size " << gridSize.x << "x" << gridSize.y << "x" << gridSize.z << std::endl;
+    
+    // Notify listeners that the level has changed
+    if (m_levelChangedCallback) {
+        m_levelChangedCallback();
+    }
+    
+    return true;
+}
+
+bool TileGridEditor::loadLevel(const std::string& path) {
+    if (!m_grid || !m_levelData || path.empty()) {
+        return false;
+    }
+
+    if (!LevelSerialization::loadLevel(path, *m_grid, *m_levelData)) {
+        std::cerr << "Failed to load level from " << path << std::endl;
+        return false;
+    }
+
+    m_levelPath = path;
+
+    // Reset editor state
+    m_cursor = glm::ivec3(0);
+    clampCursor();
+    clearSelection();
+    m_prefabs.clear();
+    m_selectedPrefabIndex = -1;
+    m_prefabAutoNameCounter = 0;
+    std::snprintf(m_newPrefabName.data(), m_newPrefabName.size(), "Prefab %d", m_prefabAutoNameCounter);
+
+    // Reinitialize editor state
+    m_cursorMesh.reset();
+    m_arrowMesh.reset();
+    m_selectionMesh.reset();
+    ensureCursorMesh();
+    ensureSelectionMesh();
+    refreshCursorColor();
+    rebuildAliasList();
+    refreshUiStateFromTile();
+    syncPendingGridSizeFromGrid();
+
+    std::cout << "Loaded level from " << path << std::endl;
+    
+    // Notify listeners that the level has changed
+    if (m_levelChangedCallback) {
+        m_levelChangedCallback();
+    }
+    
+    return true;
+}
+
+bool TileGridEditor::saveLevel() {
+    if (m_levelPath.empty()) {
+        return false;
+    }
+    return saveLevelAs(m_levelPath);
+}
+
+bool TileGridEditor::saveLevelAs(const std::string& path) {
+    if (!m_grid || !m_levelData || path.empty()) {
+        return false;
+    }
+
+    // Create directory if it doesn't exist
+    std::filesystem::path filePath(path);
+    std::filesystem::path parentDir = filePath.parent_path();
+    if (!parentDir.empty() && !std::filesystem::exists(parentDir)) {
+        try {
+            std::filesystem::create_directories(parentDir);
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to create directory " << parentDir << ": " << e.what() << std::endl;
+            return false;
+        }
+    }
+
+    if (!LevelSerialization::saveLevel(path, *m_grid, *m_levelData)) {
+        std::cerr << "Failed to save level to " << path << std::endl;
+        return false;
+    }
+
+    m_levelPath = path;
+    std::cout << "Saved level to " << path << std::endl;
+    return true;
+}
+
+void TileGridEditor::drawFileManagementControls() {
+    ImGui::SeparatorText("Level");
+
+    if (!m_levelPath.empty()) {
+        ImGui::Text("File: %s", m_levelPath.c_str());
+    } else {
+        ImGui::TextDisabled("File: (unsaved)");
+    }
+
+    // New Level button
+    if (ImGui::Button("New Level")) {
+        m_showNewLevelDialog = true;
+        m_newLevelSize = glm::ivec3(16, 16, 4);
+        m_newLevelTileSize = 3.0f;
+        m_fileDialogError.clear();
+    }
+
+    ImGui::SameLine();
+
+    // Load Level button
+    if (ImGui::Button("Load Level")) {
+        m_showLoadLevelDialog = true;
+        scanAvailableLevelFiles();
+        m_fileDialogError.clear();
+    }
+
+    ImGui::SameLine();
+
+    // Save button (disabled if no path set)
+    ImGui::BeginDisabled(m_levelPath.empty());
+    if (ImGui::Button("Save")) {
+        if (!saveLevel()) {
+            m_fileDialogError = "Failed to save level";
+        }
+    }
+    ImGui::EndDisabled();
+
+    ImGui::SameLine();
+
+    // Save As button
+    if (ImGui::Button("Save As...")) {
+        m_showSaveAsDialog = true;
+        if (m_levelPath.empty()) {
+            std::snprintf(m_filePathBuffer.data(), m_filePathBuffer.size(), "assets/levels/new_level.tg");
+        } else {
+            std::snprintf(m_filePathBuffer.data(), m_filePathBuffer.size(), "%s", m_levelPath.c_str());
+        }
+        m_fileDialogError.clear();
+    }
+
+    // Show hotkey hints
+    ImGui::TextDisabled("Ctrl+N: New | Ctrl+O: Open | Ctrl+S: Save | Ctrl+Shift+S: Save As");
+}
+
+void TileGridEditor::drawNewLevelDialog() {
+    if (!m_showNewLevelDialog) {
+        return;
+    }
+
+    ImGui::OpenPopup("New Level##Dialog");
+
+    if (ImGui::BeginPopupModal("New Level##Dialog", &m_showNewLevelDialog, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Create a new level with the following settings:");
+        ImGui::Separator();
+
+        int size[3] = {m_newLevelSize.x, m_newLevelSize.y, m_newLevelSize.z};
+        if (ImGui::InputInt3("Grid Size (W x H x D)", size)) {
+            m_newLevelSize = glm::ivec3(
+                std::max(1, size[0]),
+                std::max(1, size[1]),
+                std::max(1, size[2])
+            );
+        }
+
+        ImGui::InputFloat("Tile Size", &m_newLevelTileSize, 0.1f, 1.0f, "%.2f");
+        m_newLevelTileSize = std::max(0.1f, m_newLevelTileSize);
+
+        ImGui::Separator();
+
+        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.4f, 1.0f), "Warning: Creating a new level will discard unsaved changes!");
+
+        if (!m_fileDialogError.empty()) {
+            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", m_fileDialogError.c_str());
+        }
+
+        ImGui::Separator();
+
+        if (ImGui::Button("Create", ImVec2(120, 0))) {
+            if (newLevel(m_newLevelSize, m_newLevelTileSize)) {
+                m_showNewLevelDialog = false;
+            } else {
+                m_fileDialogError = "Failed to create new level";
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            m_showNewLevelDialog = false;
+        }
+
+        ImGui::EndPopup();
+    }
+}
+
+void TileGridEditor::drawLoadLevelDialog() {
+    if (!m_showLoadLevelDialog) {
+        return;
+    }
+
+    ImGui::OpenPopup("Load Level##Dialog");
+
+    if (ImGui::BeginPopupModal("Load Level##Dialog", &m_showLoadLevelDialog, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Select a level file to load:");
+        ImGui::Separator();
+
+        // Manual path input
+        ImGui::InputText("Path", m_filePathBuffer.data(), m_filePathBuffer.size());
+
+        ImGui::Separator();
+
+        // List of available level files
+        ImGui::Text("Available levels in assets/levels/:");
+        
+        ImVec2 listSize = ImVec2(400.0f, ImGui::GetTextLineHeightWithSpacing() * 8.0f);
+        if (ImGui::BeginChild("LevelFileList", listSize, true)) {
+            if (m_availableLevelFiles.empty()) {
+                ImGui::TextDisabled("No level files found");
+            } else {
+                for (const auto& file : m_availableLevelFiles) {
+                    if (ImGui::Selectable(file.c_str(), std::strcmp(m_filePathBuffer.data(), file.c_str()) == 0)) {
+                        std::snprintf(m_filePathBuffer.data(), m_filePathBuffer.size(), "%s", file.c_str());
+                    }
+                }
+            }
+        }
+        ImGui::EndChild();
+
+        if (ImGui::Button("Refresh")) {
+            scanAvailableLevelFiles();
+        }
+
+        ImGui::Separator();
+
+        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.4f, 1.0f), "Warning: Loading a level will discard unsaved changes!");
+
+        if (!m_fileDialogError.empty()) {
+            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", m_fileDialogError.c_str());
+        }
+
+        ImGui::Separator();
+
+        if (ImGui::Button("Load", ImVec2(120, 0))) {
+            std::string path = m_filePathBuffer.data();
+            if (path.empty()) {
+                m_fileDialogError = "Please enter a file path";
+            } else if (loadLevel(path)) {
+                m_showLoadLevelDialog = false;
+            } else {
+                m_fileDialogError = "Failed to load level from: " + path;
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            m_showLoadLevelDialog = false;
+        }
+
+        ImGui::EndPopup();
+    }
+}
+
+void TileGridEditor::drawSaveAsDialog() {
+    if (!m_showSaveAsDialog) {
+        return;
+    }
+
+    ImGui::OpenPopup("Save Level As##Dialog");
+
+    if (ImGui::BeginPopupModal("Save Level As##Dialog", &m_showSaveAsDialog, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Enter the path to save the level:");
+        ImGui::Separator();
+
+        ImGui::InputText("Path", m_filePathBuffer.data(), m_filePathBuffer.size());
+
+        ImGui::Separator();
+
+        // List of available level files for reference
+        ImGui::Text("Existing levels in assets/levels/:");
+        
+        ImVec2 listSize = ImVec2(400.0f, ImGui::GetTextLineHeightWithSpacing() * 6.0f);
+        if (ImGui::BeginChild("LevelFileListSave", listSize, true)) {
+            if (m_availableLevelFiles.empty()) {
+                ImGui::TextDisabled("No level files found");
+            } else {
+                for (const auto& file : m_availableLevelFiles) {
+                    if (ImGui::Selectable(file.c_str(), std::strcmp(m_filePathBuffer.data(), file.c_str()) == 0)) {
+                        std::snprintf(m_filePathBuffer.data(), m_filePathBuffer.size(), "%s", file.c_str());
+                    }
+                }
+            }
+        }
+        ImGui::EndChild();
+
+        // Check if file exists and warn
+        std::string path = m_filePathBuffer.data();
+        if (!path.empty() && std::filesystem::exists(path)) {
+            ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.4f, 1.0f), "Warning: This file already exists and will be overwritten!");
+        }
+
+        if (!m_fileDialogError.empty()) {
+            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", m_fileDialogError.c_str());
+        }
+
+        ImGui::Separator();
+
+        if (ImGui::Button("Save", ImVec2(120, 0))) {
+            if (path.empty()) {
+                m_fileDialogError = "Please enter a file path";
+            } else if (saveLevelAs(path)) {
+                m_showSaveAsDialog = false;
+                scanAvailableLevelFiles(); // Refresh the list
+            } else {
+                m_fileDialogError = "Failed to save level to: " + path;
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            m_showSaveAsDialog = false;
+        }
+
+        ImGui::EndPopup();
+    }
+}
+
+void TileGridEditor::scanAvailableLevelFiles() {
+    m_availableLevelFiles.clear();
+    
+    const std::string levelDir = "assets/levels";
+    if (!std::filesystem::exists(levelDir)) {
+        return;
+    }
+
+    try {
+        for (const auto& entry : std::filesystem::directory_iterator(levelDir)) {
+            if (entry.is_regular_file()) {
+                std::string path = entry.path().string();
+                std::string ext = entry.path().extension().string();
+                // Accept .tg files or files without extension
+                if (ext == ".tg" || ext.empty()) {
+                    m_availableLevelFiles.push_back(path);
+                }
+            }
+        }
+        
+        // Sort alphabetically
+        std::sort(m_availableLevelFiles.begin(), m_availableLevelFiles.end());
+    } catch (const std::exception& e) {
+        std::cerr << "Error scanning level files: " << e.what() << std::endl;
+    }
+}

@@ -2,6 +2,7 @@
 
 #include <glm/glm.hpp>
 #include <array>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,11 +25,22 @@ public:
 
     void initialize(TileGrid* grid, LevelData* levelData);
     void setLevelPath(const std::string& path);
+    const std::string& getLevelPath() const { return m_levelPath; }
     void setCursor(const glm::ivec3& gridPos);
     const glm::ivec3& getCursor() const { return m_cursor; }
 
+    // Level management
+    bool newLevel(const glm::ivec3& gridSize, float tileSize = 3.0f);
+    bool loadLevel(const std::string& path);
+    bool saveLevel();
+    bool saveLevelAs(const std::string& path);
+
     void setWindow(Window* window) { m_window = window; }
     void setRenderer(Renderer* renderer) { m_renderer = renderer; }
+
+    // Callback for when level is changed (new/load)
+    using LevelChangedCallback = std::function<void()>;
+    void setLevelChangedCallback(LevelChangedCallback callback) { m_levelChangedCallback = std::move(callback); }
 
     void setEnabled(bool enabled);
     bool isEnabled() const { return m_enabled; }
@@ -43,7 +55,8 @@ private:
         Grass,
         Road,
         Empty,
-        Vehicle
+        Vehicle,
+        PlayerSpawn
     };
 
     enum class VehiclePlacementStatus {
@@ -71,6 +84,10 @@ private:
         float rotationDegrees = 0.0f;
         glm::vec2 size = glm::vec2(1.5f, 3.0f);
         std::array<char, TextureBufferSize> texture{};
+    };
+
+    struct UiPlayerSpawnState {
+        float rotationDegrees = 0.0f;
     };
 
     struct AliasEntry {
@@ -129,6 +146,20 @@ private:
     int m_prefabAutoNameCounter;
     glm::ivec3 m_pendingGridSize;
     std::string m_gridResizeError;
+    UiPlayerSpawnState m_uiPlayerSpawnState;
+    std::unique_ptr<Mesh> m_playerSpawnMesh;
+    glm::vec3 m_playerSpawnColor;
+
+    // File dialog state
+    bool m_showNewLevelDialog;
+    bool m_showLoadLevelDialog;
+    bool m_showSaveAsDialog;
+    glm::ivec3 m_newLevelSize;
+    float m_newLevelTileSize;
+    std::array<char, 512> m_filePathBuffer;
+    std::string m_fileDialogError;
+    std::vector<std::string> m_availableLevelFiles;
+    LevelChangedCallback m_levelChangedCallback;
 
     Tile* currentTile();
     const Tile* currentTile() const;
@@ -141,6 +172,7 @@ private:
     void ensureCursorMesh();
     void ensureArrowMesh();
     void ensureSelectionMesh();
+    void ensurePlayerSpawnMesh();
     void refreshCursorColor();
     void announceCursor();
     void announceBrush();
@@ -150,6 +182,7 @@ private:
     void rebuildAliasList();
     void drawBrushControls();
     void drawVehicleBrushControls();
+    void drawPlayerSpawnBrushControls();
     void drawPrefabControls();
     void drawTileFaceTabs();
     void drawTopFaceControls(Tile* tile);
@@ -161,6 +194,7 @@ private:
     void applyWallFromUi(int wallIndex, WallDirection direction);
     void applyVehicleBrush();
     void removeVehicleAtCursor();
+    void applyPlayerSpawnBrush();
     void syncPendingGridSizeFromGrid();
 
     void applyBrush();
@@ -176,6 +210,13 @@ private:
     void handlePrefabHotkeys(InputManager* input);
     void handleSaveHotkey(InputManager* input);
     void handleSelectionHotkeys(InputManager* input);
+
+    // File management methods
+    void drawFileManagementControls();
+    void drawNewLevelDialog();
+    void drawLoadLevelDialog();
+    void drawSaveAsDialog();
+    void scanAvailableLevelFiles();
 
     // Selection methods
     void clearSelection();

@@ -27,6 +27,7 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     m_tileGridEditor->initialize(m_tileGrid.get(), &m_levelData);
     m_tileGridEditor->setWindow(window);
     m_tileGridEditor->setRenderer(renderer);
+    m_tileGridEditor->setLevelChangedCallback([this]() { onLevelChanged(); });
     
     // Initialize player
     m_player = std::make_unique<Player>();
@@ -249,9 +250,44 @@ void Scene::rebuildVehiclesFromSpawns() {
         addVehicle(std::move(vehicle));
     }
 
+    // Set player position from spawn point
     if (m_player) {
+        if (m_levelData.playerSpawn.isSet) {
+            const float tileSize = m_tileGrid->getTileSize();
+            glm::vec3 playerPos(
+                m_levelData.playerSpawn.gridPosition.x * tileSize,
+                m_levelData.playerSpawn.gridPosition.y * tileSize,
+                m_levelData.playerSpawn.gridPosition.z * tileSize);
+            playerPos.z += 0.1f;  // Slightly above the tile surface
+            m_player->setPosition(playerPos);
+            m_player->setRotation(glm::vec3(0.0f, 0.0f, m_levelData.playerSpawn.rotationDegrees));
+            std::cout << "Set player position to spawn: (" << playerPos.x << ", " << playerPos.y << ", " << playerPos.z 
+                      << ") rotation=" << m_levelData.playerSpawn.rotationDegrees << std::endl;
+        } else {
+            // Default spawn at center of bottom layer
+            const glm::ivec3& gridSize = m_tileGrid->getGridSize();
+            const float tileSize = m_tileGrid->getTileSize();
+            glm::vec3 defaultPos(
+                (gridSize.x / 2) * tileSize,
+                (gridSize.y / 2) * tileSize,
+                0.1f);
+            m_player->setPosition(defaultPos);
+            m_player->setRotation(glm::vec3(0.0f));
+        }
         m_player->setActive(true);
     }
 
     std::cout << "Rebuilt vehicles from grid: " << m_vehicles.size() << std::endl;
+}
+
+void Scene::onLevelChanged() {
+    // Update the level path from the editor
+    if (m_tileGridEditor) {
+        m_levelPath = m_tileGridEditor->getLevelPath();
+    }
+    
+    // Rebuild vehicles for the new level
+    rebuildVehiclesFromSpawns();
+    
+    std::cout << "Level changed, rebuilt scene with " << m_vehicles.size() << " vehicles" << std::endl;
 }
