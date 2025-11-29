@@ -163,6 +163,15 @@ std::string TileGrid::resolveTexturePath(const std::string& identifier) const {
     return identifier;
 }
 
+bool TileGrid::addTextureAlias(const std::string& alias, const std::string& path) {
+    if (alias.empty() || path.empty()) {
+        return false;
+    }
+
+    m_textureAliases[alias] = path;
+    return true;
+}
+
 void TileGrid::render(Renderer* renderer) {
     if (!renderer) return;
     

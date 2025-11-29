@@ -13,6 +13,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(GLEW REQUIRED)
+find_package(CURL REQUIRED)
 
 # Find GLM (header-only library)
 find_package(glm REQUIRED)
@@ -66,13 +67,14 @@ if (NOT STB_LIBRARY)
     message(FATAL_ERROR "Could not locate stb library. Please ensure libstb-dev is installed.")
 endif()
 
-target_link_libraries(${PROJECT_NAME} 
+target_link_libraries(${PROJECT_NAME}
     OpenGL::GL
     glfw
     GLEW::GLEW
     glm::glm
     ${IMGUI_LIBRARY}
     ${STB_LIBRARY}
+    CURL::libcurl
 )
 
 find_path(IMGUI_BACKEND_INCLUDE_DIR imgui_impl_glfw.h

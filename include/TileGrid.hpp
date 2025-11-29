@@ -43,6 +43,7 @@ public:
     bool isValidPosition(int x, int y, int z) const;
     bool isValidPosition(const glm::ivec3& gridPos) const;
     const std::unordered_map<std::string, std::string>& getTextureAliases() const { return m_textureAliases; }
+    bool addTextureAlias(const std::string& alias, const std::string& path);
 
     // Grid management
     bool resize(const glm::ivec3& newSize);
