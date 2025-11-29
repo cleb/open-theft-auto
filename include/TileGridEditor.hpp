@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "Tile.hpp"
+#include "AzureTextureGenerator.hpp"
 
 class TileGrid;
 struct LevelData;
@@ -160,6 +161,12 @@ private:
     std::string m_fileDialogError;
     std::vector<std::string> m_availableLevelFiles;
     LevelChangedCallback m_levelChangedCallback;
+    AzureTextureGenerator m_textureGenerator;
+    AzureTextureGenerator::Config m_azureConfig;
+    std::array<char, TextureBufferSize> m_generatedTextureAlias{};
+    std::array<char, 512> m_generatedTexturePrompt{};
+    int m_generatedTextureSizeIndex;
+    std::string m_textureGenerationStatus;
 
     Tile* currentTile();
     const Tile* currentTile() const;
@@ -217,6 +224,8 @@ private:
     void drawLoadLevelDialog();
     void drawSaveAsDialog();
     void scanAvailableLevelFiles();
+    void drawTextureGenerator();
+    std::string makeSafeTextureFileName(const std::string& alias) const;
 
     // Selection methods
     void clearSelection();

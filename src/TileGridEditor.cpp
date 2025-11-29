@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cctype>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -163,9 +164,25 @@ TileGridEditor::TileGridEditor()
     , m_newLevelSize(16, 16, 4)
     , m_newLevelTileSize(3.0f)
     , m_filePathBuffer{}
-    , m_fileDialogError() {
+    , m_fileDialogError()
+    , m_generatedTextureSizeIndex(0) {
     std::snprintf(m_uiVehicleState.texture.data(), m_uiVehicleState.texture.size(), "%s", kDefaultVehicleTexture);
     std::snprintf(m_filePathBuffer.data(), m_filePathBuffer.size(), "assets/levels/new_level.tg");
+
+    if (const char* envEndpoint = std::getenv("AZURE_FOUNDRY_ENDPOINT")) {
+        m_azureConfig.endpoint = envEndpoint;
+    }
+    if (const char* envDeployment = std::getenv("AZURE_FOUNDRY_DEPLOYMENT")) {
+        m_azureConfig.deployment = envDeployment;
+    }
+    if (const char* envKey = std::getenv("AZURE_FOUNDRY_API_KEY")) {
+        m_azureConfig.apiKey = envKey;
+    }
+    if (const char* envVersion = std::getenv("AZURE_FOUNDRY_API_VERSION")) {
+        m_azureConfig.apiVersion = envVersion;
+    }
+
+    std::snprintf(m_generatedTextureAlias.data(), m_generatedTextureAlias.size(), "foundry_texture");
 }
 
 TileGridEditor::~TileGridEditor() = default;
@@ -577,6 +594,7 @@ void TileGridEditor::drawGui() {
     drawFileManagementControls();
     drawGridControls();
     drawBrushControls();
+    drawTextureGenerator();
     drawSelectionControls();
     drawPrefabControls();
 
@@ -1049,6 +1067,100 @@ void TileGridEditor::drawBrushControls() {
     } else if (m_brush == BrushType::PlayerSpawn) {
         drawPlayerSpawnBrushControls();
     }
+}
+
+void TileGridEditor::drawTextureGenerator() {
+    ImGui::SeparatorText("Texture Generator");
+    ImGui::TextDisabled("Describe a texture, generate it with Azure Foundry, and add it to the picker.");
+
+    const char* sizeLabels[] = {"512 x 512", "1024 x 1024"};
+    m_generatedTextureSizeIndex = std::clamp(m_generatedTextureSizeIndex, 0, 1);
+
+    ImGui::InputText("Alias##generatedTexture", m_generatedTextureAlias.data(), m_generatedTextureAlias.size());
+    ImGui::InputTextMultiline("Description##generatedTexture",
+                              m_generatedTexturePrompt.data(),
+                              m_generatedTexturePrompt.size(),
+                              ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 4.0f));
+    ImGui::Combo("Output Size##generatedTexture", &m_generatedTextureSizeIndex, sizeLabels, IM_ARRAYSIZE(sizeLabels));
+
+    const bool hasPrompt = trimCopy(std::string(m_generatedTexturePrompt.data())).size() > 3;
+    const bool hasAlias = trimCopy(std::string(m_generatedTextureAlias.data())).size() > 1;
+    const bool configured = m_textureGenerator.isConfigured(m_azureConfig);
+
+    if (!configured) {
+        ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.2f, 1.0f),
+                           "Azure Foundry configuration missing (AZURE_FOUNDRY_ENDPOINT, AZURE_FOUNDRY_DEPLOYMENT, AZURE_FOUNDRY_API_KEY).");
+    }
+
+    ImGui::BeginDisabled(!configured || !hasPrompt || !hasAlias || !m_grid);
+    if (ImGui::Button("Generate Texture")) {
+        const std::string prompt = trimCopy(std::string(m_generatedTexturePrompt.data()));
+        std::string alias = trimCopy(std::string(m_generatedTextureAlias.data()));
+
+        if (prompt.empty() || alias.empty()) {
+            m_textureGenerationStatus = "Please provide both an alias and description.";
+        } else {
+            std::filesystem::path outputDir = std::filesystem::path("assets") / "textures" / "generated";
+            std::error_code ec;
+            std::filesystem::create_directories(outputDir, ec);
+
+            if (ec) {
+                m_textureGenerationStatus = "Unable to create output folder: " + outputDir.string();
+            } else {
+                AzureTextureGenerator::Config requestConfig = m_azureConfig;
+                requestConfig.imageSize = m_generatedTextureSizeIndex == 0 ? 512 : 1024;
+
+                std::string baseName = makeSafeTextureFileName(alias);
+                if (baseName.empty()) {
+                    baseName = "texture";
+                }
+
+                std::filesystem::path outputPath = outputDir / (baseName + ".png");
+                int suffix = 1;
+                while (std::filesystem::exists(outputPath)) {
+                    outputPath = outputDir / (baseName + "_" + std::to_string(suffix++) + ".png");
+                }
+
+                std::string errorMessage;
+                if (m_textureGenerator.generateTexture(prompt, outputPath.string(), requestConfig, errorMessage)) {
+                    if (m_grid) {
+                        m_grid->addTextureAlias(alias, outputPath.string());
+                        rebuildAliasList();
+                    }
+                    m_textureGenerationStatus = "Saved generated texture as " + outputPath.string() + " (alias: " + alias + ")";
+                } else {
+                    m_textureGenerationStatus = "Failed to generate texture: " + errorMessage;
+                }
+            }
+        }
+    }
+    ImGui::EndDisabled();
+
+    if (!m_textureGenerationStatus.empty()) {
+        ImGui::TextWrapped("%s", m_textureGenerationStatus.c_str());
+    }
+}
+
+std::string TileGridEditor::makeSafeTextureFileName(const std::string& alias) const {
+    std::string safe;
+    safe.reserve(alias.size());
+
+    for (unsigned char c : alias) {
+        if (std::isalnum(c)) {
+            safe.push_back(static_cast<char>(std::tolower(c)));
+        } else if (c == '_' || c == '-' || c == ' ') {
+            safe.push_back('_');
+        }
+    }
+
+    while (!safe.empty() && safe.front() == '_') {
+        safe.erase(safe.begin());
+    }
+    while (!safe.empty() && safe.back() == '_') {
+        safe.pop_back();
+    }
+
+    return safe;
 }
 
 void TileGridEditor::drawPrefabControls() {
