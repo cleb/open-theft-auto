@@ -9,6 +9,7 @@
 #include "TileGridEditor.hpp"
 #include "LevelData.hpp"
 #include "GameLogic.hpp"
+#include "TrafficManager.hpp"
 
 #include <string>
 
@@ -23,6 +24,7 @@ private:
     // New tile grid system
     std::unique_ptr<TileGrid> m_tileGrid;
     std::unique_ptr<TileGridEditor> m_tileGridEditor;
+    std::unique_ptr<TrafficManager> m_trafficManager;
     LevelData m_levelData;
     std::string m_levelPath;
 
@@ -45,6 +47,7 @@ public:
     Player* getPlayer() const { return m_player.get(); }
     TileGrid* getTileGrid() const { return m_tileGrid.get(); }
     GameLogic* getGameLogic() const { return m_gameLogic; }
+    TrafficManager* getTrafficManager() const { return m_trafficManager.get(); }
     bool isEditModeActive() const { return m_tileGridEditor && m_tileGridEditor->isEnabled(); }
     
 private:

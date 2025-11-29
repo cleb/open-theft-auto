@@ -11,7 +11,7 @@ Vehicle::Vehicle()
     , m_maxSpeed(24.0f)
     , m_maxSpeedRoad(36.0f)
     , m_acceleration(12.0f)
-    , m_turnSpeed(210.0f)
+    , m_turnSpeed(400.0f)
     , m_size(1.5f, 3.0f)
     , m_playerControlled(false)
     , m_tileGrid(nullptr) {
@@ -167,8 +167,12 @@ void Vehicle::turnRight(float deltaTime) {
     if (std::abs(m_speed) > 0.1f) {
         float maxSpeed = getCurrentMaxSpeed();
         if (maxSpeed <= 0.0f) return;
-        float speedRatio = std::clamp(m_speed / maxSpeed, -1.0f, 1.0f);
-        m_rotation.z += m_turnSpeed * deltaTime * speedRatio;
+        // Minimum turn rate of 50% even at low speeds, scales up to 100% at high speed
+        float speedRatio = std::abs(m_speed) / maxSpeed;
+        float turnFactor = 0.5f + 0.5f * std::clamp(speedRatio, 0.0f, 1.0f);
+        // Reverse direction when going backward
+        if (m_speed < 0) turnFactor = -turnFactor;
+        m_rotation.z += m_turnSpeed * deltaTime * turnFactor;
         if (m_rotation.z < 0.0f) {
             m_rotation.z += 360.0f;
         } else if (m_rotation.z >= 360.0f) {
@@ -181,8 +185,12 @@ void Vehicle::turnLeft(float deltaTime) {
     if (std::abs(m_speed) > 0.1f) {
         float maxSpeed = getCurrentMaxSpeed();
         if (maxSpeed <= 0.0f) return;
-        float speedRatio = std::clamp(m_speed / maxSpeed, -1.0f, 1.0f);
-        m_rotation.z -= m_turnSpeed * deltaTime * speedRatio;
+        // Minimum turn rate of 50% even at low speeds, scales up to 100% at high speed
+        float speedRatio = std::abs(m_speed) / maxSpeed;
+        float turnFactor = 0.5f + 0.5f * std::clamp(speedRatio, 0.0f, 1.0f);
+        // Reverse direction when going backward
+        if (m_speed < 0) turnFactor = -turnFactor;
+        m_rotation.z -= m_turnSpeed * deltaTime * turnFactor;
         if (m_rotation.z < 0.0f) {
             m_rotation.z += 360.0f;
         } else if (m_rotation.z >= 360.0f) {

@@ -133,3 +133,8 @@ endif()
 
 # Enable debug symbols in Debug mode
 set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type" FORCE)
+
+# Unit tests
+add_executable(test_traffic_turning tests/test_traffic_turning.cpp)
+target_link_libraries(test_traffic_turning glm::glm)
+target_include_directories(test_traffic_turning PRIVATE ${CMAKE_SOURCE_DIR}/include)

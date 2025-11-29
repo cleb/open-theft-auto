@@ -3,6 +3,7 @@
 #include "InputManager.hpp"
 #include "LevelSerialization.hpp"
 #include "GameLogic.hpp"
+#include "TrafficManager.hpp"
 #include <iostream>
 #include <string>
 #include <glm/glm.hpp>
@@ -37,6 +38,10 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     }
     m_player->setTileGrid(m_tileGrid.get());
     
+    // Initialize traffic manager
+    m_trafficManager = std::make_unique<TrafficManager>();
+    m_trafficManager->initialize(m_tileGrid.get(), renderer->getCamera(), &m_vehicles);
+    
     // Initialize game logic
     m_gameLogic->setPlayer(m_player.get());
     m_gameLogic->setVehicles(&m_vehicles);
@@ -60,6 +65,11 @@ void Scene::update(float deltaTime) {
     // Update game logic (handles player/vehicle synchronization)
     if (m_gameLogic) {
         m_gameLogic->update(deltaTime);
+    }
+    
+    // Update traffic manager (AI vehicles)
+    if (m_trafficManager && !isEditModeActive()) {
+        m_trafficManager->update(deltaTime);
     }
     
     // Update all game objects
@@ -111,6 +121,11 @@ void Scene::render(Renderer* renderer) {
         if (vehicle && vehicle->isActive()) {
             vehicle->render(renderer);
         }
+    }
+    
+    // Render traffic vehicles
+    if (m_trafficManager) {
+        m_trafficManager->render(renderer);
     }
     
     // Render player (on top)
@@ -174,7 +189,7 @@ void Scene::addVehicle(std::unique_ptr<Vehicle> vehicle) {
 void Scene::createTestScene() {
     // Configure the tile grid with test data
     if (m_tileGrid) {
-        const std::string levelPath = "assets/levels/test_grid.tg";
+        const std::string levelPath = "assets/levels/test_level.tg";
         if (!LevelSerialization::loadLevel(levelPath, *m_tileGrid, m_levelData)) {
             std::cerr << "Failed to load level from " << levelPath << std::endl;
         }
@@ -230,6 +245,11 @@ void Scene::rebuildVehiclesFromSpawns() {
     }
 
     m_vehicles.clear();
+    
+    // Reset traffic manager
+    if (m_trafficManager) {
+        m_trafficManager->reset();
+    }
 
     if (!m_tileGrid) {
         return;
