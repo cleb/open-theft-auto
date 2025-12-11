@@ -1,6 +1,7 @@
 #include "Vehicle.hpp"
 #include "Renderer.hpp"
 #include "TileGrid.hpp"
+#include "Heading.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -40,8 +41,9 @@ void Vehicle::update(float deltaTime) {
     
     // Move forward based on current speed
     if (std::abs(m_speed) > 0.01f) {
-        float radians = glm::radians(m_rotation.z);
-        glm::vec3 forward(std::sin(radians), std::cos(radians), 0.0f);
+        // Heading convention: 0° = +X (East), 90° = +Y (North), CCW positive.
+        glm::vec2 f2 = Heading::forwardFromHeadingDeg(m_rotation.z);
+        glm::vec3 forward(f2.x, f2.y, 0.0f);
         glm::vec3 delta = forward * m_speed * deltaTime;
 
         if (m_tileGrid) {
@@ -79,7 +81,7 @@ void Vehicle::render(Renderer* renderer) {
 
     if (m_texture) {
         renderer->renderSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size,
-                               360.0f - m_rotation.z, glm::vec3(1.0f));
+                               m_rotation.z, glm::vec3(1.0f));
         return;
     }
     
@@ -172,12 +174,9 @@ void Vehicle::turnRight(float deltaTime) {
         float turnFactor = 0.5f + 0.5f * std::clamp(speedRatio, 0.0f, 1.0f);
         // Reverse direction when going backward
         if (m_speed < 0) turnFactor = -turnFactor;
-        m_rotation.z += m_turnSpeed * deltaTime * turnFactor;
-        if (m_rotation.z < 0.0f) {
-            m_rotation.z += 360.0f;
-        } else if (m_rotation.z >= 360.0f) {
-            m_rotation.z -= 360.0f;
-        }
+        // Heading convention: CCW positive, so turning right (clockwise) decreases heading.
+        m_rotation.z -= m_turnSpeed * deltaTime * turnFactor;
+        m_rotation.z = Heading::wrapDegrees360(m_rotation.z);
     }
 }
 
@@ -190,12 +189,9 @@ void Vehicle::turnLeft(float deltaTime) {
         float turnFactor = 0.5f + 0.5f * std::clamp(speedRatio, 0.0f, 1.0f);
         // Reverse direction when going backward
         if (m_speed < 0) turnFactor = -turnFactor;
-        m_rotation.z -= m_turnSpeed * deltaTime * turnFactor;
-        if (m_rotation.z < 0.0f) {
-            m_rotation.z += 360.0f;
-        } else if (m_rotation.z >= 360.0f) {
-            m_rotation.z -= 360.0f;
-        }
+        // Heading convention: CCW positive, so turning left increases heading.
+        m_rotation.z += m_turnSpeed * deltaTime * turnFactor;
+        m_rotation.z = Heading::wrapDegrees360(m_rotation.z);
     }
 }
 
@@ -213,9 +209,10 @@ bool Vehicle::isOnRoad() const {
 std::array<glm::vec3, 8> Vehicle::getCollisionOffsets() const {
     const float halfWidth = m_size.x * 0.5f;
     const float halfLength = m_size.y * 0.5f;
-    const float radians = glm::radians(m_rotation.z);
-    const glm::vec3 forward(std::sin(radians), std::cos(radians), 0.0f);
-    const glm::vec3 right(std::cos(radians), -std::sin(radians), 0.0f);
+    glm::vec2 f2 = Heading::forwardFromHeadingDeg(m_rotation.z);
+    const glm::vec3 forward(f2.x, f2.y, 0.0f);
+    // Right is +90° clockwise from forward.
+    const glm::vec3 right(forward.y, -forward.x, 0.0f);
     return {
         forward * halfLength + right * halfWidth,
         forward * halfLength - right * halfWidth,

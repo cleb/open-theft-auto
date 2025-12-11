@@ -1811,23 +1811,24 @@ void TileGridEditor::drawVehicleBrushControls() {
             announceBrush();
         }
 
+        // Heading convention: 0°=East, 90°=North, 180°=West, 270°=South
         if (ImGui::Button("North##VehicleRot")) {
-            m_uiVehicleState.rotationDegrees = 180.0f;
+            m_uiVehicleState.rotationDegrees = 90.0f;
             announceBrush();
         }
         ImGui::SameLine();
         if (ImGui::Button("East##VehicleRot")) {
-            m_uiVehicleState.rotationDegrees = 270.0f;
-            announceBrush();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("South##VehicleRot")) {
             m_uiVehicleState.rotationDegrees = 0.0f;
             announceBrush();
         }
         ImGui::SameLine();
+        if (ImGui::Button("South##VehicleRot")) {
+            m_uiVehicleState.rotationDegrees = 270.0f;
+            announceBrush();
+        }
+        ImGui::SameLine();
         if (ImGui::Button("West##VehicleRot")) {
-            m_uiVehicleState.rotationDegrees = 90.0f;
+            m_uiVehicleState.rotationDegrees = 180.0f;
             announceBrush();
         }
 
@@ -1886,23 +1887,24 @@ void TileGridEditor::drawPlayerSpawnBrushControls() {
         announceBrush();
     }
 
+    // Heading convention: 0°=East, 90°=North, 180°=West, 270°=South
     if (ImGui::Button("North##PlayerRot")) {
-        m_uiPlayerSpawnState.rotationDegrees = 180.0f;
+        m_uiPlayerSpawnState.rotationDegrees = 90.0f;
         announceBrush();
     }
     ImGui::SameLine();
     if (ImGui::Button("East##PlayerRot")) {
-        m_uiPlayerSpawnState.rotationDegrees = 270.0f;
-        announceBrush();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("South##PlayerRot")) {
         m_uiPlayerSpawnState.rotationDegrees = 0.0f;
         announceBrush();
     }
     ImGui::SameLine();
+    if (ImGui::Button("South##PlayerRot")) {
+        m_uiPlayerSpawnState.rotationDegrees = 270.0f;
+        announceBrush();
+    }
+    ImGui::SameLine();
     if (ImGui::Button("West##PlayerRot")) {
-        m_uiPlayerSpawnState.rotationDegrees = 90.0f;
+        m_uiPlayerSpawnState.rotationDegrees = 180.0f;
         announceBrush();
     }
 

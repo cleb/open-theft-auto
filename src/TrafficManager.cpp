@@ -1,8 +1,145 @@
 #include "TrafficManager.hpp"
 #include "Renderer.hpp"
+#include "Heading.hpp"
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+
+namespace {
+    struct CurveArc {
+        glm::vec2 center;
+        float radius = 0.0f;
+        float startAngleRad = 0.0f;
+        float endAngleRad = 0.0f;
+        float totalAngleRad = 0.0f;
+        bool valid = false;
+    };
+
+    static glm::vec2 rotate90CW(const glm::vec2& v) { return glm::vec2(v.y, -v.x); }
+    static glm::vec2 rotate90CCW(const glm::vec2& v) { return glm::vec2(-v.y, v.x); }
+
+    static bool isCurveTile(CarDirection d) {
+        return d == CarDirection::NorthEast || d == CarDirection::NorthWest ||
+               d == CarDirection::SouthEast || d == CarDirection::SouthWest;
+    }
+
+    // Map a curve tile to its entry->exit cardinal directions.
+    // We interpret these diagonal carDirections as quarter-turn curves:
+    //  - NorthEast: enter from North, exit to East
+    //  - SouthEast: enter from South, exit to East
+    //  - NorthWest: enter from North, exit to West
+    //  - SouthWest: enter from South, exit to West
+    static bool curveEntryExit(CarDirection tileDir, CarDirection& entry, CarDirection& exit) {
+        switch (tileDir) {
+            case CarDirection::NorthEast: entry = CarDirection::North; exit = CarDirection::East; return true;
+            case CarDirection::SouthEast: entry = CarDirection::South; exit = CarDirection::East; return true;
+            case CarDirection::NorthWest: entry = CarDirection::North; exit = CarDirection::West; return true;
+            case CarDirection::SouthWest: entry = CarDirection::South; exit = CarDirection::West; return true;
+            default: break;
+        }
+        return false;
+    }
+
+    static glm::vec2 dirToForward(CarDirection d) {
+        switch (d) {
+            case CarDirection::North: return glm::vec2(0.0f, 1.0f);
+            case CarDirection::South: return glm::vec2(0.0f, -1.0f);
+            case CarDirection::East:  return glm::vec2(1.0f, 0.0f);
+            case CarDirection::West:  return glm::vec2(-1.0f, 0.0f);
+            default: break;
+        }
+        return glm::vec2(0.0f, 1.0f);
+    }
+
+    static float angleOf(const glm::vec2& v) {
+        return std::atan2(v.y, v.x);
+    }
+
+    static float normalizeAngleSigned(float a) {
+        while (a > glm::pi<float>()) a -= glm::two_pi<float>();
+        while (a < -glm::pi<float>()) a += glm::two_pi<float>();
+        return a;
+    }
+
+    static float lerpAngleRad(float a, float b, float t) {
+        float diff = normalizeAngleSigned(b - a);
+        return a + diff * t;
+    }
+
+    static CurveArc buildCurveArc(const glm::vec2& tileCenter, float tileSize, CarDirection tileDir) {
+        CurveArc arc;
+        CarDirection entry, exit;
+        if (!curveEntryExit(tileDir, entry, exit)) return arc;
+
+        // Use a quarter-circle with radius = tileSize/2. The center is in the quadrant
+        // given by (exit + entry) relative to tile center.
+        const float r = tileSize * 0.5f;
+        glm::vec2 entryF = dirToForward(entry);
+        glm::vec2 exitF = dirToForward(exit);
+
+        // Determine the arc center offset from tile center. For a NE curve (N->E),
+        // center sits at (+r,+r) etc.
+        glm::vec2 centerOffset((exitF.x + entryF.x) * r, (exitF.y + entryF.y) * r);
+        arc.center = tileCenter + centerOffset;
+        arc.radius = r;
+
+        // Start point is at the center of the entry edge; end point at center of exit edge.
+        glm::vec2 startPoint = tileCenter + entryF * r;
+        glm::vec2 endPoint = tileCenter + exitF * r;
+
+        arc.startAngleRad = angleOf(startPoint - arc.center);
+        arc.endAngleRad = angleOf(endPoint - arc.center);
+        arc.totalAngleRad = normalizeAngleSigned(arc.endAngleRad - arc.startAngleRad);
+
+        // We always want a quarter turn; if numerical wrap yields the long way, flip.
+        if (std::abs(arc.totalAngleRad) > glm::half_pi<float>() + 0.001f) {
+            // force shortest direction
+            arc.totalAngleRad = (arc.totalAngleRad > 0.0f) ? (arc.totalAngleRad - glm::two_pi<float>())
+                                                            : (arc.totalAngleRad + glm::two_pi<float>());
+        }
+
+        arc.valid = true;
+        return arc;
+    }
+
+    // Project a point onto the arc and advance along it by arcDistance.
+    static bool followCurve(const CurveArc& arc, const glm::vec2& currentPos, float arcDistance,
+                            glm::vec2& outPos, glm::vec2& outTangent) {
+        if (!arc.valid || arc.radius <= 0.0f) return false;
+
+        glm::vec2 fromCenter = currentPos - arc.center;
+        float len = glm::length(fromCenter);
+        if (len < 1e-4f) {
+            // Fallback to start angle.
+            fromCenter = glm::vec2(std::cos(arc.startAngleRad), std::sin(arc.startAngleRad)) * arc.radius;
+        } else {
+            fromCenter = (fromCenter / len) * arc.radius;
+        }
+
+        float currentAngle = angleOf(fromCenter);
+        // Clamp to arc range by projecting onto [0,1] along the arc.
+        float denom = (std::abs(arc.totalAngleRad) < 1e-5f) ? 1.0f : arc.totalAngleRad;
+        float t = normalizeAngleSigned(currentAngle - arc.startAngleRad) / denom;
+        t = std::clamp(t, 0.0f, 1.0f);
+
+        float deltaT = arcDistance / (std::abs(arc.totalAngleRad) * arc.radius);
+        if (!std::isfinite(deltaT)) deltaT = 0.0f;
+        float t2 = std::clamp(t + deltaT, 0.0f, 1.0f);
+
+        float angle2 = lerpAngleRad(arc.startAngleRad, arc.startAngleRad + arc.totalAngleRad, t2);
+        outPos = arc.center + glm::vec2(std::cos(angle2), std::sin(angle2)) * arc.radius;
+
+        // Tangent direction: derivative of position w.r.t angle.
+        // For position = center + R*(cos(a), sin(a)):
+        //   d/da = R*(-sin(a), cos(a)) which is a +90° CCW rotation of radial.
+        // If totalAngleRad is negative (clockwise travel), tangent must be flipped.
+        glm::vec2 radial(std::cos(angle2), std::sin(angle2));
+        outTangent = (arc.totalAngleRad >= 0.0f) ? rotate90CCW(radial) : rotate90CW(radial);
+        float tLen = glm::length(outTangent);
+        if (tLen > 1e-4f) outTangent /= tLen;
+        return true;
+    }
+}
 
 TrafficManager::TrafficManager()
     : m_tileGrid(nullptr)
@@ -231,12 +368,13 @@ void TrafficManager::updateAIVehicles(float deltaTime) {
         gridPos.z = actualZ;
         
         const Tile* tile = m_tileGrid->getTile(gridPos);
-        float currentRotation = vehicle->getRotation().z;
+    // Heading convention: 0°=+X (East), CCW positive.
+    float currentHeading = vehicle->getRotation().z;
         
         if (!tile) {
             // Off the grid, keep moving in current direction
-            float radians = glm::radians(currentRotation);
-            glm::vec3 forward(std::sin(radians), std::cos(radians), 0.0f);
+            glm::vec2 f2 = Heading::forwardFromHeadingDeg(currentHeading);
+            glm::vec3 forward(f2.x, f2.y, 0.0f);
             const float aiSpeed = 12.0f;
             glm::vec3 newPos = pos + forward * aiSpeed * deltaTime;
             newPos.z = pos.z;
@@ -245,120 +383,90 @@ void TrafficManager::updateAIVehicles(float deltaTime) {
         }
         
         CarDirection tileDir = tile->getCarDirection();
-        
-        // Look ahead to start turning early and find steering target
-        float radians = glm::radians(currentRotation);
-        glm::vec3 forwardDir(std::sin(radians), std::cos(radians), 0.0f);
-        
-        // Calculate if we're heading toward tile edge (past center)
+
+        // Deterministic curve following on diagonal tiles.
+        // For curves we compute a quarter-circle arc inside the tile and advance along it.
+        const float tileSize = m_tileGrid->getTileSize();
+        const float maxSpeed = 12.0f;
+
+        if (isCurveTile(tileDir)) {
+            glm::vec3 tileCenter3 = m_tileGrid->gridToWorld(gridPos);
+            glm::vec2 tileCenter(tileCenter3.x, tileCenter3.y);
+
+            CurveArc arc = buildCurveArc(tileCenter, tileSize, tileDir);
+            glm::vec2 current2(pos.x, pos.y);
+            glm::vec2 new2, tangent;
+
+            const float arcDist = maxSpeed * deltaTime;
+            if (followCurve(arc, current2, arcDist, new2, tangent)) {
+                vehicle->setRotation(glm::vec3(0.0f, 0.0f, Heading::headingDegFromForward(tangent)));
+
+                glm::vec3 newPos(new2.x, new2.y, pos.z);
+                if (m_tileGrid->canOccupy(pos, newPos)) {
+                    vehicle->setPosition(newPos);
+                }
+                continue;
+            }
+            // If for some reason arc following failed, fall through to the old straight behavior.
+        }
+
+        // Straight (and bidirectional) behavior: steer toward tile direction with gentle look-ahead.
+    glm::vec2 fd2 = Heading::forwardFromHeadingDeg(currentHeading);
+    glm::vec3 forwardDir(fd2.x, fd2.y, 0.0f);
+
         glm::vec3 tileCenter = m_tileGrid->gridToWorld(gridPos);
         glm::vec3 toCenter = tileCenter - pos;
-        float dotToCenter = glm::dot(glm::normalize(glm::vec2(toCenter)), glm::vec2(forwardDir));
-        
-        float targetRotation = calculateTargetRotation(tileDir, currentRotation);
-        
-        // Check if current tile is a corner - if so, look for exit tile and aim toward it
-        bool currentIsCorner = (tileDir == CarDirection::NorthEast ||
-                               tileDir == CarDirection::NorthWest ||
-                               tileDir == CarDirection::SouthEast ||
-                               tileDir == CarDirection::SouthWest);
-        
-        if (currentIsCorner) {
-            // Find the exit tile by looking in the corner's exit direction
-            float exitRotation = calculateTargetRotation(tileDir, currentRotation);
-            float exitRadians = glm::radians(exitRotation);
-            glm::vec3 exitDir(std::sin(exitRadians), std::cos(exitRadians), 0.0f);
-            
-            // Look for the tile we'll exit into
-            glm::vec3 exitLookPos = tileCenter + exitDir * m_tileGrid->getTileSize();
-            glm::ivec3 exitGridPos = m_tileGrid->worldToGrid(exitLookPos);
-            exitGridPos.z = 0;
-            
-            const Tile* exitTile = m_tileGrid->getTile(exitGridPos);
-            if (exitTile && exitTile->getCarDirection() != CarDirection::None) {
-                // Aim toward the center of the exit tile
-                glm::vec3 exitTileCenter = m_tileGrid->gridToWorld(exitGridPos);
-                glm::vec3 toExit = exitTileCenter - pos;
-                targetRotation = glm::degrees(std::atan2(toExit.x, toExit.y));
-                if (targetRotation < 0) targetRotation += 360.0f;
-            }
+        float dotToCenter = 1.0f;
+        if (glm::length(glm::vec2(toCenter)) > 1e-4f) {
+            dotToCenter = glm::dot(glm::normalize(glm::vec2(toCenter)), glm::vec2(forwardDir));
         }
-        // Look ahead when moving toward tile edge (for straight tiles approaching corners)
-        else if (dotToCenter < 0.3f) {
+
+    float targetHeading = calculateTargetRotation(tileDir, currentHeading);
+
+        // Look ahead when moving toward tile edge (for straight tiles approaching curves)
+        if (dotToCenter < 0.3f) {
             const float lookAheadDist = 2.0f;
             glm::vec3 lookAheadPos = pos + forwardDir * lookAheadDist;
             glm::ivec3 lookAheadGridPos = m_tileGrid->worldToGrid(lookAheadPos);
             lookAheadGridPos.z = 0;
-            
+
             if (lookAheadGridPos != gridPos) {
                 const Tile* lookAheadTile = m_tileGrid->getTile(lookAheadGridPos);
                 if (lookAheadTile) {
                     CarDirection lookAheadDir = lookAheadTile->getCarDirection();
-                    if (lookAheadDir != CarDirection::None) {
-                        bool nextIsCorner = (lookAheadDir == CarDirection::NorthEast ||
-                                            lookAheadDir == CarDirection::NorthWest ||
-                                            lookAheadDir == CarDirection::SouthEast ||
-                                            lookAheadDir == CarDirection::SouthWest);
-                        
-                        if (nextIsCorner) {
-                            // Approaching a corner - aim toward corner center to start the turn
-                            glm::vec3 cornerCenter = m_tileGrid->gridToWorld(lookAheadGridPos);
-                            glm::vec3 toCorner = cornerCenter - pos;
-                            targetRotation = glm::degrees(std::atan2(toCorner.x, toCorner.y));
-                            if (targetRotation < 0) targetRotation += 360.0f;
-                        } else {
-                            // Straight tile ahead - use its direction
-                            targetRotation = calculateTargetRotation(lookAheadDir, currentRotation);
-                        }
+                    if (lookAheadDir != CarDirection::None && !isCurveTile(lookAheadDir)) {
+                        targetHeading = calculateTargetRotation(lookAheadDir, currentHeading);
                     }
                 }
             }
         }
-        
-        // If we're on a road with a direction, adjust heading
+
         float rotDiff = 0.0f;
         if (tileDir != CarDirection::None) {
-            // targetRotation already calculated above (may include look-ahead)
-            
-            // Calculate rotation difference
-            rotDiff = targetRotation - currentRotation;
-            while (rotDiff > 180.0f) rotDiff -= 360.0f;
-            while (rotDiff < -180.0f) rotDiff += 360.0f;
-            
-            // Only turn if there's a significant difference
+            rotDiff = Heading::shortestAngleDeltaDeg(currentHeading, targetHeading);
+
             if (std::abs(rotDiff) > 1.0f) {
-                // Very fast turn rate with dynamic multiplier for larger angles
-                float baseTurnRate = 600.0f;  // Degrees per second
-                float dynamicMultiplier = 1.0f + std::abs(rotDiff) / 45.0f;  // Up to 2x for 45° turns
+                float baseTurnRate = 600.0f;
+                float dynamicMultiplier = 1.0f + std::abs(rotDiff) / 45.0f;
                 float turnRate = baseTurnRate * dynamicMultiplier * deltaTime;
-                
+
                 if (std::abs(rotDiff) <= turnRate) {
-                    currentRotation = targetRotation;
+                    currentHeading = targetHeading;
                 } else if (rotDiff > 0) {
-                    currentRotation += turnRate;
-                    if (currentRotation >= 360.0f) currentRotation -= 360.0f;
+                    currentHeading += turnRate;
                 } else {
-                    currentRotation -= turnRate;
-                    if (currentRotation < 0.0f) currentRotation += 360.0f;
+                    currentHeading -= turnRate;
                 }
-                vehicle->setRotation(glm::vec3(0.0f, 0.0f, currentRotation));
+                currentHeading = Heading::wrapDegrees360(currentHeading);
+                vehicle->setRotation(glm::vec3(0.0f, 0.0f, currentHeading));
             }
         }
-        
-        // Move forward based on current rotation
-        radians = glm::radians(currentRotation);
-        glm::vec3 forward(std::sin(radians), std::cos(radians), 0.0f);
-        
-        // AI vehicles slow down while turning, full speed when straight
-        const float maxSpeed = 12.0f;  // Units per second
-        const float minSpeed = 3.0f;   // Minimum speed while turning
-        float turnFactor = std::min(std::abs(rotDiff) / 30.0f, 1.0f);  // 0 to 1 based on turn angle
-        float aiSpeed = maxSpeed - (maxSpeed - minSpeed) * turnFactor;
-        
-        glm::vec3 newPos = pos + forward * aiSpeed * deltaTime;
-        newPos.z = pos.z;  // Keep same Z
-        
-        // Check if we can move there
+
+        glm::vec2 fwd2 = Heading::forwardFromHeadingDeg(currentHeading);
+        glm::vec3 forward(fwd2.x, fwd2.y, 0.0f);
+        glm::vec3 newPos = pos + forward * maxSpeed * deltaTime;
+        newPos.z = pos.z;
+
         if (m_tileGrid->canOccupy(pos, newPos)) {
             vehicle->setPosition(newPos);
         }
@@ -368,14 +476,14 @@ void TrafficManager::updateAIVehicles(float deltaTime) {
 float TrafficManager::calculateTargetRotation(CarDirection tileDir, float currentRotation) const {
     // Single direction tiles - always use their direction
     switch (tileDir) {
-        case CarDirection::North: return 0.0f;
-        case CarDirection::South: return 180.0f;
-        case CarDirection::East: return 90.0f;
-        case CarDirection::West: return 270.0f;
+        case CarDirection::East:  return 0.0f;
+        case CarDirection::North: return 90.0f;
+        case CarDirection::West:  return 180.0f;
+        case CarDirection::South: return 270.0f;
         case CarDirection::NorthEast: return 45.0f;
-        case CarDirection::NorthWest: return 315.0f;
-        case CarDirection::SouthEast: return 135.0f;
+        case CarDirection::NorthWest: return 135.0f;
         case CarDirection::SouthWest: return 225.0f;
+        case CarDirection::SouthEast: return 315.0f;
         default:
             break;
     }
@@ -384,20 +492,20 @@ float TrafficManager::calculateTargetRotation(CarDirection tileDir, float curren
     float rot1, rot2;
     switch (tileDir) {
         case CarDirection::SouthNorth:
-            rot1 = 0.0f;    // North
-            rot2 = 180.0f;  // South
+            rot1 = 90.0f;   // North
+            rot2 = 270.0f;  // South
             break;
         case CarDirection::WestEast:
-            rot1 = 90.0f;   // East
-            rot2 = 270.0f;  // West
+            rot1 = 0.0f;    // East
+            rot2 = 180.0f;  // West
             break;
         case CarDirection::NorthEastSouthWest:
             rot1 = 45.0f;   // NorthEast
             rot2 = 225.0f;  // SouthWest
             break;
         case CarDirection::NorthWestSouthEast:
-            rot1 = 315.0f;  // NorthWest
-            rot2 = 135.0f;  // SouthEast
+            rot1 = 135.0f;  // NorthWest
+            rot2 = 315.0f;  // SouthEast
             break;
         default:
             return currentRotation;  // Unknown direction, keep current
@@ -416,26 +524,26 @@ float TrafficManager::getRotationFromDirection(CarDirection dir, std::mt19937& r
     std::uniform_int_distribution<int> coin(0, 1);
     
     switch (dir) {
-        case CarDirection::North: return 0.0f;
-        case CarDirection::South: return 180.0f;
-        case CarDirection::East: return 90.0f;
-        case CarDirection::West: return 270.0f;
+        case CarDirection::East:  return 0.0f;
+        case CarDirection::North: return 90.0f;
+        case CarDirection::West:  return 180.0f;
+        case CarDirection::South: return 270.0f;
         case CarDirection::NorthEast: return 45.0f;
-        case CarDirection::NorthWest: return 315.0f;
-        case CarDirection::SouthEast: return 135.0f;
+        case CarDirection::NorthWest: return 135.0f;
+        case CarDirection::SouthEast: return 315.0f;
         case CarDirection::SouthWest: return 225.0f;
-        case CarDirection::SouthNorth: return coin(rng) ? 0.0f : 180.0f;
-        case CarDirection::WestEast: return coin(rng) ? 90.0f : 270.0f;
+        case CarDirection::SouthNorth: return coin(rng) ? 90.0f : 270.0f;
+        case CarDirection::WestEast: return coin(rng) ? 0.0f : 180.0f;
         case CarDirection::NorthEastSouthWest: return coin(rng) ? 45.0f : 225.0f;
-        case CarDirection::NorthWestSouthEast: return coin(rng) ? 315.0f : 135.0f;
+        case CarDirection::NorthWestSouthEast: return coin(rng) ? 135.0f : 315.0f;
         default: return 0.0f;
     }
 }
 
 glm::vec2 TrafficManager::getForwardFromDirection([[maybe_unused]] CarDirection dir, float rotation) {
-    // Convert rotation to forward vector
-    float radians = glm::radians(rotation);
-    return glm::vec2(std::sin(radians), std::cos(radians));
+    // Convert heading degrees to forward vector (standardized convention)
+    (void)dir;
+    return Heading::forwardFromHeadingDeg(rotation);
 }
 
 bool TrafficManager::isTooCloseToOtherVehicles(const glm::vec3& position) const {

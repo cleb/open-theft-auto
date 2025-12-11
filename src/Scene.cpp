@@ -266,7 +266,8 @@ void Scene::rebuildVehiclesFromSpawns() {
             spawn.gridPosition.z * m_tileGrid->getTileSize());
         position.z += 0.1f;
         vehicle->setPosition(position);
-        vehicle->setRotation(glm::vec3(0.0f, 0.0f, spawn.rotationDegrees));
+    // rotationDegrees is a heading in degrees where 0°=+X (East), 90°=+Y (North), CCW positive.
+    vehicle->setRotation(glm::vec3(0.0f, 0.0f, spawn.rotationDegrees));
         addVehicle(std::move(vehicle));
     }
 
@@ -280,6 +281,7 @@ void Scene::rebuildVehiclesFromSpawns() {
                 m_levelData.playerSpawn.gridPosition.z * tileSize);
             playerPos.z += 0.1f;  // Slightly above the tile surface
             m_player->setPosition(playerPos);
+            // rotationDegrees is a heading in degrees where 0°=+X (East), 90°=+Y (North), CCW positive.
             m_player->setRotation(glm::vec3(0.0f, 0.0f, m_levelData.playerSpawn.rotationDegrees));
             std::cout << "Set player position to spawn: (" << playerPos.x << ", " << playerPos.y << ", " << playerPos.z 
                       << ") rotation=" << m_levelData.playerSpawn.rotationDegrees << std::endl;

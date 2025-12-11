@@ -2,6 +2,7 @@
 
 #include "LevelData.hpp"
 #include "TileGrid.hpp"
+#include "Heading.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -364,7 +365,10 @@ bool parseVehicleProperty(const std::string& key,
             logger.error("Invalid rotation value: " + value);
             return false;
         }
-        spawn.rotationDegrees = rotation;
+        // Levels authored before the heading refactor used the legacy convention
+        // (0°=North/+Y, 90°=East/+X). Convert to the new heading convention
+        // (0°=East/+X, 90°=North/+Y) on load.
+        spawn.rotationDegrees = Heading::headingDegFromLegacyRotationDeg(rotation);
         return true;
     }
 
@@ -689,7 +693,7 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
                 if (lowerKey == "rotation" || lowerKey == "angle" || lowerKey == "yaw") {
                     float rotation = 0.0f;
                     if (parseFloat(entry.second, rotation)) {
-                        data.playerSpawn.rotationDegrees = rotation;
+                        data.playerSpawn.rotationDegrees = Heading::headingDegFromLegacyRotationDeg(rotation);
                     } else {
                         logger.warning("Invalid player rotation value: " + entry.second);
                     }
@@ -775,7 +779,8 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
 
     for (const auto& spawn : data.vehicleSpawns) {
         output << "vehicle " << spawn.gridPosition.x << ' ' << spawn.gridPosition.y << ' ' << spawn.gridPosition.z;
-        output << " rotation=" << formatFloat(spawn.rotationDegrees);
+    // rotation is a heading in degrees where 0°=+X (East) and angles increase CCW.
+    output << " rotation=" << formatFloat(spawn.rotationDegrees);
         if (!spawn.texturePath.empty()) {
             output << " texture=" << identifierForSave(spawn.texturePath);
         }
@@ -788,7 +793,8 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
         output << "player " << data.playerSpawn.gridPosition.x << ' ' 
                << data.playerSpawn.gridPosition.y << ' ' 
                << data.playerSpawn.gridPosition.z;
-        output << " rotation=" << formatFloat(data.playerSpawn.rotationDegrees);
+    // rotation is a heading in degrees where 0°=+X (East) and angles increase CCW.
+    output << " rotation=" << formatFloat(data.playerSpawn.rotationDegrees);
         output << std::endl;
     }
 

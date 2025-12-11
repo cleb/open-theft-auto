@@ -1,6 +1,7 @@
 #include "Player.hpp"
 #include "Renderer.hpp"
 #include "TileGrid.hpp"
+#include "Heading.hpp"
 #include <glm/gtc/constants.hpp>
 #include <iostream>
 
@@ -30,37 +31,27 @@ void Player::render(Renderer* renderer) {
     if (!m_active || !renderer || !m_texture) return;
     
     // Render as a flat sprite (billboard)
-    renderer->renderSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size, 360.0f - m_rotation.z, glm::vec3(1.0f));
+    renderer->renderSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size, m_rotation.z, glm::vec3(1.0f));
 }
 
 void Player::moveForward(float deltaTime) {
     // Move in the direction the player is facing
-    float angleRadians = glm::radians(m_rotation.z);
-    glm::vec3 delta(
-        sin(angleRadians) * m_speed * deltaTime,
-        cos(angleRadians) * m_speed * deltaTime,
-        0.0f
-    );
+    glm::vec2 f2 = Heading::forwardFromHeadingDeg(m_rotation.z);
+    glm::vec3 delta(f2.x * m_speed * deltaTime, f2.y * m_speed * deltaTime, 0.0f);
     applyMovement(delta);
 }
 
 void Player::moveBackward(float deltaTime) {
-    float angleRadians = glm::radians(m_rotation.z);
-    glm::vec3 delta(
-        -sin(angleRadians) * m_speed * deltaTime,
-        -cos(angleRadians) * m_speed * deltaTime,
-        0.0f
-    );
+    glm::vec2 f2 = Heading::forwardFromHeadingDeg(m_rotation.z);
+    glm::vec3 delta(-f2.x * m_speed * deltaTime, -f2.y * m_speed * deltaTime, 0.0f);
     applyMovement(delta);
 }
 
 void Player::turnLeft(float deltaTime) {
-    // Rotate counter-clockwise (decrease rotation angle)
-    m_rotation.z -= m_rotationSpeed * deltaTime;
+    // Heading convention: CCW positive.
+    m_rotation.z += m_rotationSpeed * deltaTime;
     // Keep rotation in 0-360 range
-    if (m_rotation.z < 0.0f) {
-        m_rotation.z += 360.0f;
-    }
+    m_rotation.z = Heading::wrapDegrees360(m_rotation.z);
 }
 
 void Player::applyMovement(const glm::vec3& delta) {
@@ -96,10 +87,7 @@ void Player::applyMovement(const glm::vec3& delta) {
 }
 
 void Player::turnRight(float deltaTime) {
-    // Rotate clockwise (increase rotation angle)
-    m_rotation.z += m_rotationSpeed * deltaTime;
-    // Keep rotation in 0-360 range
-    if (m_rotation.z >= 360.0f) {
-        m_rotation.z -= 360.0f;
-    }
+    // Heading convention: CW negative.
+    m_rotation.z -= m_rotationSpeed * deltaTime;
+    m_rotation.z = Heading::wrapDegrees360(m_rotation.z);
 }
