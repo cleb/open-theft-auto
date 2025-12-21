@@ -14,6 +14,7 @@ private:
     ControllableObject* m_previousControllable;
     Player* m_player;
     std::vector<std::unique_ptr<Vehicle>>* m_vehicles;
+    InputManager* m_inputManager;
 
 public:
     GameLogic();
@@ -21,6 +22,7 @@ public:
 
     void setPlayer(Player* player);
     void setVehicles(std::vector<std::unique_ptr<Vehicle>>* vehicles);
+    void setInputManager(InputManager* inputManager) { m_inputManager = inputManager; }
     
     void processInput(InputManager* input, float deltaTime);
     void update(float deltaTime);

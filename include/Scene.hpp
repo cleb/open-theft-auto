@@ -30,6 +30,9 @@ private:
 
     // Game logic handler (owned by Engine)
     GameLogic* m_gameLogic;
+    
+    // Input manager reference for pilot assignment
+    InputManager* m_inputManager;
 
 public:
     Scene();

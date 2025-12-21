@@ -70,14 +70,12 @@ private:
     bool isInSpawnZone(const glm::vec3& position, const ViewBounds& bounds) const;
     void spawnVehicle();
     void despawnOutOfViewVehicles(const ViewBounds& bounds);
-    void updateAIVehicles(float deltaTime);
+    void updateTrafficVehicles(float deltaTime);
     
     // Get rotation angle from traffic direction
     static float getRotationFromDirection(CarDirection dir, std::mt19937& rng);
     // Get forward vector from traffic direction
     static glm::vec2 getForwardFromDirection(CarDirection dir, float rotation);
-    // Calculate target rotation based on tile direction and current heading
-    float calculateTargetRotation(CarDirection tileDir, float currentRotation) const;
     // Check if position is too close to existing vehicles
     bool isTooCloseToOtherVehicles(const glm::vec3& position) const;
 };

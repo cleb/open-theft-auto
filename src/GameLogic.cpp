@@ -1,5 +1,6 @@
 #include "GameLogic.hpp"
 #include "InputManager.hpp"
+#include "UserPilot.hpp"
 #include <glm/glm.hpp>
 #include <glm/geometric.hpp>
 #include <GLFW/glfw3.h>
@@ -9,7 +10,8 @@ GameLogic::GameLogic()
     : m_currentControllable(nullptr)
     , m_previousControllable(nullptr)
     , m_player(nullptr)
-    , m_vehicles(nullptr) {
+    , m_vehicles(nullptr)
+    , m_inputManager(nullptr) {
 }
 
 void GameLogic::setPlayer(Player* player) {
@@ -98,11 +100,15 @@ bool GameLogic::tryEnterNearestVehicle(float radius) {
         return false;
     }
 
-    // Switch control to vehicle
+    // Switch control to vehicle with UserPilot
     m_previousControllable = m_currentControllable;
     m_currentControllable = nearestVehicle;
     
-    nearestVehicle->setPlayerControlled(true);
+    // Create and assign a UserPilot to the vehicle
+    auto userPilot = std::make_unique<UserPilot>();
+    userPilot->setInputManager(m_inputManager);
+    nearestVehicle->setPilot(std::move(userPilot));
+    
     m_player->setActive(false);
     m_player->setPosition(nearestVehicle->getPosition());
     m_player->setRotation(nearestVehicle->getRotation());
@@ -123,7 +129,8 @@ void GameLogic::leaveVehicle() {
     m_player->setPosition(vehicle->getPosition());
     m_player->setRotation(vehicle->getRotation());
     
-    vehicle->setPlayerControlled(false);
+    // Remove the UserPilot from the vehicle
+    vehicle->clearPilot();
     m_previousControllable = nullptr;
 }
 
@@ -152,7 +159,7 @@ void GameLogic::reset() {
     if (m_vehicles) {
         for (auto& vehicle : *m_vehicles) {
             if (vehicle) {
-                vehicle->setPlayerControlled(false);
+                vehicle->clearPilot();
             }
         }
     }

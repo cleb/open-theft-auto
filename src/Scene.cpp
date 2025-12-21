@@ -11,7 +11,7 @@
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 
-Scene::Scene() : m_gameLogic(nullptr) {
+Scene::Scene() : m_gameLogic(nullptr), m_inputManager(nullptr) {
 }
 
 bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer) {
@@ -148,6 +148,13 @@ void Scene::drawGui() {
 }
 
 void Scene::processInput(InputManager* input, float deltaTime) {
+    // Store reference to InputManager for pilot assignment
+    if (input && !m_inputManager) {
+        m_inputManager = input;
+        if (m_gameLogic) {
+            m_gameLogic->setInputManager(input);
+        }
+    }
     if (!input) {
         return;
     }

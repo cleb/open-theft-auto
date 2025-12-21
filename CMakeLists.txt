@@ -142,3 +142,12 @@ target_include_directories(test_traffic_turning PRIVATE ${CMAKE_SOURCE_DIR}/incl
 add_executable(test_heading_conventions tests/test_heading_conventions.cpp)
 target_link_libraries(test_heading_conventions glm::glm)
 target_include_directories(test_heading_conventions PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
+add_executable(test_curve_math tests/test_curve_math.cpp)
+target_link_libraries(test_curve_math glm::glm)
+target_include_directories(test_curve_math PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
+# Register tests with CTest
+enable_testing()
+add_test(NAME heading_conventions COMMAND test_heading_conventions)
+add_test(NAME curve_math COMMAND test_curve_math)

@@ -2,21 +2,24 @@
 #include "Renderer.hpp"
 #include "TileGrid.hpp"
 #include "Heading.hpp"
+#include "Pilot.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <iostream>
 
 Vehicle::Vehicle() 
-    : m_speed(0.0f)
+    : m_pilot(nullptr)
+    , m_speed(0.0f)
     , m_maxSpeed(24.0f)
     , m_maxSpeedRoad(36.0f)
     , m_acceleration(12.0f)
     , m_turnSpeed(400.0f)
     , m_size(1.5f, 3.0f)
-    , m_playerControlled(false)
     , m_tileGrid(nullptr) {
 }
+
+Vehicle::~Vehicle() = default;
 
 bool Vehicle::initialize(const std::string& texturePath) {
     if (!texturePath.empty()) {
@@ -32,8 +35,14 @@ bool Vehicle::initialize(const std::string& texturePath) {
 }
 
 void Vehicle::update(float deltaTime) {
+    // Let the pilot control the vehicle if one is assigned
+    if (m_pilot) {
+        m_pilot->update(this, m_tileGrid, deltaTime);
+    }
+    
     // Apply friction so the car gradually coasts to a stop
-    const float damping = m_playerControlled ? 0.985f : 0.95f;
+    bool hasUserPilot = m_pilot != nullptr; // TODO: could check pilot type
+    const float damping = hasUserPilot ? 0.985f : 0.95f;
     m_speed *= damping;
     if (std::abs(m_speed) < 0.01f) {
         m_speed = 0.0f;
@@ -74,6 +83,14 @@ void Vehicle::update(float deltaTime) {
             setPosition(m_position + delta);
         }
     }
+}
+
+void Vehicle::setPilot(std::unique_ptr<Pilot> pilot) {
+    m_pilot = std::move(pilot);
+}
+
+void Vehicle::clearPilot() {
+    m_pilot.reset();
 }
 
 void Vehicle::render(Renderer* renderer) {
