@@ -24,8 +24,9 @@ private:
         glm::ivec3 tilePos{-1, -1, -1};  // Which tile this curve was computed for
         glm::vec2 arcCenter{0.0f};
         float arcRadius = 0.0f;
-        float arcStartAngleRad = 0.0f;
-        float arcTotalAngleRad = 0.0f;   // Positive = CCW (left), negative = CW (right)
+        float distance;
+        int direction;
+        float startAngle;
         bool valid = false;
         
         void clear() {
@@ -39,8 +40,14 @@ private:
     
     // Helper methods
     bool isCurveTile(CarDirection dir) const;
-    glm::vec2 getCornerOffset(CarDirection tileDir, float tileSize) const;
+    glm::vec2 getCornerOffset(CarDirection tileDir, float tileSize, float currentAngle) const;
     void updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime, const glm::ivec3& gridPos, CarDirection tileDir);
     void updateOnStraight(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime, const glm::ivec3& gridPos, CarDirection tileDir);
     float calculateTargetHeading(CarDirection tileDir, float currentHeading) const;
+
+    float normalizeAngle(float angle) const;
+
+    int getCurveDirection(CarDirection tileDir, float currentAngle) const;
+
+    float getTargetAngle(CarDirection tileDir, float currentAngle) const;
 };
