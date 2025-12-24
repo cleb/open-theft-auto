@@ -62,8 +62,8 @@ int AutoPilot::getCurveDirection(CarDirection tileDir, float currentAngle) const
     switch (tileDir) {
         case CarDirection::NorthEast: return angle < fabs(angle - 90.0f) ? 1 : -1;
         case CarDirection::NorthWest: return fabs(angle - 90.0f ) < fabs(angle - 180.0f) ? 1 : -1;
-        case CarDirection::SouthEast: return angle < fabs(angle - 270.0f) ? 270 : 0;
-        case CarDirection::SouthWest: return fabs(angle - 180.0f ) < fabs(angle - 270.0f) ? 270 : 180;
+        case CarDirection::SouthEast: return angle < fabs(angle - 270.0f) ? -1 : 1;
+        case CarDirection::SouthWest: return fabs(angle - 180.0f ) < fabs(angle - 270.0f) ? 1 : -1;
         default: break;
     }
     return 0;
@@ -181,51 +181,6 @@ void AutoPilot::updateOnStraight(Vehicle* vehicle, TileGrid* tileGrid, float del
     
     glm::vec3 tileCenter = tileGrid->gridToWorld(gridPos);
     glm::vec3 toCenter = tileCenter - pos;
-    float dotToCenter = 1.0f;
-    if (glm::length(glm::vec2(toCenter)) > 1e-4f) {
-        dotToCenter = glm::dot(glm::normalize(glm::vec2(toCenter)), glm::vec2(forwardDir));
-    }
-    
-    float targetHeading = calculateTargetHeading(tileDir, currentHeading);
-    
-    // Look ahead when moving toward tile edge (for straight tiles approaching curves)
-    if (dotToCenter < 0.3f) {
-        const float lookAheadDist = 2.0f;
-        glm::vec3 lookAheadPos = pos + forwardDir * lookAheadDist;
-        glm::ivec3 lookAheadGridPos = tileGrid->worldToGrid(lookAheadPos);
-        lookAheadGridPos.z = 0;
-        
-        if (lookAheadGridPos != gridPos) {
-            const Tile* lookAheadTile = tileGrid->getTile(lookAheadGridPos);
-            if (lookAheadTile) {
-                CarDirection lookAheadDir = lookAheadTile->getCarDirection();
-                if (lookAheadDir != CarDirection::None && !isCurveTile(lookAheadDir)) {
-                    targetHeading = calculateTargetHeading(lookAheadDir, currentHeading);
-                }
-            }
-        }
-    }
-    
-    // Steer toward target heading
-    if (tileDir != CarDirection::None) {
-        float rotDiff = Heading::shortestAngleDeltaDeg(currentHeading, targetHeading);
-        
-        if (std::abs(rotDiff) > 1.0f) {
-            float baseTurnRate = 600.0f;
-            float dynamicMultiplier = 1.0f + std::abs(rotDiff) / 45.0f;
-            float turnRate = baseTurnRate * dynamicMultiplier * deltaTime;
-            
-            if (std::abs(rotDiff) <= turnRate) {
-                currentHeading = targetHeading;
-            } else if (rotDiff > 0) {
-                currentHeading += turnRate;
-            } else {
-                currentHeading -= turnRate;
-            }
-            currentHeading = Heading::wrapDegrees360(currentHeading);
-            vehicle->setRotation(glm::vec3(0.0f, 0.0f, currentHeading));
-        }
-    }
     
     // Move forward
     glm::vec2 fwd2 = Heading::forwardFromHeadingDeg(currentHeading);
@@ -236,51 +191,4 @@ void AutoPilot::updateOnStraight(Vehicle* vehicle, TileGrid* tileGrid, float del
     if (tileGrid->canOccupy(pos, newPos)) {
         vehicle->setPosition(newPos);
     }
-}
-
-float AutoPilot::calculateTargetHeading(CarDirection tileDir, float currentHeading) const {
-    // Single direction tiles - always use their direction
-    switch (tileDir) {
-        case CarDirection::East:  return 0.0f;
-        case CarDirection::North: return 90.0f;
-        case CarDirection::West:  return 180.0f;
-        case CarDirection::South: return 270.0f;
-        case CarDirection::NorthEast: return 45.0f;
-        case CarDirection::NorthWest: return 135.0f;
-        case CarDirection::SouthWest: return 225.0f;
-        case CarDirection::SouthEast: return 315.0f;
-        default:
-            break;
-    }
-    
-    // Bidirectional tiles - pick the direction closest to current heading
-    float rot1, rot2;
-    switch (tileDir) {
-        case CarDirection::SouthNorth:
-            rot1 = 90.0f;   // North
-            rot2 = 270.0f;  // South
-            break;
-        case CarDirection::WestEast:
-            rot1 = 0.0f;    // East
-            rot2 = 180.0f;  // West
-            break;
-        case CarDirection::NorthEastSouthWest:
-            rot1 = 45.0f;   // NorthEast
-            rot2 = 225.0f;  // SouthWest
-            break;
-        case CarDirection::NorthWestSouthEast:
-            rot1 = 135.0f;  // NorthWest
-            rot2 = 315.0f;  // SouthEast
-            break;
-        default:
-            return currentHeading;  // Unknown direction, keep current
-    }
-    
-    // Calculate angular difference to each option (handling wraparound)
-    float diff1 = std::abs(currentHeading - rot1);
-    float diff2 = std::abs(currentHeading - rot2);
-    if (diff1 > 180.0f) diff1 = 360.0f - diff1;
-    if (diff2 > 180.0f) diff2 = 360.0f - diff2;
-    
-    return (diff1 <= diff2) ? rot1 : rot2;
 }

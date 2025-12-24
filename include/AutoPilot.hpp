@@ -43,7 +43,6 @@ private:
     glm::vec2 getCornerOffset(CarDirection tileDir, float tileSize, float currentAngle) const;
     void updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime, const glm::ivec3& gridPos, CarDirection tileDir);
     void updateOnStraight(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime, const glm::ivec3& gridPos, CarDirection tileDir);
-    float calculateTargetHeading(CarDirection tileDir, float currentHeading) const;
 
     float normalizeAngle(float angle) const;
 
