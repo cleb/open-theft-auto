@@ -5,21 +5,6 @@
 #include <cmath>
 #include <algorithm>
 
-namespace {
-    static glm::vec2 rotate90CW(const glm::vec2& v) { return glm::vec2(v.y, -v.x); }
-    static glm::vec2 rotate90CCW(const glm::vec2& v) { return glm::vec2(-v.y, v.x); }
-
-    static float angleOf(const glm::vec2& v) {
-        return std::atan2(v.y, v.x);
-    }
-
-    static float normalizeAngleSigned(float a) {
-        while (a > glm::pi<float>()) a -= glm::two_pi<float>();
-        while (a < -glm::pi<float>()) a += glm::two_pi<float>();
-        return a;
-    }
-}
-
 AutoPilot::AutoPilot() = default;
 
 void AutoPilot::onAssign(Vehicle* vehicle) {
@@ -197,15 +182,9 @@ void AutoPilot::updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaT
     }
 }
 
-void AutoPilot::updateOnStraight(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime, const glm::ivec3& gridPos, CarDirection tileDir) {
+void AutoPilot::updateOnStraight(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime, const glm::ivec3& /*gridPos*/, CarDirection /*tileDir*/) {
     glm::vec3 pos = vehicle->getPosition();
     float currentHeading = vehicle->getRotation().z;
-    
-    glm::vec2 fd2 = Heading::forwardFromHeadingDeg(currentHeading);
-    glm::vec3 forwardDir(fd2.x, fd2.y, 0.0f);
-    
-    glm::vec3 tileCenter = tileGrid->gridToWorld(gridPos);
-    glm::vec3 toCenter = tileCenter - pos;
     
     // Move forward
     glm::vec2 fwd2 = Heading::forwardFromHeadingDeg(currentHeading);
