@@ -168,11 +168,14 @@ void AutoPilot::updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaT
     
     // Follow the cached curve
     if (m_curveState.valid) {
-        glm::vec2 vehiclePos2(pos.x, pos.y);
-
-
+        // Calculate arc length for a 90-degree turn
+        float arcLength = m_curveState.arcRadius * glm::half_pi<float>();  // quarter circle
         
-
+        // Calculate how much distance we travel this frame
+        float distanceTraveled = m_maxSpeed * deltaTime;
+        
+        // Convert to a fraction of the curve (0 to 1)
+        float distanceIncrement = distanceTraveled / arcLength;
 
         // Update vehicle
         float newAngleDegrees = m_curveState.startAngle + 90.0f * m_curveState.distance * m_curveState.direction;
@@ -181,12 +184,14 @@ void AutoPilot::updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaT
 
         glm::vec3 newPos(cos(newAngle) * m_curveState.arcRadius + m_curveState.arcCenter.x, sin(newAngle)* m_curveState.arcRadius + m_curveState.arcCenter.y, pos.z);
 
-        m_curveState.distance += 0.01;
+        m_curveState.distance += distanceIncrement;
         vehicle->setPosition(newPos);
 
         if(m_curveState.distance >= 1.0f) {
             vehicle->setRotation(glm::vec3(0.0f, 0.0f, m_curveState.startVehicleAngle + 90.0f * m_curveState.direction));
-            vehicle->moveForward(0.1f);
+            glm::vec2 f2 = Heading::forwardFromHeadingDeg(vehicle->getRotation().z);
+            glm::vec3 forward(f2.x, f2.y, 0.0f);
+            vehicle->setPosition(newPos + forward);
             m_curveState.clear();
         }
     }
