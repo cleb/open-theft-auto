@@ -24,6 +24,15 @@ void TrafficManager::initialize(TileGrid* tileGrid, Camera* camera,
     m_camera = camera;
     m_playerVehicles = playerVehicles;
     
+    // Load the shared car texture once
+    if (!m_carTexture) {
+        m_carTexture = std::make_shared<Texture>();
+        if (!m_carTexture->loadFromFile("assets/textures/car.png")) {
+            std::cerr << "TrafficManager: Failed to load car texture" << std::endl;
+            m_carTexture.reset();
+        }
+    }
+    
     if (m_tileGrid) {
         buildRoadSpawnPoints();
     }
@@ -183,7 +192,12 @@ void TrafficManager::spawnVehicle() {
     
     // Create the vehicle with an AutoPilot
     auto vehicle = std::make_unique<Vehicle>();
-    vehicle->initialize("assets/textures/car.png");
+    // Use shared car texture loaded in initialize()
+    if (m_carTexture) {
+        vehicle->initialize(m_carTexture);
+    } else {
+        vehicle->initialize("assets/textures/car.png"); // fallback, should not happen
+    }
     vehicle->setPosition(spawnPoint->worldPos);
     
     // Recalculate rotation for bidirectional roads

@@ -34,6 +34,12 @@ bool Vehicle::initialize(const std::string& texturePath) {
     return true;
 }
 
+bool Vehicle::initialize(std::shared_ptr<Texture> texture) {
+    m_texture = texture;
+    setPosition(glm::vec3(0.0f, 0.0f, 0.1f)); // Slightly above ground
+    return true;
+}
+
 void Vehicle::update(float deltaTime) {
     // Let the pilot control the vehicle if one is assigned
     if (m_pilot) {

@@ -25,6 +25,7 @@ public:
     ~Vehicle();
     
     bool initialize(const std::string& texturePath);
+    bool initialize(std::shared_ptr<Texture> texture);
     void update(float deltaTime) override;
     void render(class Renderer* renderer) override;
     
