@@ -194,6 +194,7 @@ private:
     void applyWallFromUi(int wallIndex, WallDirection direction);
     void applyVehicleBrush();
     void removeVehicleAtCursor();
+    void clearTileAtCursor();
     void applyPlayerSpawnBrush();
     void syncPendingGridSizeFromGrid();
 

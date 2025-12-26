@@ -360,6 +360,11 @@ void TileGridEditor::processInput(InputManager* input, float deltaTime) {
         if (m_brush == BrushType::Vehicle && input->isKeyPressed(GLFW_KEY_DELETE)) {
             removeVehicleAtCursor();
         }
+
+        // Delete key clears tile contents at cursor (any brush mode)
+        if (input->isKeyPressed(GLFW_KEY_DELETE)) {
+            clearTileAtCursor();
+        }
     }
 
     // Handle mouse selection
@@ -983,7 +988,7 @@ void TileGridEditor::printHelp() const {
               << "  4: vehicle brush\n"
               << "  5: player spawn brush\n"
               << "  R: cycle road direction / rotate vehicle or player\n"
-              << "  Delete: remove vehicle at cursor\n"
+              << "  Delete: clear tile contents at cursor\n"
               << "  I/J/K/L: toggle wall (north/west/south/east)\n"
               << "  Space: apply brush at cursor\n"
               << "  Left Click: navigate to tile (or apply prefab if selected)\n"
@@ -1444,6 +1449,46 @@ void TileGridEditor::removeVehicleAtCursor() {
         announceCursor();
         refreshUiStateFromTile();
     }
+}
+
+void TileGridEditor::clearTileAtCursor() {
+    if (!m_grid) {
+        return;
+    }
+
+    Tile* tile = m_grid->getTile(m_cursor);
+    if (!tile) {
+        return;
+    }
+
+    // Clear the top surface
+    tile->setTopSurface(false, "", CarDirection::None);
+    tile->setCarDirection(CarDirection::None);
+
+    // Clear all walls (make them walkable/open)
+    for (int i = 0; i < 4; ++i) {
+        tile->setWall(static_cast<WallDirection>(i), true);
+    }
+
+    // Also remove any vehicle spawn at this position
+    if (m_levelData) {
+        auto& spawns = m_levelData->vehicleSpawns;
+        auto it = std::find_if(spawns.begin(), spawns.end(), [&](const VehicleSpawnDefinition& spawn) {
+            return spawn.gridPosition == m_cursor;
+        });
+        if (it != spawns.end()) {
+            spawns.erase(it);
+        }
+
+        // Clear player spawn if it's at this position
+        if (m_levelData->playerSpawn.isSet && m_levelData->playerSpawn.gridPosition == m_cursor) {
+            m_levelData->playerSpawn.isSet = false;
+        }
+    }
+
+    std::cout << "Cleared tile at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+    announceCursor();
+    refreshUiStateFromTile();
 }
 
 void TileGridEditor::refreshUiStateFromTile() {
