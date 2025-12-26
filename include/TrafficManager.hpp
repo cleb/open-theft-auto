@@ -3,7 +3,6 @@
 #include "Vehicle.hpp"
 #include "TileGrid.hpp"
 #include "Camera.hpp"
-#include "Texture.hpp"
 #include <vector>
 #include <memory>
 #include <glm/glm.hpp>
@@ -47,7 +46,6 @@ private:
     
     std::vector<std::unique_ptr<Vehicle>> m_trafficVehicles;
     std::vector<RoadSpawnPoint> m_roadSpawnPoints;
-    std::shared_ptr<Texture> m_carTexture;  // Shared texture for all traffic vehicles
     
     // Configuration
     int m_maxTrafficVehicles;

@@ -2,6 +2,7 @@
 
 #include "Tile.hpp"
 #include "Texture.hpp"
+#include "TextureManager.hpp"
 #include <vector>
 #include <memory>
 #include <unordered_map>
@@ -21,8 +22,6 @@ private:
     glm::ivec3 m_gridSize;      // Grid dimensions (width, height, depth)
     float m_tileSize;           // Size of each tile
     std::vector<std::unique_ptr<Tile>> m_tiles;
-    std::unordered_map<std::string, std::shared_ptr<Texture>> m_textureCache;
-    std::unordered_map<std::string, std::string> m_textureAliases;
     
 public:
     TileGrid(const glm::ivec3& gridSize = glm::ivec3(16, 16, 4), float tileSize = 3.0f);
@@ -42,7 +41,6 @@ public:
     float getTileSize() const { return m_tileSize; }
     bool isValidPosition(int x, int y, int z) const;
     bool isValidPosition(const glm::ivec3& gridPos) const;
-    const std::unordered_map<std::string, std::string>& getTextureAliases() const { return m_textureAliases; }
 
     // Grid management
     bool resize(const glm::ivec3& newSize);
@@ -59,10 +57,6 @@ private:
     int getIndex(int x, int y, int z) const;
     bool hasGroundSupport(const glm::ivec3& tilePos) const;
     bool rebuildTiles();
-    void registerTextureAlias(const std::string& alias, const std::string& path);
-    std::shared_ptr<Texture> loadTexture(const std::string& identifier);
-    std::shared_ptr<Texture> loadTextureFromPath(const std::string& path);
-    std::string resolveTexturePath(const std::string& identifier) const;
 
     friend struct LevelSerialization::GridAccess;
     friend bool LevelSerialization::loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data);

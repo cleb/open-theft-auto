@@ -1,4 +1,5 @@
 #include "TileGrid.hpp"
+#include "TextureManager.hpp"
 #include "Renderer.hpp"
 #include <cmath>
 #include <iostream>
@@ -8,13 +9,15 @@ TileGrid::TileGrid(const glm::ivec3& gridSize, float tileSize)
 }
 
 bool TileGrid::initialize() {
-    m_textureCache.clear();
-    m_textureAliases.clear();
+    // Register texture aliases with the global TextureManager
+    auto& texMgr = TextureManager::instance();
+    texMgr.registerAlias("grass", "assets/textures/grass.png");
+    texMgr.registerAlias("road", "assets/textures/road.png");
+    texMgr.registerAlias("wall", "assets/textures/wall.png");
+    texMgr.registerAlias("car", "assets/textures/car.png");
 
-    registerTextureAlias("grass", "assets/textures/grass.png");
-    registerTextureAlias("road", "assets/textures/road.png");
-    registerTextureAlias("wall", "assets/textures/wall.png");
-    registerTextureAlias("car", "assets/textures/car.png");
+    // Register the default vehicle type (car) for use by TrafficManager and others
+    texMgr.registerVehicleType("car", "assets/textures/car.png");
 
     if (!rebuildTiles()) {
         std::cerr << "Failed to initialize tile grid tiles" << std::endl;
@@ -106,9 +109,9 @@ void TileGrid::reset() {
     // Clear all tiles by rebuilding them
     rebuildTiles();
     
-    // Load grass texture once using the cache
+    // Load grass texture once using the TextureManager
     const std::string grassTexturePath = "assets/textures/grass.png";
-    std::shared_ptr<Texture> grassTexture = loadTextureFromPath(grassTexturePath);
+    std::shared_ptr<Texture> grassTexture = TextureManager::instance().getTextureFromPath(grassTexturePath);
     
     // Fill the bottom layer (z=0) with grass
     for (int y = 0; y < m_gridSize.y; ++y) {
@@ -121,46 +124,6 @@ void TileGrid::reset() {
     }
     
     std::cout << "Reset tile grid to default state with grass on bottom layer" << std::endl;
-}
-
-void TileGrid::registerTextureAlias(const std::string& alias, const std::string& path) {
-    if (alias.empty() || path.empty()) {
-        return;
-    }
-    m_textureAliases[alias] = path;
-}
-
-std::shared_ptr<Texture> TileGrid::loadTexture(const std::string& identifier) {
-    const std::string resolvedPath = resolveTexturePath(identifier);
-    return loadTextureFromPath(resolvedPath);
-}
-
-std::shared_ptr<Texture> TileGrid::loadTextureFromPath(const std::string& path) {
-    if (path.empty()) {
-        return nullptr;
-    }
-
-    auto cacheIt = m_textureCache.find(path);
-    if (cacheIt != m_textureCache.end()) {
-        return cacheIt->second;
-    }
-
-    auto texture = std::make_shared<Texture>();
-    if (!texture->loadFromFile(path)) {
-        std::cerr << "Failed to load texture: " << path << std::endl;
-        return nullptr;
-    }
-
-    m_textureCache[path] = texture;
-    return texture;
-}
-
-std::string TileGrid::resolveTexturePath(const std::string& identifier) const {
-    auto aliasIt = m_textureAliases.find(identifier);
-    if (aliasIt != m_textureAliases.end()) {
-        return aliasIt->second;
-    }
-    return identifier;
 }
 
 void TileGrid::render(Renderer* renderer) {

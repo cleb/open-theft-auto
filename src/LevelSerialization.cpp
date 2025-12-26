@@ -2,6 +2,7 @@
 
 #include "LevelData.hpp"
 #include "TileGrid.hpp"
+#include "TextureManager.hpp"
 #include "Heading.hpp"
 
 #include <algorithm>
@@ -17,12 +18,12 @@
 
 namespace LevelSerialization {
 struct GridAccess {
-    static std::string resolveTexturePath(const TileGrid& grid, const std::string& identifier) {
-        return grid.resolveTexturePath(identifier);
+    static std::string resolveTexturePath(const std::string& identifier) {
+        return TextureManager::instance().resolvePath(identifier);
     }
 
-    static std::shared_ptr<Texture> loadTextureFromPath(TileGrid& grid, const std::string& path) {
-        return grid.loadTextureFromPath(path);
+    static std::shared_ptr<Texture> loadTextureFromPath(const std::string& path) {
+        return TextureManager::instance().getTextureFromPath(path);
     }
 };
 } // namespace LevelSerialization
@@ -290,10 +291,10 @@ bool parseTileProperty(const std::string& key, const std::string& value, TileCon
 void applyTileConfig(TileGrid& grid, Tile& tile, const TileConfig& config) {
     if (config.topSpecified) {
         if (config.topSolid) {
-            const std::string resolved = LevelSerialization::GridAccess::resolveTexturePath(grid, config.topTextureId);
+            const std::string resolved = LevelSerialization::GridAccess::resolveTexturePath(config.topTextureId);
             std::shared_ptr<Texture> texture;
             if (!resolved.empty()) {
-                texture = LevelSerialization::GridAccess::loadTextureFromPath(grid, resolved);
+                texture = LevelSerialization::GridAccess::loadTextureFromPath(resolved);
             }
             tile.setTopSurface(true, resolved, CarDirection::None);
             if (texture) {
@@ -317,13 +318,13 @@ void applyTileConfig(TileGrid& grid, Tile& tile, const TileConfig& config) {
 
         std::string resolved;
         if (!wall.textureId.empty()) {
-            resolved = LevelSerialization::GridAccess::resolveTexturePath(grid, wall.textureId);
+            resolved = LevelSerialization::GridAccess::resolveTexturePath(wall.textureId);
         }
 
         tile.setWall(dir, wall.walkable, resolved);
 
         if (!resolved.empty()) {
-            auto texture = LevelSerialization::GridAccess::loadTextureFromPath(grid, resolved);
+            auto texture = LevelSerialization::GridAccess::loadTextureFromPath(resolved);
             if (texture) {
                 tile.setWallTexture(dir, texture);
             }
@@ -373,7 +374,7 @@ bool parseVehicleProperty(const std::string& key,
     }
 
     if (lowerKey == "texture" || lowerKey == "tex") {
-        spawn.texturePath = LevelSerialization::GridAccess::resolveTexturePath(grid, value);
+        spawn.texturePath = LevelSerialization::GridAccess::resolveTexturePath(value);
         return true;
     }
 
@@ -442,7 +443,8 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
 
     data.vehicleSpawns.clear();
 
-    std::unordered_map<std::string, std::string> aliasMap = grid.m_textureAliases;
+    auto& texMgr = TextureManager::instance();
+    std::unordered_map<std::string, std::string> aliasMap = texMgr.getAliases();
     glm::ivec3 parsedGrid = grid.m_gridSize;
     float parsedTileSize = grid.m_tileSize;
     bool gridSpecified = false;
@@ -502,7 +504,10 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
         }
     }
 
-    grid.m_textureAliases = aliasMap;
+    // Register aliases with the global TextureManager
+    for (const auto& entry : aliasMap) {
+        texMgr.registerAlias(entry.first, entry.second);
+    }
     if (tileSizeSpecified) {
         grid.m_tileSize = parsedTileSize;
     }
@@ -735,7 +740,7 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
     output << "tile_size " << grid.getTileSize() << std::endl;
 
     std::vector<std::pair<std::string, std::string>> aliasEntries;
-    const auto& aliasMap = grid.getTextureAliases();
+    const auto& aliasMap = TextureManager::instance().getAliases();
     aliasEntries.reserve(aliasMap.size());
     for (const auto& entry : aliasMap) {
         if (!entry.first.empty() && !entry.second.empty()) {

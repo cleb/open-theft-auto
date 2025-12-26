@@ -1,6 +1,7 @@
 #include "TileGridEditor.hpp"
 
 #include "TileGrid.hpp"
+#include "TextureManager.hpp"
 #include "Tile.hpp"
 #include "Renderer.hpp"
 #include "InputManager.hpp"
@@ -1504,10 +1505,13 @@ void TileGridEditor::rebuildAliasList() {
         return;
     }
 
-    const auto& aliases = m_grid->getTextureAliases();
+    const auto& aliases = TextureManager::instance().getAliases();
     m_aliasEntries.reserve(aliases.size());
     for (const auto& entry : aliases) {
-        m_aliasEntries.push_back({entry.first, entry.second});
+        AliasEntry ae;
+        ae.name = entry.first;
+        ae.path = entry.second;
+        m_aliasEntries.push_back(ae);
     }
 
     std::sort(m_aliasEntries.begin(), m_aliasEntries.end(), [](const AliasEntry& a, const AliasEntry& b) {
