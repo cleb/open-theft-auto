@@ -238,8 +238,8 @@ glm::vec3 TileGrid::gridToWorld(const glm::ivec3& gridPos) const {
 glm::ivec3 TileGrid::worldToGrid(const glm::vec3& worldPos) const {
     const float halfSize = m_tileSize * 0.5f;
     return glm::ivec3(
-        static_cast<int>(std::floor((worldPos.x + halfSize) / m_tileSize)),
-        static_cast<int>(std::floor((worldPos.y + halfSize) / m_tileSize)),
+        static_cast<int>(std::floor((worldPos.x) / m_tileSize)),
+        static_cast<int>(std::floor((worldPos.y) / m_tileSize)),
         static_cast<int>(std::floor((worldPos.z + m_tileSize) / m_tileSize))
     );
 }

@@ -57,13 +57,13 @@ void TrafficManager::buildRoadSpawnPoints() {
                 if (!tile) continue;
                 
                 CarDirection dir = tile->getCarDirection();
-                if (dir == CarDirection::None) continue;
+                if (dir != CarDirection::South) continue;
                 
                 RoadSpawnPoint point;
                 point.gridPos = glm::ivec3(x, y, z);
                 point.worldPos = glm::vec3(
-                    x * tileSize,
-                    y * tileSize,
+                    x * tileSize + 0.5f * tileSize,
+                    y * tileSize + 0.5f * tileSize,
                     z * tileSize + 0.1f  // Slightly above ground
                 );
                 point.direction = dir;
@@ -152,6 +152,7 @@ bool TrafficManager::isInSpawnZone(const glm::vec3& position, const ViewBounds& 
 
 void TrafficManager::spawnVehicle() {
     if (m_roadSpawnPoints.empty()) return;
+    if(!m_trafficVehicles.empty()) return;
     
     ViewBounds bounds = calculateViewBounds();
     

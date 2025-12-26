@@ -27,6 +27,7 @@ private:
         float distance;
         int direction;
         float startAngle;
+        float startVehicleAngle;
         bool valid = false;
         
         void clear() {
@@ -49,4 +50,6 @@ private:
     int getCurveDirection(CarDirection tileDir, float currentAngle) const;
 
     float getTargetAngle(CarDirection tileDir, float currentAngle) const;
+
+    int getStartAngle(CarDirection tileDir, float currentAngle) const;
 };

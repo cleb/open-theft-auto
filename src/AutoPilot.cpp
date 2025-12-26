@@ -69,6 +69,18 @@ int AutoPilot::getCurveDirection(CarDirection tileDir, float currentAngle) const
     return 0;
 }
 
+int AutoPilot::getStartAngle(CarDirection tileDir, float currentAngle) const {
+    float angle = normalizeAngle(currentAngle);
+    switch (tileDir) {
+        case CarDirection::NorthEast: return angle < fabs(angle - 90.0f) ? 270 : 180;
+        case CarDirection::NorthWest: return fabs(angle - 90.0f ) < fabs(angle - 180.0f) ? 0 : 270;
+        case CarDirection::SouthEast: return angle < fabs(angle - 270.0f) ? 90 : 180;
+        case CarDirection::SouthWest: return fabs(angle - 180.0f ) < fabs(angle - 270.0f) ? 90 : 0;
+        default: break;
+    }
+    return 0;
+}
+
 float AutoPilot::getTargetAngle(CarDirection tileDir, float currentAngle) const {
     float angle = normalizeAngle(currentAngle);
     switch (tileDir) {
@@ -124,7 +136,7 @@ void AutoPilot::updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaT
     const float tileSize = tileGrid->getTileSize();
     
     // Check if we need to initialize a new curve (entering curve tile or tile changed)
-    if (!m_curveState.valid || m_curveState.distance >= 1.0f) {
+    if (!m_curveState.valid) {
         // Compute tile center (gridToWorld gives corner, add half tile)
         glm::vec3 tileCorner3 = tileGrid->gridToWorld(gridPos);
         glm::vec2 tileCenter(tileCorner3.x + tileSize * 0.5f, tileCorner3.y + tileSize * 0.5f);
@@ -132,19 +144,22 @@ void AutoPilot::updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaT
         // Get the corner that this diagonal points to
         glm::vec2 cornerOffset = getCornerOffset(tileDir, tileSize, currentHeading);
         int direction = getCurveDirection(tileDir, currentHeading);
-        float targetAngleDeg = getTargetAngle(tileDir, currentHeading);
         glm::vec2 cornerPos = tileCenter + cornerOffset;
         
         // Determine if corner is to the left or right of the vehicle's current heading
         glm::vec2 vehiclePos2(pos.x, pos.y);
+
+        float startAngle = getStartAngle(tileDir, currentHeading);
+
 
         // Build the arc: center is at the corner, radius is half tile
         m_curveState.arcCenter = cornerPos;
         m_curveState.arcRadius = tileSize * 0.5f;
         m_curveState.tilePos = gridPos;
         m_curveState.direction = direction;
-        m_curveState.distance = direction == 1 ? 0.01f : 0.99f;
-        m_curveState.startAngle = currentHeading;
+        m_curveState.distance = 0.01f;
+        m_curveState.startAngle = startAngle;
+        m_curveState.startVehicleAngle = currentHeading;
         
 
         
@@ -160,15 +175,20 @@ void AutoPilot::updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaT
 
 
         // Update vehicle
-        float newAngleDegrees = m_curveState.startAngle + 90.0f * m_curveState.distance;
-        vehicle->setRotation(glm::vec3(0.0f, 0.0f, newAngleDegrees - 90.0f));
+        float newAngleDegrees = m_curveState.startAngle + 90.0f * m_curveState.distance * m_curveState.direction;
+        vehicle->setRotation(glm::vec3(0.0f, 0.0f, m_curveState.startVehicleAngle + 90.0f * m_curveState.distance * m_curveState.direction));
         float newAngle = glm::radians(newAngleDegrees);
 
-        glm::vec3 newPos(cos(newAngle) * m_curveState.arcRadius + m_curveState.arcCenter.x - tileSize / 2, sin(newAngle)* m_curveState.arcRadius + m_curveState.arcCenter.y - tileSize / 2, pos.z);
+        glm::vec3 newPos(cos(newAngle) * m_curveState.arcRadius + m_curveState.arcCenter.x, sin(newAngle)* m_curveState.arcRadius + m_curveState.arcCenter.y, pos.z);
 
-        m_curveState.distance += 0.01 * m_curveState.direction;
-
+        m_curveState.distance += 0.01;
         vehicle->setPosition(newPos);
+
+        if(m_curveState.distance >= 1.0f) {
+            vehicle->setRotation(glm::vec3(0.0f, 0.0f, m_curveState.startVehicleAngle + 90.0f * m_curveState.direction));
+            vehicle->moveForward(0.1f);
+            m_curveState.clear();
+        }
     }
 }
 
