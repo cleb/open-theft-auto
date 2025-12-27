@@ -1153,6 +1153,11 @@ void TileGridEditor::drawGridControls() {
                 refreshUiStateFromTile();
                 refreshCursorColor();
                 m_gridResizeError.clear();
+                
+                // Notify listeners that the level has changed (grid size affects spawns, etc.)
+                if (m_levelChangedCallback) {
+                    m_levelChangedCallback();
+                }
             } else {
                 m_gridResizeError = "Failed to resize grid.";
             }
@@ -2384,6 +2389,10 @@ bool TileGridEditor::getTileAtScreenPosition(double mouseX, double mouseY, glm::
     }
 
     // Check layers from top to bottom to find the first valid tile
+    // Also track the bottom layer position in case we don't find any solid tiles
+    glm::ivec3 bottomLayerPos(-1);
+    bool foundBottomLayerPos = false;
+    
     for (int z = gridSize.z - 1; z >= 0; --z) {
         // Calculate the Z height of the top surface of tiles at this layer
         const float planeZ = static_cast<float>(z) * tileSize;
@@ -2412,6 +2421,12 @@ bool TileGridEditor::getTileAtScreenPosition(double mouseX, double mouseY, glm::
             continue;
         }
         
+        // Track the bottom layer position for fallback (allows selecting empty tiles at z=0)
+        if (z == 0 && !foundBottomLayerPos) {
+            bottomLayerPos = gridPos;
+            foundBottomLayerPos = true;
+        }
+        
         // Check if tile has solid top surface
         if (tile->isTopSolid()) {
             outTilePos = gridPos;
@@ -2433,6 +2448,17 @@ bool TileGridEditor::getTileAtScreenPosition(double mouseX, double mouseY, glm::
                 return true;
             }
         }
+    }
+
+    // If no solid tile found, but we have a valid bottom layer position, return that
+    // This allows selecting empty tiles at the ground level in the editor
+    if (foundBottomLayerPos) {
+        outTilePos = bottomLayerPos;
+        if (debugCounter % 60 == 0) {
+            std::cout << "  Falling back to bottom layer tile at (" << bottomLayerPos.x << ", " 
+                      << bottomLayerPos.y << ", " << bottomLayerPos.z << ")" << std::endl;
+        }
+        return true;
     }
 
     return false;
