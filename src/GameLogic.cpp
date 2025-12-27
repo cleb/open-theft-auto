@@ -1,6 +1,7 @@
 #include "GameLogic.hpp"
 #include "InputManager.hpp"
 #include "UserPilot.hpp"
+#include "TrafficManager.hpp"
 #include <glm/glm.hpp>
 #include <glm/geometric.hpp>
 #include <GLFW/glfw3.h>
@@ -11,7 +12,8 @@ GameLogic::GameLogic()
     , m_previousControllable(nullptr)
     , m_player(nullptr)
     , m_vehicles(nullptr)
-    , m_inputManager(nullptr) {
+    , m_inputManager(nullptr)
+    , m_trafficManager(nullptr) {
 }
 
 void GameLogic::setPlayer(Player* player) {
@@ -78,12 +80,13 @@ bool GameLogic::tryEnterNearestVehicle(float radius) {
     }
 
     Vehicle* nearestVehicle = nullptr;
+    bool nearestIsTraffic = false;
     float nearestDistance = radius;
     const glm::vec2 playerPos(m_player->getPosition().x, m_player->getPosition().y);
 
-    for (auto& vehicle : *m_vehicles) {
+    auto considerVehicle = [&](Vehicle* vehicle, bool isTraffic) {
         if (!vehicle || !vehicle->isActive()) {
-            continue;
+            return;
         }
 
         const glm::vec3 vehiclePos3 = vehicle->getPosition();
@@ -91,13 +94,32 @@ bool GameLogic::tryEnterNearestVehicle(float radius) {
         const float distance = glm::length(vehiclePos - playerPos);
 
         if (distance <= nearestDistance) {
-            nearestVehicle = vehicle.get();
+            nearestVehicle = vehicle;
+            nearestIsTraffic = isTraffic;
             nearestDistance = distance;
+        }
+    };
+
+    for (auto& vehicle : *m_vehicles) {
+        considerVehicle(vehicle.get(), false);
+    }
+
+    if (m_trafficManager) {
+        for (const auto& vehicle : m_trafficManager->getTrafficVehicles()) {
+            considerVehicle(vehicle.get(), true);
         }
     }
 
     if (!nearestVehicle) {
         return false;
+    }
+
+    if (nearestIsTraffic && m_trafficManager) {
+        std::unique_ptr<Vehicle> claimed = m_trafficManager->claimTrafficVehicle(nearestVehicle);
+        if (claimed) {
+            nearestVehicle = claimed.get();
+            m_vehicles->push_back(std::move(claimed));
+        }
     }
 
     // Switch control to vehicle with UserPilot

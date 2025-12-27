@@ -45,6 +45,7 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     // Initialize game logic
     m_gameLogic->setPlayer(m_player.get());
     m_gameLogic->setVehicles(&m_vehicles);
+    m_gameLogic->setTrafficManager(m_trafficManager.get());
     
     // Create test scene
     createTestScene();

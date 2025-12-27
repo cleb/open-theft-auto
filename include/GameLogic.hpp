@@ -7,6 +7,7 @@
 #include <memory>
 
 class InputManager;
+class TrafficManager;
 
 class GameLogic {
 private:
@@ -15,6 +16,7 @@ private:
     Player* m_player;
     std::vector<std::unique_ptr<Vehicle>>* m_vehicles;
     InputManager* m_inputManager;
+    TrafficManager* m_trafficManager;
 
 public:
     GameLogic();
@@ -23,6 +25,7 @@ public:
     void setPlayer(Player* player);
     void setVehicles(std::vector<std::unique_ptr<Vehicle>>* vehicles);
     void setInputManager(InputManager* inputManager) { m_inputManager = inputManager; }
+    void setTrafficManager(TrafficManager* trafficManager) { m_trafficManager = trafficManager; }
     
     void processInput(InputManager* input, float deltaTime);
     void update(float deltaTime);
