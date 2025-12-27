@@ -7,6 +7,33 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 
+namespace {
+Vehicle* findNearestVehicle(const std::vector<std::unique_ptr<Vehicle>>& vehicles,
+                            const glm::vec2& playerPos,
+                            float radius,
+                            float& nearestDistance) {
+    Vehicle* nearestVehicle = nullptr;
+    nearestDistance = radius;
+
+    for (const auto& vehicle : vehicles) {
+        if (!vehicle || !vehicle->isActive()) {
+            continue;
+        }
+
+        const glm::vec3 vehiclePos3 = vehicle->getPosition();
+        const glm::vec2 vehiclePos(vehiclePos3.x, vehiclePos3.y);
+        const float distance = glm::length(vehiclePos - playerPos);
+
+        if (distance <= nearestDistance) {
+            nearestVehicle = vehicle.get();
+            nearestDistance = distance;
+        }
+    }
+
+    return nearestVehicle;
+}
+} // namespace
+
 GameLogic::GameLogic()
     : m_currentControllable(nullptr)
     , m_previousControllable(nullptr)
@@ -79,34 +106,21 @@ bool GameLogic::tryEnterNearestVehicle(float radius) {
         return false;
     }
 
-    Vehicle* nearestVehicle = nullptr;
-    bool nearestIsTraffic = false;
     float nearestDistance = radius;
     const glm::vec2 playerPos(m_player->getPosition().x, m_player->getPosition().y);
 
-    auto considerVehicle = [&](Vehicle* vehicle, bool isTraffic) {
-        if (!vehicle || !vehicle->isActive()) {
-            return;
-        }
-
-        const glm::vec3 vehiclePos3 = vehicle->getPosition();
-        const glm::vec2 vehiclePos(vehiclePos3.x, vehiclePos3.y);
-        const float distance = glm::length(vehiclePos - playerPos);
-
-        if (distance <= nearestDistance) {
-            nearestVehicle = vehicle;
-            nearestIsTraffic = isTraffic;
-            nearestDistance = distance;
-        }
-    };
-
-    for (auto& vehicle : *m_vehicles) {
-        considerVehicle(vehicle.get(), false);
-    }
-
+    Vehicle* nearestVehicle = findNearestVehicle(*m_vehicles, playerPos, radius, nearestDistance);
+    bool nearestIsTraffic = false;
     if (m_trafficManager) {
-        for (const auto& vehicle : m_trafficManager->getTrafficVehicles()) {
-            considerVehicle(vehicle.get(), true);
+        float nearestTrafficDistance = radius;
+        Vehicle* nearestTrafficVehicle = findNearestVehicle(m_trafficManager->getTrafficVehicles(),
+                                                            playerPos,
+                                                            radius,
+                                                            nearestTrafficDistance);
+        if (nearestTrafficVehicle && nearestTrafficDistance <= nearestDistance) {
+            nearestVehicle = nearestTrafficVehicle;
+            nearestDistance = nearestTrafficDistance;
+            nearestIsTraffic = true;
         }
     }
 
