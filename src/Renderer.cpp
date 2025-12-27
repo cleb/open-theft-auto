@@ -157,8 +157,10 @@ void Renderer::renderSprite(const Texture& texture, const glm::vec2& position, c
     // Most top-down sprite art (including ours) is authored "pointing up" (+Y) at 0°.
     // To make sprite visuals match the new heading, we rotate the sprite by (heading - 90°)
     // in render space.
+    // Position is the center of the sprite. Since vertices are centered (-0.5 to 0.5),
+    // we translate directly to position after scaling.
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3(position.x - size.x / 2, position.y - size.y/2, 0.1f)); // Slightly above ground
+    model = glm::translate(model, glm::vec3(position.x, position.y, 0.1f));
     model = glm::rotate(model, glm::radians(rotation - 90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
     

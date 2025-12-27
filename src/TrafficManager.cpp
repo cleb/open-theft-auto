@@ -63,8 +63,8 @@ void TrafficManager::buildRoadSpawnPoints() {
                 RoadSpawnPoint point;
                 point.gridPos = glm::ivec3(x, y, z);
                 point.worldPos = glm::vec3(
-                    x * tileSize + 0.5f * tileSize,
-                    y * tileSize + 0.5f * tileSize,
+                    x * tileSize,
+                    y * tileSize,
                     z * tileSize + 0.1f  // Slightly above ground
                 );
                 point.direction = dir;
