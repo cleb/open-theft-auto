@@ -38,6 +38,7 @@ public:
 
     // Get traffic vehicles (for collision detection, etc.)
     const std::vector<std::unique_ptr<Vehicle>>& getTrafficVehicles() const { return m_trafficVehicles; }
+    std::unique_ptr<Vehicle> claimTrafficVehicle(Vehicle* vehicle);
 
 private:
     TileGrid* m_tileGrid;

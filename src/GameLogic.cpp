@@ -1,17 +1,46 @@
 #include "GameLogic.hpp"
 #include "InputManager.hpp"
 #include "UserPilot.hpp"
+#include "TrafficManager.hpp"
 #include <glm/glm.hpp>
 #include <glm/geometric.hpp>
 #include <GLFW/glfw3.h>
 #include <iostream>
+
+namespace {
+Vehicle* findNearestVehicle(const std::vector<std::unique_ptr<Vehicle>>& vehicles,
+                            const glm::vec2& playerPos,
+                            float radius,
+                            float& nearestDistance) {
+    Vehicle* nearestVehicle = nullptr;
+    nearestDistance = radius;
+
+    for (const auto& vehicle : vehicles) {
+        if (!vehicle || !vehicle->isActive()) {
+            continue;
+        }
+
+        const glm::vec3 vehiclePos3 = vehicle->getPosition();
+        const glm::vec2 vehiclePos(vehiclePos3.x, vehiclePos3.y);
+        const float distance = glm::length(vehiclePos - playerPos);
+
+        if (distance <= nearestDistance) {
+            nearestVehicle = vehicle.get();
+            nearestDistance = distance;
+        }
+    }
+
+    return nearestVehicle;
+}
+} // namespace
 
 GameLogic::GameLogic()
     : m_currentControllable(nullptr)
     , m_previousControllable(nullptr)
     , m_player(nullptr)
     , m_vehicles(nullptr)
-    , m_inputManager(nullptr) {
+    , m_inputManager(nullptr)
+    , m_trafficManager(nullptr) {
 }
 
 void GameLogic::setPlayer(Player* player) {
@@ -77,27 +106,34 @@ bool GameLogic::tryEnterNearestVehicle(float radius) {
         return false;
     }
 
-    Vehicle* nearestVehicle = nullptr;
     float nearestDistance = radius;
     const glm::vec2 playerPos(m_player->getPosition().x, m_player->getPosition().y);
 
-    for (auto& vehicle : *m_vehicles) {
-        if (!vehicle || !vehicle->isActive()) {
-            continue;
-        }
-
-        const glm::vec3 vehiclePos3 = vehicle->getPosition();
-        const glm::vec2 vehiclePos(vehiclePos3.x, vehiclePos3.y);
-        const float distance = glm::length(vehiclePos - playerPos);
-
-        if (distance <= nearestDistance) {
-            nearestVehicle = vehicle.get();
-            nearestDistance = distance;
+    Vehicle* nearestVehicle = findNearestVehicle(*m_vehicles, playerPos, radius, nearestDistance);
+    bool nearestIsTraffic = false;
+    if (m_trafficManager) {
+        float nearestTrafficDistance = radius;
+        Vehicle* nearestTrafficVehicle = findNearestVehicle(m_trafficManager->getTrafficVehicles(),
+                                                            playerPos,
+                                                            radius,
+                                                            nearestTrafficDistance);
+        if (nearestTrafficVehicle && nearestTrafficDistance <= nearestDistance) {
+            nearestVehicle = nearestTrafficVehicle;
+            nearestDistance = nearestTrafficDistance;
+            nearestIsTraffic = true;
         }
     }
 
     if (!nearestVehicle) {
         return false;
+    }
+
+    if (nearestIsTraffic && m_trafficManager) {
+        std::unique_ptr<Vehicle> claimed = m_trafficManager->claimTrafficVehicle(nearestVehicle);
+        if (claimed) {
+            nearestVehicle = claimed.get();
+            m_vehicles->push_back(std::move(claimed));
+        }
     }
 
     // Switch control to vehicle with UserPilot

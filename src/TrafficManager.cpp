@@ -106,6 +106,22 @@ void TrafficManager::render(Renderer* renderer) {
     }
 }
 
+std::unique_ptr<Vehicle> TrafficManager::claimTrafficVehicle(Vehicle* vehicle) {
+    if (!vehicle) {
+        return nullptr;
+    }
+
+    for (auto it = m_trafficVehicles.begin(); it != m_trafficVehicles.end(); ++it) {
+        if (it->get() == vehicle) {
+            std::unique_ptr<Vehicle> claimed = std::move(*it);
+            m_trafficVehicles.erase(it);
+            return claimed;
+        }
+    }
+
+    return nullptr;
+}
+
 TrafficManager::ViewBounds TrafficManager::calculateViewBounds() const {
     ViewBounds bounds{0, 0, 0, 0};
     
