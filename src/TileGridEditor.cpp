@@ -431,7 +431,11 @@ void TileGridEditor::processInput(InputManager* input, float deltaTime) {
     
     // Space always applies the current brush at the cursor position
     if (applySpace) {
-        applyBrush();
+        if (shiftDown) {
+            applyBucketFill();
+        } else {
+            applyBrush();
+        }
     }
 }
 
@@ -991,6 +995,7 @@ void TileGridEditor::printHelp() const {
               << "  Delete: clear tile contents at cursor\n"
               << "  I/J/K/L: toggle wall (north/west/south/east)\n"
               << "  Space: apply brush at cursor\n"
+              << "  Shift+Space: bucket fill brush on current layer\n"
               << "  Left Click: navigate to tile (or apply prefab if selected)\n"
               << "  Shift+Drag (mouse): select area of tiles\n"
               << "  Ctrl+Click (mouse): toggle individual tile selection\n"
@@ -1037,6 +1042,7 @@ void TileGridEditor::drawBrushControls() {
     if (changed) {
         announceBrush();
     }
+    ImGui::TextDisabled("Shift+Space: bucket fill on current layer");
 
     if (m_brush == BrushType::Road) {
         int directionIndex = carDirectionToIndex(m_roadDirection);
@@ -1595,6 +1601,138 @@ void TileGridEditor::applyBrush() {
             return;
     }
 
+    announceCursor();
+    refreshUiStateFromTile();
+}
+
+void TileGridEditor::applyBucketFill() {
+    if (!m_grid) {
+        return;
+    }
+
+    if (m_brush == BrushType::Vehicle || m_brush == BrushType::PlayerSpawn) {
+        applyBrush();
+        return;
+    }
+
+    Tile* seedTile = m_grid->getTile(m_cursor);
+    if (!seedTile) {
+        return;
+    }
+
+    const TopSurfaceData seedTop = seedTile->getTopSurface();
+    bool targetSolid = seedTop.solid;
+    std::string targetTexture = seedTop.texturePath;
+    CarDirection targetDirection = seedTop.carDirection;
+
+    switch (m_brush) {
+        case BrushType::Grass:
+            targetSolid = true;
+            targetTexture = "assets/textures/grass.png";
+            targetDirection = CarDirection::None;
+            break;
+        case BrushType::Road:
+            targetSolid = true;
+            targetTexture = "assets/textures/road.png";
+            targetDirection = m_roadDirection;
+            break;
+        case BrushType::Empty:
+            targetSolid = false;
+            targetTexture.clear();
+            targetDirection = CarDirection::None;
+            break;
+        case BrushType::Vehicle:
+        case BrushType::PlayerSpawn:
+            break;
+    }
+
+    if (seedTop.solid == targetSolid
+        && seedTop.texturePath == targetTexture
+        && seedTop.carDirection == targetDirection) {
+        return;
+    }
+
+    auto matchesSeed = [&](const Tile* tile) {
+        if (!tile) {
+            return false;
+        }
+        const TopSurfaceData& top = tile->getTopSurface();
+        return top.solid == seedTop.solid
+            && top.texturePath == seedTop.texturePath
+            && top.carDirection == seedTop.carDirection;
+    };
+
+    auto applyToTile = [&](Tile* tile) {
+        switch (m_brush) {
+            case BrushType::Grass:
+                tile->setTopSurface(true, "assets/textures/grass.png", CarDirection::None);
+                tile->setCarDirection(CarDirection::None);
+                break;
+            case BrushType::Road:
+                tile->setTopSurface(true, "assets/textures/road.png", m_roadDirection);
+                tile->setCarDirection(m_roadDirection);
+                break;
+            case BrushType::Empty:
+                tile->setTopSurface(false, "", CarDirection::None);
+                tile->setCarDirection(CarDirection::None);
+                break;
+            case BrushType::Vehicle:
+            case BrushType::PlayerSpawn:
+                break;
+        }
+    };
+
+    const glm::ivec3 gridSize = m_grid->getGridSize();
+    const int layerZ = m_cursor.z;
+    const int layerTileCount = gridSize.x * gridSize.y;
+    if (layerTileCount <= 0) {
+        return;
+    }
+
+    std::vector<bool> visited(static_cast<std::size_t>(layerTileCount), false);
+    std::vector<glm::ivec3> stack;
+    stack.reserve(static_cast<std::size_t>(layerTileCount));
+
+    auto pushIfMatch = [&](int x, int y) {
+        if (x < 0 || y < 0 || x >= gridSize.x || y >= gridSize.y) {
+            return;
+        }
+        const int index = y * gridSize.x + x;
+        if (visited[static_cast<std::size_t>(index)]) {
+            return;
+        }
+        visited[static_cast<std::size_t>(index)] = true;
+        const glm::ivec3 pos(x, y, layerZ);
+        Tile* tile = m_grid->getTile(pos);
+        if (!matchesSeed(tile)) {
+            return;
+        }
+        stack.push_back(pos);
+    };
+
+    pushIfMatch(m_cursor.x, m_cursor.y);
+    std::size_t filledCount = 0;
+
+    while (!stack.empty()) {
+        const glm::ivec3 pos = stack.back();
+        stack.pop_back();
+
+        Tile* tile = m_grid->getTile(pos);
+        if (!tile) {
+            continue;
+        }
+        applyToTile(tile);
+        ++filledCount;
+
+        pushIfMatch(pos.x + 1, pos.y);
+        pushIfMatch(pos.x - 1, pos.y);
+        pushIfMatch(pos.x, pos.y + 1);
+        pushIfMatch(pos.x, pos.y - 1);
+    }
+
+    if (filledCount > 0) {
+        std::cout << "Bucket filled " << filledCount << " tiles on layer " << layerZ << std::endl;
+    }
     announceCursor();
     refreshUiStateFromTile();
 }

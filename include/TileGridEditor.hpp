@@ -199,6 +199,7 @@ private:
     void syncPendingGridSizeFromGrid();
 
     void applyBrush();
+    void applyBucketFill();
     void savePrefab(const std::string& name);
     void applyPrefab(std::size_t index);
     void deletePrefab(std::size_t index);
