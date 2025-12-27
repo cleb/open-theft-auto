@@ -123,8 +123,8 @@ void AutoPilot::updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaT
     // Check if we need to initialize a new curve (entering curve tile or tile changed)
     if (!m_curveState.valid) {
         // Compute tile center (gridToWorld gives corner, add half tile)
-        glm::vec3 tileCorner3 = tileGrid->gridToWorld(gridPos);
-        glm::vec2 tileCenter(tileCorner3.x + tileSize * 0.5f, tileCorner3.y + tileSize * 0.5f);
+        glm::vec3 tileCenter3 = tileGrid->gridToWorld(gridPos);
+        glm::vec2 tileCenter(tileCenter3.x, tileCenter3.y);
         
         // Get the corner that this diagonal points to
         glm::vec2 cornerOffset = getCornerOffset(tileDir, tileSize, currentHeading);
