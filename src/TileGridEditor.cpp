@@ -995,7 +995,7 @@ void TileGridEditor::printHelp() const {
               << "  Delete: clear tile contents at cursor\n"
               << "  I/J/K/L: toggle wall (north/west/south/east)\n"
               << "  Space: apply brush at cursor\n"
-              << "  Shift+Space: bucket fill brush on current layer\n"
+              << "  Shift+Space: bucket fill brush or selected prefab on current layer\n"
               << "  Left Click: navigate to tile (or apply prefab if selected)\n"
               << "  Shift+Drag (mouse): select area of tiles\n"
               << "  Ctrl+Click (mouse): toggle individual tile selection\n"
@@ -1042,7 +1042,7 @@ void TileGridEditor::drawBrushControls() {
     if (changed) {
         announceBrush();
     }
-    ImGui::TextDisabled("Shift+Space: bucket fill on current layer");
+    ImGui::TextDisabled("Shift+Space: bucket fill brush or selected prefab");
 
     if (m_brush == BrushType::Road) {
         int directionIndex = carDirectionToIndex(m_roadDirection);
@@ -1610,7 +1610,15 @@ void TileGridEditor::applyBucketFill() {
         return;
     }
 
-    if (m_brush == BrushType::Vehicle || m_brush == BrushType::PlayerSpawn) {
+    const PrefabEntry* prefab = nullptr;
+    if (m_selectedPrefabIndex >= 0 && m_selectedPrefabIndex < static_cast<int>(m_prefabs.size())) {
+        const auto& candidate = m_prefabs[static_cast<std::size_t>(m_selectedPrefabIndex)];
+        if (candidate.tile) {
+            prefab = &candidate;
+        }
+    }
+
+    if (!prefab && (m_brush == BrushType::Vehicle || m_brush == BrushType::PlayerSpawn)) {
         applyBrush();
         return;
     }
@@ -1625,31 +1633,35 @@ void TileGridEditor::applyBucketFill() {
     std::string targetTexture = seedTop.texturePath;
     CarDirection targetDirection = seedTop.carDirection;
 
-    switch (m_brush) {
-        case BrushType::Grass:
-            targetSolid = true;
-            targetTexture = "assets/textures/grass.png";
-            targetDirection = CarDirection::None;
-            break;
-        case BrushType::Road:
-            targetSolid = true;
-            targetTexture = "assets/textures/road.png";
-            targetDirection = m_roadDirection;
-            break;
-        case BrushType::Empty:
-            targetSolid = false;
-            targetTexture.clear();
-            targetDirection = CarDirection::None;
-            break;
-        case BrushType::Vehicle:
-        case BrushType::PlayerSpawn:
-            break;
+    if (!prefab) {
+        switch (m_brush) {
+            case BrushType::Grass:
+                targetSolid = true;
+                targetTexture = "assets/textures/grass.png";
+                targetDirection = CarDirection::None;
+                break;
+            case BrushType::Road:
+                targetSolid = true;
+                targetTexture = "assets/textures/road.png";
+                targetDirection = m_roadDirection;
+                break;
+            case BrushType::Empty:
+                targetSolid = false;
+                targetTexture.clear();
+                targetDirection = CarDirection::None;
+                break;
+            case BrushType::Vehicle:
+            case BrushType::PlayerSpawn:
+                break;
+        }
     }
 
-    if (seedTop.solid == targetSolid
-        && seedTop.texturePath == targetTexture
-        && seedTop.carDirection == targetDirection) {
-        return;
+    if (!prefab) {
+        if (seedTop.solid == targetSolid
+            && seedTop.texturePath == targetTexture
+            && seedTop.carDirection == targetDirection) {
+            return;
+        }
     }
 
     auto matchesSeed = [&](const Tile* tile) {
@@ -1663,6 +1675,10 @@ void TileGridEditor::applyBucketFill() {
     };
 
     auto applyToTile = [&](Tile* tile) {
+        if (prefab) {
+            tile->copyFrom(*prefab->tile);
+            return;
+        }
         switch (m_brush) {
             case BrushType::Grass:
                 tile->setTopSurface(true, "assets/textures/grass.png", CarDirection::None);
