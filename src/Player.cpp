@@ -62,7 +62,12 @@ void Player::applyMovement(const glm::vec3& delta) {
     glm::vec3 newPosition = m_position;
 
     if (!m_tileGrid) {
-        newPosition += delta;
+        // No tile grid - just check collisions
+        glm::vec3 target = newPosition + delta;
+        if (!m_collisionManager.hasCallback() || 
+            !m_collisionManager.wouldCollide(this, target, m_rotation.z)) {
+            newPosition = target;
+        }
         setPosition(newPosition);
         return;
     }
@@ -70,7 +75,11 @@ void Player::applyMovement(const glm::vec3& delta) {
     // Resolve each axis separately so the player can slide along blocking walls.
     if (delta.x != 0.0f) {
         glm::vec3 target = newPosition + glm::vec3(delta.x, 0.0f, 0.0f);
-        if (m_tileGrid->canOccupy(newPosition, target)) {
+        bool canMove = m_tileGrid->canOccupy(newPosition, target);
+        if (canMove && m_collisionManager.hasCallback()) {
+            canMove = !m_collisionManager.wouldCollide(this, target, m_rotation.z);
+        }
+        if (canMove) {
             newPosition.x = target.x;
         }
     }
@@ -78,7 +87,11 @@ void Player::applyMovement(const glm::vec3& delta) {
     if (delta.y != 0.0f) {
         glm::vec3 startForY = newPosition;
         glm::vec3 target = startForY + glm::vec3(0.0f, delta.y, 0.0f);
-        if (m_tileGrid->canOccupy(startForY, target)) {
+        bool canMove = m_tileGrid->canOccupy(startForY, target);
+        if (canMove && m_collisionManager.hasCallback()) {
+            canMove = !m_collisionManager.wouldCollide(this, target, m_rotation.z);
+        }
+        if (canMove) {
             newPosition.y = target.y;
         }
     }

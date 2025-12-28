@@ -2,6 +2,7 @@
 #include "Vehicle.hpp"
 #include "TileGrid.hpp"
 #include "Heading.hpp"
+#include "Collider.hpp"
 #include <cmath>
 #include <algorithm>
 
@@ -98,6 +99,14 @@ void AutoPilot::update(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime) {
         glm::vec3 forward(f2.x, f2.y, 0.0f);
         glm::vec3 newPos = pos + forward * m_maxSpeed * deltaTime;
         newPos.z = pos.z;
+        
+        // Check for collision before moving
+        const CollisionManager& collisionMgr = vehicle->getCollisionManager();
+        if (collisionMgr.hasCallback() && collisionMgr.wouldCollide(vehicle, newPos, currentHeading)) {
+            vehicle->setSpeed(0.0f);
+            return;
+        }
+        
         vehicle->setPosition(newPos);
         return;
     }
@@ -163,20 +172,38 @@ void AutoPilot::updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaT
         float distanceIncrement = distanceTraveled / arcLength;
 
         // Update vehicle
-        float newAngleDegrees = m_curveState.startAngle + 90.0f * m_curveState.distance * m_curveState.direction;
-        vehicle->setRotation(glm::vec3(0.0f, 0.0f, m_curveState.startVehicleAngle + 90.0f * m_curveState.distance * m_curveState.direction));
+        float newDistance = m_curveState.distance + distanceIncrement;
+        float newAngleDegrees = m_curveState.startAngle + 90.0f * newDistance * m_curveState.direction;
+        float newRotation = m_curveState.startVehicleAngle + 90.0f * newDistance * m_curveState.direction;
         float newAngle = glm::radians(newAngleDegrees);
 
         glm::vec3 newPos(cos(newAngle) * m_curveState.arcRadius + m_curveState.arcCenter.x, sin(newAngle)* m_curveState.arcRadius + m_curveState.arcCenter.y, pos.z);
 
-        m_curveState.distance += distanceIncrement;
+        // Check for collision before moving
+        const CollisionManager& collisionMgr = vehicle->getCollisionManager();
+        if (collisionMgr.hasCallback() && collisionMgr.wouldCollide(vehicle, newPos, newRotation)) {
+            // Collision detected - stop the vehicle
+            vehicle->setSpeed(0.0f);
+            return;
+        }
+
+        m_curveState.distance = newDistance;
+        vehicle->setRotation(glm::vec3(0.0f, 0.0f, newRotation));
         vehicle->setPosition(newPos);
 
         if(m_curveState.distance >= 1.0f) {
             vehicle->setRotation(glm::vec3(0.0f, 0.0f, m_curveState.startVehicleAngle + 90.0f * m_curveState.direction));
             glm::vec2 f2 = Heading::forwardFromHeadingDeg(vehicle->getRotation().z);
             glm::vec3 forward(f2.x, f2.y, 0.0f);
-            vehicle->setPosition(newPos + forward);
+            
+            // Check collision for the exit position too
+            glm::vec3 exitPos = newPos + forward;
+            if (collisionMgr.hasCallback() && collisionMgr.wouldCollide(vehicle, exitPos, vehicle->getRotation().z)) {
+                vehicle->setSpeed(0.0f);
+                return;
+            }
+            
+            vehicle->setPosition(exitPos);
             m_curveState.clear();
         }
     }
@@ -192,6 +219,15 @@ void AutoPilot::updateOnStraight(Vehicle* vehicle, TileGrid* tileGrid, float del
     glm::vec3 newPos = pos + forward * m_maxSpeed * deltaTime;
     newPos.z = pos.z;
     
+    // Check for collision with other vehicles first
+    const CollisionManager& collisionMgr = vehicle->getCollisionManager();
+    if (collisionMgr.hasCallback() && collisionMgr.wouldCollide(vehicle, newPos, currentHeading)) {
+        // Collision detected - stop the vehicle
+        vehicle->setSpeed(0.0f);
+        return;
+    }
+    
+    // Check tile grid collision
     if (tileGrid->canOccupy(pos, newPos)) {
         vehicle->setPosition(newPos);
     }

@@ -3,6 +3,7 @@
 #include "Vehicle.hpp"
 #include "TileGrid.hpp"
 #include "Camera.hpp"
+#include "Collider.hpp"
 #include <vector>
 #include <memory>
 #include <glm/glm.hpp>
@@ -35,6 +36,9 @@ public:
     void setViewMargin(float margin) { m_viewMargin = margin; }
     void setEnabled(bool enabled) { m_enabled = enabled; }
     bool isEnabled() const { return m_enabled; }
+    
+    // Set collision callback for all traffic vehicles
+    void setCollisionCallback(ColliderCallback callback);
 
     // Get traffic vehicles (for collision detection, etc.)
     const std::vector<std::unique_ptr<Vehicle>>& getTrafficVehicles() const { return m_trafficVehicles; }
@@ -47,6 +51,7 @@ private:
     
     std::vector<std::unique_ptr<Vehicle>> m_trafficVehicles;
     std::vector<RoadSpawnPoint> m_roadSpawnPoints;
+    ColliderCallback m_collisionCallback;
     
     // Configuration
     int m_maxTrafficVehicles;

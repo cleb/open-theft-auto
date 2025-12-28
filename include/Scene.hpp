@@ -10,6 +10,7 @@
 #include "LevelData.hpp"
 #include "GameLogic.hpp"
 #include "TrafficManager.hpp"
+#include "Collider.hpp"
 
 #include <string>
 
@@ -53,9 +54,13 @@ public:
     TrafficManager* getTrafficManager() const { return m_trafficManager.get(); }
     bool isEditModeActive() const { return m_tileGridEditor && m_tileGridEditor->isEnabled(); }
     
+    // Get all collidable objects for collision detection
+    std::vector<const Collider*> getAllColliders() const;
+    
 private:
     void createTestScene();
     void toggleEditMode();
     void rebuildVehiclesFromSpawns();
     void onLevelChanged();
+    void setupCollisionCallbacks();
 };

@@ -191,6 +191,10 @@ void Scene::addVehicle(std::unique_ptr<Vehicle> vehicle) {
     if (vehicle && m_tileGrid) {
         vehicle->setTileGrid(m_tileGrid.get());
     }
+    // Set up collision callback for the new vehicle
+    if (vehicle) {
+        vehicle->setCollisionCallback([this]() { return getAllColliders(); });
+    }
     m_vehicles.push_back(std::move(vehicle));
 }
 
@@ -307,6 +311,14 @@ void Scene::rebuildVehiclesFromSpawns() {
         m_player->setActive(true);
     }
 
+    // Set up collision detection for all vehicles
+    setupCollisionCallbacks();
+    
+    // Set up collision callback for traffic manager
+    if (m_trafficManager) {
+        m_trafficManager->setCollisionCallback([this]() { return getAllColliders(); });
+    }
+
     std::cout << "Rebuilt vehicles from grid: " << m_vehicles.size() << std::endl;
 }
 
@@ -320,4 +332,48 @@ void Scene::onLevelChanged() {
     rebuildVehiclesFromSpawns();
     
     std::cout << "Level changed, rebuilt scene with " << m_vehicles.size() << " vehicles" << std::endl;
+}
+
+std::vector<const Collider*> Scene::getAllColliders() const {
+    std::vector<const Collider*> allColliders;
+    
+    // Add player if active and not in vehicle
+    if (m_player && m_player->isActive()) {
+        // Only add player as collider if not in a vehicle
+        if (!m_gameLogic || !m_gameLogic->isPlayerInVehicle()) {
+            allColliders.push_back(m_player.get());
+        }
+    }
+    
+    // Add player vehicles
+    for (const auto& vehicle : m_vehicles) {
+        if (vehicle && vehicle->isActive()) {
+            allColliders.push_back(vehicle.get());
+        }
+    }
+    
+    // Add traffic vehicles
+    if (m_trafficManager) {
+        for (const auto& vehicle : m_trafficManager->getTrafficVehicles()) {
+            if (vehicle && vehicle->isActive()) {
+                allColliders.push_back(vehicle.get());
+            }
+        }
+    }
+    
+    return allColliders;
+}
+
+void Scene::setupCollisionCallbacks() {
+    // Set up collision callback for player
+    if (m_player) {
+        m_player->setCollisionCallback([this]() { return getAllColliders(); });
+    }
+    
+    // Set up collision callbacks for all player vehicles
+    for (auto& vehicle : m_vehicles) {
+        if (vehicle) {
+            vehicle->setCollisionCallback([this]() { return getAllColliders(); });
+        }
+    }
 }

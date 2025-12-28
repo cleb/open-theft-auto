@@ -2,6 +2,7 @@
 #include "InputManager.hpp"
 #include "UserPilot.hpp"
 #include "TrafficManager.hpp"
+#include "Heading.hpp"
 #include <glm/glm.hpp>
 #include <glm/geometric.hpp>
 #include <GLFW/glfw3.h>
@@ -158,11 +159,25 @@ void GameLogic::leaveVehicle() {
         return;
     }
 
+    // Calculate exit position to the left of the vehicle (driver's side)
+    glm::vec3 vehiclePos = vehicle->getPosition();
+    float vehicleRotation = vehicle->getRotation().z;
+    glm::vec2 vehicleSize = vehicle->getSpriteSize();
+    
+    // Get the vehicle's forward direction
+    glm::vec2 forward = Heading::forwardFromHeadingDeg(vehicleRotation);
+    // Left is perpendicular to forward (90° counter-clockwise)
+    glm::vec2 left(-forward.y, forward.x);
+    
+    // Place player to the left of the vehicle, offset by half the vehicle width plus some margin
+    float exitOffset = (vehicleSize.x * 0.5f) + 0.8f; // Half vehicle width + margin for player
+    glm::vec3 exitPosition = vehiclePos + glm::vec3(left.x * exitOffset, left.y * exitOffset, 0.0f);
+
     // Switch control back to player
     m_currentControllable = m_player;
     
     m_player->setActive(true);
-    m_player->setPosition(vehicle->getPosition());
+    m_player->setPosition(exitPosition);
     m_player->setRotation(vehicle->getRotation());
     
     // Remove the UserPilot from the vehicle

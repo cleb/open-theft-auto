@@ -1,17 +1,19 @@
 #pragma once
 
 #include "ControllableObject.hpp"
+#include "Collider.hpp"
 #include <memory>
 
 class TileGrid;
 
-class Player : public ControllableObject {
+class Player : public ControllableObject, public Collider {
 private:
     std::unique_ptr<Texture> m_texture;
     float m_speed;
     float m_rotationSpeed;
     glm::vec2 m_size;
     TileGrid* m_tileGrid;
+    CollisionManager m_collisionManager;
 
     void applyMovement(const glm::vec3& delta);
 
@@ -31,4 +33,15 @@ public:
     
     float getSpeed() const { return m_speed; }
     void setSpeed(float speed) { m_speed = speed; }
+    
+    // Collider interface implementation
+    glm::vec3 getColliderPosition() const override { return m_position; }
+    float getColliderRotation() const override { return m_rotation.z; }
+    glm::vec2 getColliderSize() const override { return m_size; }
+    bool isColliderActive() const override { return m_active; }
+    
+    // Collision management
+    void setCollisionCallback(ColliderCallback callback) { m_collisionManager.setColliderCallback(callback); }
+    CollisionManager& getCollisionManager() { return m_collisionManager; }
+    const CollisionManager& getCollisionManager() const { return m_collisionManager; }
 };

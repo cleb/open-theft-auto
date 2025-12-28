@@ -11,6 +11,7 @@ TrafficManager::TrafficManager()
     : m_tileGrid(nullptr)
     , m_camera(nullptr)
     , m_playerVehicles(nullptr)
+    , m_collisionCallback(nullptr)
     , m_maxTrafficVehicles(10)
     , m_spawnInterval(0.5f)  // Spawn more frequently for testing
     , m_spawnTimer(0.0f)
@@ -39,6 +40,17 @@ void TrafficManager::reset() {
     
     if (m_tileGrid) {
         buildRoadSpawnPoints();
+    }
+}
+
+void TrafficManager::setCollisionCallback(ColliderCallback callback) {
+    m_collisionCallback = callback;
+    
+    // Apply to all existing traffic vehicles
+    for (auto& vehicle : m_trafficVehicles) {
+        if (vehicle) {
+            vehicle->setCollisionCallback(m_collisionCallback);
+        }
     }
 }
 
@@ -214,6 +226,11 @@ void TrafficManager::spawnVehicle() {
     vehicle->setRotation(glm::vec3(0.0f, 0.0f, rotation));
     vehicle->setSpriteSize(glm::vec2(1.5f, 3.0f));
     vehicle->setTileGrid(m_tileGrid);
+    
+    // Set collision callback
+    if (m_collisionCallback) {
+        vehicle->setCollisionCallback(m_collisionCallback);
+    }
     
     // Assign an AutoPilot
     vehicle->setPilot(std::make_unique<AutoPilot>());

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ControllableObject.hpp"
+#include "Collider.hpp"
 #include <memory>
 #include <array>
 #include <glm/glm.hpp>
@@ -8,7 +9,7 @@
 class TileGrid;
 class Pilot;
 
-class Vehicle : public ControllableObject {
+class Vehicle : public ControllableObject, public Collider {
 private:
     std::shared_ptr<Texture> m_texture;
     std::unique_ptr<Pilot> m_pilot;
@@ -19,6 +20,7 @@ private:
     float m_turnSpeed;
     glm::vec2 m_size;
     TileGrid* m_tileGrid;
+    CollisionManager m_collisionManager;
 
 public:
     Vehicle();
@@ -50,10 +52,22 @@ public:
     float getMaxSpeed() const { return m_maxSpeed; }
     float getAcceleration() const { return m_acceleration; }
     float getTurnSpeed() const { return m_turnSpeed; }
+    
+    // Collider interface implementation
+    glm::vec3 getColliderPosition() const override { return m_position; }
+    float getColliderRotation() const override { return m_rotation.z; }
+    glm::vec2 getColliderSize() const override { return m_size; }
+    bool isColliderActive() const override { return m_active; }
+    
+    // Collision management
+    void setCollisionCallback(ColliderCallback callback) { m_collisionManager.setColliderCallback(callback); }
+    CollisionManager& getCollisionManager() { return m_collisionManager; }
+    const CollisionManager& getCollisionManager() const { return m_collisionManager; }
 
 private:
     float getCurrentMaxSpeed() const;
     bool isOnRoad() const;
     std::array<glm::vec3, 8> getCollisionOffsets() const;
     bool canMoveTo(const glm::vec3& from, const glm::vec3& to) const;
+    bool wouldCollideWithOther(const glm::vec3& newPosition) const;
 };

@@ -66,7 +66,7 @@ void Vehicle::update(float deltaTime) {
 
             if (delta.x != 0.0f) {
                 glm::vec3 candidate = newPosition + glm::vec3(delta.x, 0.0f, 0.0f);
-                if (canMoveTo(newPosition, candidate)) {
+                if (canMoveTo(newPosition, candidate) && !wouldCollideWithOther(candidate)) {
                     newPosition.x = candidate.x;
                 } else {
                     m_speed = 0.0f;
@@ -77,7 +77,7 @@ void Vehicle::update(float deltaTime) {
             if (delta.y != 0.0f) {
                 glm::vec3 startForY = newPosition;
                 glm::vec3 candidate = startForY + glm::vec3(0.0f, delta.y, 0.0f);
-                if (canMoveTo(startForY, candidate)) {
+                if (canMoveTo(startForY, candidate) && !wouldCollideWithOther(candidate)) {
                     newPosition.y = candidate.y;
                 } else {
                     m_speed = 0.0f;
@@ -86,7 +86,13 @@ void Vehicle::update(float deltaTime) {
 
             setPosition(newPosition);
         } else {
-            setPosition(m_position + delta);
+            // No tile grid - still check vehicle collisions
+            glm::vec3 newPosition = m_position + delta;
+            if (!wouldCollideWithOther(newPosition)) {
+                setPosition(newPosition);
+            } else {
+                m_speed = 0.0f;
+            }
         }
     }
 }
@@ -264,4 +270,8 @@ bool Vehicle::canMoveTo(const glm::vec3& from, const glm::vec3& to) const {
         }
     }
     return true;
+}
+
+bool Vehicle::wouldCollideWithOther(const glm::vec3& newPosition) const {
+    return m_collisionManager.wouldCollide(this, newPosition, m_rotation.z);
 }
