@@ -4,6 +4,7 @@
 #include "LevelSerialization.hpp"
 #include "GameLogic.hpp"
 #include "TrafficManager.hpp"
+#include "Window.hpp"
 #include <iostream>
 #include <string>
 #include <glm/glm.hpp>
@@ -41,6 +42,8 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     // Initialize traffic manager
     m_trafficManager = std::make_unique<TrafficManager>();
     m_trafficManager->initialize(m_tileGrid.get(), renderer->getCamera(), &m_vehicles);
+    // Set projection info for accurate view bounds calculation (FOV matches Renderer::initialize)
+    m_trafficManager->setProjectionInfo(1.57f, window->getAspectRatio());
     
     // Initialize game logic
     m_gameLogic->setPlayer(m_player.get());
@@ -127,6 +130,8 @@ void Scene::render(Renderer* renderer) {
     // Render traffic vehicles
     if (m_trafficManager) {
         m_trafficManager->render(renderer);
+        // Render debug spawn points if enabled
+        m_trafficManager->renderDebugSpawnPoints(renderer);
     }
     
     // Render player (on top)
@@ -162,6 +167,15 @@ void Scene::processInput(InputManager* input, float deltaTime) {
 
     if (input->isKeyPressed(GLFW_KEY_F1)) {
         toggleEditMode();
+    }
+
+    // Toggle traffic spawn point debug visualization with F2
+    if (input->isKeyPressed(GLFW_KEY_F2)) {
+        if (m_trafficManager) {
+            bool enabled = !m_trafficManager->isDebugRenderSpawnPointsEnabled();
+            m_trafficManager->setDebugRenderSpawnPoints(enabled);
+            std::cout << "Traffic spawn point debug: " << (enabled ? "ON" : "OFF") << std::endl;
+        }
     }
 
     const bool editActive = m_tileGridEditor && m_tileGridEditor->isEnabled();

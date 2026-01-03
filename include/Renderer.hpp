@@ -64,4 +64,7 @@ public:
     // Uses inverse view-projection matrix to unproject screen coordinates
     bool screenToWorldPosition(double mouseX, double mouseY, int windowWidth, int windowHeight,
                                float planeZ, glm::vec3& outWorldPos) const;
+    
+    // Debug rendering
+    void renderDebugMarker(const glm::vec2& position, const glm::vec2& size, const glm::vec3& color);
 };

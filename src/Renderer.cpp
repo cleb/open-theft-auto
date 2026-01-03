@@ -308,3 +308,31 @@ bool Renderer::screenToWorldPosition(double mouseX, double mouseY, int windowWid
     
     return true;
 }
+
+void Renderer::renderDebugMarker(const glm::vec2& position, const glm::vec2& size, const glm::vec3& color) {
+    Shader* shader = getShader("sprite");
+    if (!shader) return;
+    
+    shader->use();
+    
+    // Create model matrix for marker (no rotation, simple colored quad)
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, glm::vec3(position.x, position.y, 0.2f)); // Slightly above sprites
+    model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
+    
+    shader->setMat4("model", model);
+    shader->setMat4("view", m_viewMatrix);
+    shader->setMat4("projection", m_projectionMatrix);
+    shader->setVec3("spriteColor", color);
+    shader->setInt("sprite", 0);
+    
+    // We need to bind a texture even for colored quads (use white pixel or disable texturing)
+    // For now, just render without texture - shader might need adjustment
+    // But since we're using sprite shader which expects texture, we'll rely on color tinting
+    
+    glBindVertexArray(m_spriteVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+    
+    shader->unuse();
+}

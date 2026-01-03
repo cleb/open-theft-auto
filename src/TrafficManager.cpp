@@ -13,10 +13,15 @@ TrafficManager::TrafficManager()
     , m_playerVehicles(nullptr)
     , m_collisionCallback(nullptr)
     , m_maxTrafficVehicles(10)
-    , m_spawnInterval(0.5f)  // Spawn more frequently for testing
+    , m_spawnIntervalMin(1.5f)   // Minimum time between spawns
+    , m_spawnIntervalMax(4.0f)   // Maximum time between spawns
     , m_spawnTimer(0.0f)
-    , m_viewMargin(5.0f)
+    , m_nextSpawnInterval(2.0f)  // Initial spawn interval
+    , m_viewMargin(8.0f)         // Larger margin to spawn further from view
     , m_enabled(true)
+    , m_debugRenderSpawnPoints(false)
+    , m_fovRadians(1.57f)        // Default ~90 degree FOV
+    , m_aspectRatio(16.0f/9.0f)  // Default aspect ratio
     , m_rng(std::random_device{}()) {
 }
 
@@ -101,10 +106,13 @@ void TrafficManager::update(float deltaTime) {
     
     // Try to spawn new vehicles
     m_spawnTimer += deltaTime;
-    if (m_spawnTimer >= m_spawnInterval && 
+    if (m_spawnTimer >= m_nextSpawnInterval && 
         static_cast<int>(m_trafficVehicles.size()) < m_maxTrafficVehicles) {
         spawnVehicle();
         m_spawnTimer = 0.0f;
+        // Randomize next spawn interval for irregular traffic
+        std::uniform_real_distribution<float> intervalDist(m_spawnIntervalMin, m_spawnIntervalMax);
+        m_nextSpawnInterval = intervalDist(m_rng);
     }
 }
 
@@ -139,24 +147,40 @@ TrafficManager::ViewBounds TrafficManager::calculateViewBounds() const {
     
     if (!m_camera) return bounds;
     
-    // Get camera target (center of view)
-    const glm::vec3& target = m_camera->getTarget();
+    // Get camera position and target
     const glm::vec3& cameraPos = m_camera->getPosition();
+    const glm::vec3& target = m_camera->getTarget();
     
-    // Calculate view dimensions based on camera height and field of view
-    // The camera is positioned above looking down, so we estimate visible area
-    float cameraHeight = cameraPos.z - target.z;
+    // Calculate the camera height above the ground plane (Z=0)
+    // The camera looks at target, and we want to find where the view frustum
+    // intersects with the ground plane
+    float cameraHeight = cameraPos.z;  // Height above Z=0
     
-    // Estimate visible area (approximately 20x20 units at default camera height)
-    // This is a rough approximation - adjust based on actual projection
-    float viewRadius = cameraHeight * 0.8f;  // Rough estimate of visible radius
+    // For a perspective camera looking down at the ground:
+    // The half-height of the visible area at distance d is: d * tan(fov/2)
+    // The half-width is: halfHeight * aspectRatio
     
-    bounds.minX = target.x - viewRadius;
-    bounds.maxX = target.x + viewRadius;
-    bounds.minY = target.y - viewRadius;
-    bounds.maxY = target.y + viewRadius;
+    // Distance from camera to ground plane along the view direction
+    // Since camera is above looking down, this is approximately the camera height
+    float distanceToGround = cameraHeight;
+    
+    // Calculate half-extents of the visible area on the ground plane
+    float halfFov = m_fovRadians / 2.0f;
+    float halfHeight = distanceToGround * std::tan(halfFov);
+    float halfWidth = halfHeight * m_aspectRatio;
+    
+    // The visible area is centered on the target position (where camera looks)
+    bounds.minX = target.x - halfWidth;
+    bounds.maxX = target.x + halfWidth;
+    bounds.minY = target.y - halfHeight;
+    bounds.maxY = target.y + halfHeight;
     
     return bounds;
+}
+
+void TrafficManager::setProjectionInfo(float fovRadians, float aspectRatio) {
+    m_fovRadians = fovRadians;
+    m_aspectRatio = aspectRatio;
 }
 
 bool TrafficManager::isInView(const glm::vec3& position, const ViewBounds& bounds) const {
@@ -165,18 +189,30 @@ bool TrafficManager::isInView(const glm::vec3& position, const ViewBounds& bound
 }
 
 bool TrafficManager::isInSpawnZone(const glm::vec3& position, const ViewBounds& bounds) const {
-    // Spawn zone is the area just outside the view
+    // Spawn zone is the area outside the view but within a reasonable distance
+    // Use a minimum offset to ensure vehicles spawn well outside the viewport
+    const float minSpawnOffset = 3.0f;  // Minimum distance outside the view edge
+    
     float outerMinX = bounds.minX - m_viewMargin;
     float outerMaxX = bounds.maxX + m_viewMargin;
     float outerMinY = bounds.minY - m_viewMargin;
     float outerMaxY = bounds.maxY + m_viewMargin;
     
-    // Must be in outer zone but NOT in view
+    // Inner bounds define where vehicles must NOT spawn (visible area + buffer)
+    float innerMinX = bounds.minX - minSpawnOffset;
+    float innerMaxX = bounds.maxX + minSpawnOffset;
+    float innerMinY = bounds.minY - minSpawnOffset;
+    float innerMaxY = bounds.maxY + minSpawnOffset;
+    
+    // Must be in outer zone
     bool inOuterZone = position.x >= outerMinX && position.x <= outerMaxX &&
                        position.y >= outerMinY && position.y <= outerMaxY;
-    bool inView = isInView(position, bounds);
     
-    return inOuterZone && !inView;
+    // Must NOT be in inner zone (visible area + buffer)
+    bool inInnerZone = position.x >= innerMinX && position.x <= innerMaxX &&
+                       position.y >= innerMinY && position.y <= innerMaxY;
+    
+    return inOuterZone && !inInnerZone;
 }
 
 void TrafficManager::spawnVehicle() {
@@ -315,4 +351,80 @@ bool TrafficManager::isTooCloseToOtherVehicles(const glm::vec3& position) const 
     }
     
     return false;
+}
+
+void TrafficManager::renderDebugSpawnPoints(Renderer* renderer) {
+    if (!renderer || !m_debugRenderSpawnPoints) return;
+    
+    ViewBounds bounds = calculateViewBounds();
+    const float minSpawnOffset = 3.0f;
+    
+    for (const auto& point : m_roadSpawnPoints) {
+        glm::vec2 pos(point.worldPos.x, point.worldPos.y);
+        glm::vec2 size(0.8f, 0.8f);
+        
+        // Determine color based on spawn validity
+        bool inSpawnZone = isInSpawnZone(point.worldPos, bounds);
+        bool tooClose = isTooCloseToOtherVehicles(point.worldPos);
+        bool inView = isInView(point.worldPos, bounds);
+        
+        // Check if direction points toward center
+        glm::vec2 forward = getForwardFromDirection(point.direction, point.rotationDegrees);
+        glm::vec2 toCenter(
+            (bounds.minX + bounds.maxX) * 0.5f - point.worldPos.x,
+            (bounds.minY + bounds.maxY) * 0.5f - point.worldPos.y
+        );
+        float dot = glm::dot(forward, glm::normalize(toCenter));
+        bool directionValid = dot > -0.3f;
+        
+        glm::vec3 color;
+        if (inView) {
+            // Red: inside viewport (should NOT spawn here)
+            color = glm::vec3(1.0f, 0.0f, 0.0f);
+        } else if (!inSpawnZone) {
+            // Orange: outside spawn zone (too far)
+            color = glm::vec3(1.0f, 0.5f, 0.0f);
+        } else if (tooClose) {
+            // Yellow: too close to other vehicles
+            color = glm::vec3(1.0f, 1.0f, 0.0f);
+        } else if (!directionValid) {
+            // Magenta: wrong direction (pointing away from view)
+            color = glm::vec3(1.0f, 0.0f, 1.0f);
+        } else {
+            // Green: valid spawn point
+            color = glm::vec3(0.0f, 1.0f, 0.0f);
+        }
+        
+        renderer->renderDebugMarker(pos, size, color);
+    }
+    
+    // Also render the view bounds as markers at corners
+    glm::vec3 boundsColor(0.0f, 0.5f, 1.0f); // Blue for view bounds
+    glm::vec2 cornerSize(0.5f, 0.5f);
+    renderer->renderDebugMarker(glm::vec2(bounds.minX, bounds.minY), cornerSize, boundsColor);
+    renderer->renderDebugMarker(glm::vec2(bounds.maxX, bounds.minY), cornerSize, boundsColor);
+    renderer->renderDebugMarker(glm::vec2(bounds.minX, bounds.maxY), cornerSize, boundsColor);
+    renderer->renderDebugMarker(glm::vec2(bounds.maxX, bounds.maxY), cornerSize, boundsColor);
+    
+    // Render spawn zone bounds (outer bounds)
+    glm::vec3 spawnZoneColor(0.0f, 1.0f, 1.0f); // Cyan for spawn zone outer bounds
+    float outerMinX = bounds.minX - m_viewMargin;
+    float outerMaxX = bounds.maxX + m_viewMargin;
+    float outerMinY = bounds.minY - m_viewMargin;
+    float outerMaxY = bounds.maxY + m_viewMargin;
+    renderer->renderDebugMarker(glm::vec2(outerMinX, outerMinY), cornerSize, spawnZoneColor);
+    renderer->renderDebugMarker(glm::vec2(outerMaxX, outerMinY), cornerSize, spawnZoneColor);
+    renderer->renderDebugMarker(glm::vec2(outerMinX, outerMaxY), cornerSize, spawnZoneColor);
+    renderer->renderDebugMarker(glm::vec2(outerMaxX, outerMaxY), cornerSize, spawnZoneColor);
+    
+    // Render inner spawn exclusion bounds (where we don't spawn - visible + buffer)
+    glm::vec3 innerBoundsColor(1.0f, 0.3f, 0.3f); // Light red for inner exclusion zone
+    float innerMinX = bounds.minX - minSpawnOffset;
+    float innerMaxX = bounds.maxX + minSpawnOffset;
+    float innerMinY = bounds.minY - minSpawnOffset;
+    float innerMaxY = bounds.maxY + minSpawnOffset;
+    renderer->renderDebugMarker(glm::vec2(innerMinX, innerMinY), cornerSize, innerBoundsColor);
+    renderer->renderDebugMarker(glm::vec2(innerMaxX, innerMinY), cornerSize, innerBoundsColor);
+    renderer->renderDebugMarker(glm::vec2(innerMinX, innerMaxY), cornerSize, innerBoundsColor);
+    renderer->renderDebugMarker(glm::vec2(innerMaxX, innerMaxY), cornerSize, innerBoundsColor);
 }
