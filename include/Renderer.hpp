@@ -44,6 +44,13 @@ public:
     void renderSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size, 
                      float rotation = 0.0f, const glm::vec3& color = glm::vec3(1.0f));
     
+    // 2D sprite rendering with damage overlay (GPU-accelerated)
+    void renderDamagedSprite(const Texture& texture, const Texture* deltaTexture,
+                             const glm::vec2& position, const glm::vec2& size,
+                             float rotation, const glm::vec3& color,
+                             bool damageFrontLeft, bool damageFrontRight,
+                             bool damageRearLeft, bool damageRearRight);
+    
     // Shader management
     bool loadShader(const std::string& name, const std::string& vertexPath, const std::string& fragmentPath);
     Shader* getShader(const std::string& name);

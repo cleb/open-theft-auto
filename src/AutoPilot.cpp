@@ -103,10 +103,17 @@ void AutoPilot::update(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime) {
         // Check for collision before moving
         const CollisionManager& collisionMgr = vehicle->getCollisionManager();
         if (collisionMgr.hasCallback() && collisionMgr.wouldCollide(vehicle, newPos, currentHeading)) {
+            // Apply damage only once when collision first occurs
+            if (!vehicle->isInCollision()) {
+                vehicle->applyDamage(CollisionDirection::Front);
+                vehicle->setInCollision(true);
+            }
             vehicle->setSpeed(0.0f);
             return;
         }
         
+        // Clear collision state when no longer colliding
+        vehicle->setInCollision(false);
         vehicle->setPosition(newPos);
         return;
     }
@@ -182,11 +189,17 @@ void AutoPilot::updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaT
         // Check for collision before moving
         const CollisionManager& collisionMgr = vehicle->getCollisionManager();
         if (collisionMgr.hasCallback() && collisionMgr.wouldCollide(vehicle, newPos, newRotation)) {
-            // Collision detected - stop the vehicle
+            // Collision detected - apply damage only once when collision first occurs
+            if (!vehicle->isInCollision()) {
+                vehicle->applyDamage(CollisionDirection::Front);
+                vehicle->setInCollision(true);
+            }
             vehicle->setSpeed(0.0f);
             return;
         }
 
+        // Clear collision state when no longer colliding
+        vehicle->setInCollision(false);
         m_curveState.distance = newDistance;
         vehicle->setRotation(glm::vec3(0.0f, 0.0f, newRotation));
         vehicle->setPosition(newPos);
@@ -199,6 +212,10 @@ void AutoPilot::updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaT
             // Check collision for the exit position too
             glm::vec3 exitPos = newPos + forward;
             if (collisionMgr.hasCallback() && collisionMgr.wouldCollide(vehicle, exitPos, vehicle->getRotation().z)) {
+                if (!vehicle->isInCollision()) {
+                    vehicle->applyDamage(CollisionDirection::Front);
+                    vehicle->setInCollision(true);
+                }
                 vehicle->setSpeed(0.0f);
                 return;
             }
@@ -222,10 +239,17 @@ void AutoPilot::updateOnStraight(Vehicle* vehicle, TileGrid* tileGrid, float del
     // Check for collision with other vehicles first
     const CollisionManager& collisionMgr = vehicle->getCollisionManager();
     if (collisionMgr.hasCallback() && collisionMgr.wouldCollide(vehicle, newPos, currentHeading)) {
-        // Collision detected - stop the vehicle
+        // Collision detected - apply damage only once when collision first occurs
+        if (!vehicle->isInCollision()) {
+            vehicle->applyDamage(CollisionDirection::Front);
+            vehicle->setInCollision(true);
+        }
         vehicle->setSpeed(0.0f);
         return;
     }
+    
+    // Clear collision state when no longer colliding
+    vehicle->setInCollision(false);
     
     // Check tile grid collision
     if (tileGrid->canOccupy(pos, newPos)) {

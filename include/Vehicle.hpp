@@ -9,9 +9,35 @@
 class TileGrid;
 class Pilot;
 
+// Damage state for vehicle quadrants
+struct VehicleDamage {
+    bool frontLeft = false;   // Upper-left quadrant (front-left of car)
+    bool frontRight = false;  // Upper-right quadrant (front-right of car)
+    bool rearLeft = false;    // Lower-left quadrant (rear-left of car)
+    bool rearRight = false;   // Lower-right quadrant (rear-right of car)
+    
+    bool hasAnyDamage() const {
+        return frontLeft || frontRight || rearLeft || rearRight;
+    }
+    
+    void reset() {
+        frontLeft = frontRight = rearLeft = rearRight = false;
+    }
+};
+
+// Direction of collision impact
+enum class CollisionDirection {
+    None,
+    Front,
+    Rear,
+    Left,
+    Right
+};
+
 class Vehicle : public ControllableObject, public Collider {
 private:
     std::shared_ptr<Texture> m_texture;
+    std::shared_ptr<Texture> m_deltaTexture;     // Damage overlay texture
     std::unique_ptr<Pilot> m_pilot;
     float m_speed;
     float m_maxSpeed;
@@ -21,6 +47,8 @@ private:
     glm::vec2 m_size;
     TileGrid* m_tileGrid;
     CollisionManager m_collisionManager;
+    VehicleDamage m_damage;
+    bool m_inCollision = false;  // Tracks if currently in collision state
 
 public:
     Vehicle();
@@ -63,6 +91,17 @@ public:
     void setCollisionCallback(ColliderCallback callback) { m_collisionManager.setColliderCallback(callback); }
     CollisionManager& getCollisionManager() { return m_collisionManager; }
     const CollisionManager& getCollisionManager() const { return m_collisionManager; }
+    
+    // Damage system
+    void setDeltaTexture(std::shared_ptr<Texture> deltaTexture);
+    void applyDamage(CollisionDirection direction);
+    void applyDamageFromCollision(const glm::vec3& collisionPoint);
+    const VehicleDamage& getDamage() const { return m_damage; }
+    void resetDamage();
+    
+    // Collision state management (prevents repeated damage application)
+    void setInCollision(bool inCollision) { m_inCollision = inCollision; }
+    bool isInCollision() const { return m_inCollision; }
 
 private:
     float getCurrentMaxSpeed() const;
@@ -70,4 +109,5 @@ private:
     std::array<glm::vec3, 8> getCollisionOffsets() const;
     bool canMoveTo(const glm::vec3& from, const glm::vec3& to) const;
     bool wouldCollideWithOther(const glm::vec3& newPosition) const;
+    CollisionDirection determineCollisionDirection(const glm::vec3& collisionPoint) const;
 };

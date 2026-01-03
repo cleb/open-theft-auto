@@ -3,10 +3,12 @@
 #include "TileGrid.hpp"
 #include "Heading.hpp"
 #include "Pilot.hpp"
+#include "TextureManager.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <iostream>
+#include <vector>
 
 Vehicle::Vehicle() 
     : m_pilot(nullptr)
@@ -30,12 +32,19 @@ bool Vehicle::initialize(const std::string& texturePath) {
         }
     }
     
+    // Load delta texture for damage effects
+    m_deltaTexture = TextureManager::instance().getTextureFromPath("assets/textures/car-deltas.png");
+    
     setPosition(glm::vec3(0.0f, 0.0f, 0.1f)); // Slightly above ground
     return true;
 }
 
 bool Vehicle::initialize(std::shared_ptr<Texture> texture) {
     m_texture = texture;
+    
+    // Load delta texture for damage effects
+    m_deltaTexture = TextureManager::instance().getTextureFromPath("assets/textures/car-deltas.png");
+    
     setPosition(glm::vec3(0.0f, 0.0f, 0.1f)); // Slightly above ground
     return true;
 }
@@ -63,12 +72,20 @@ void Vehicle::update(float deltaTime) {
 
         if (m_tileGrid) {
             glm::vec3 newPosition = m_position;
+            bool collisionOccurred = false;
+            glm::vec3 collisionDirection(0.0f);
 
             if (delta.x != 0.0f) {
                 glm::vec3 candidate = newPosition + glm::vec3(delta.x, 0.0f, 0.0f);
-                if (canMoveTo(newPosition, candidate) && !wouldCollideWithOther(candidate)) {
+                bool tileBlocked = !canMoveTo(newPosition, candidate);
+                bool vehicleBlocked = wouldCollideWithOther(candidate);
+                if (!tileBlocked && !vehicleBlocked) {
                     newPosition.x = candidate.x;
                 } else {
+                    if (vehicleBlocked && !m_inCollision) {
+                        collisionOccurred = true;
+                        collisionDirection += glm::vec3(delta.x > 0 ? 1.0f : -1.0f, 0.0f, 0.0f);
+                    }
                     m_speed = 0.0f;
                     delta.x = 0.0f;
                 }
@@ -77,11 +94,27 @@ void Vehicle::update(float deltaTime) {
             if (delta.y != 0.0f) {
                 glm::vec3 startForY = newPosition;
                 glm::vec3 candidate = startForY + glm::vec3(0.0f, delta.y, 0.0f);
-                if (canMoveTo(startForY, candidate) && !wouldCollideWithOther(candidate)) {
+                bool tileBlocked = !canMoveTo(startForY, candidate);
+                bool vehicleBlocked = wouldCollideWithOther(candidate);
+                if (!tileBlocked && !vehicleBlocked) {
                     newPosition.y = candidate.y;
                 } else {
+                    if (vehicleBlocked && !m_inCollision) {
+                        collisionOccurred = true;
+                        collisionDirection += glm::vec3(0.0f, delta.y > 0 ? 1.0f : -1.0f, 0.0f);
+                    }
                     m_speed = 0.0f;
                 }
+            }
+
+            // Apply damage if collision occurred (only once per collision)
+            if (collisionOccurred && glm::length(collisionDirection) > 0.0f) {
+                glm::vec3 collisionPoint = m_position + glm::normalize(collisionDirection) * glm::length(glm::vec2(m_size.x, m_size.y)) * 0.5f;
+                applyDamageFromCollision(collisionPoint);
+                m_inCollision = true;
+            } else if (!wouldCollideWithOther(newPosition)) {
+                // Clear collision state when no longer colliding
+                m_inCollision = false;
             }
 
             setPosition(newPosition);
@@ -90,7 +123,13 @@ void Vehicle::update(float deltaTime) {
             glm::vec3 newPosition = m_position + delta;
             if (!wouldCollideWithOther(newPosition)) {
                 setPosition(newPosition);
+                m_inCollision = false;
             } else {
+                // Collision occurred - apply damage based on movement direction (only once)
+                if (!m_inCollision) {
+                    applyDamageFromCollision(newPosition);
+                    m_inCollision = true;
+                }
                 m_speed = 0.0f;
             }
         }
@@ -109,8 +148,17 @@ void Vehicle::render(Renderer* renderer) {
     if (!m_active || !renderer) return;
 
     if (m_texture) {
-        renderer->renderSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size,
-                               m_rotation.z, glm::vec3(1.0f));
+        // Use GPU-accelerated damage rendering if we have damage
+        if (m_damage.hasAnyDamage() && m_deltaTexture) {
+            renderer->renderDamagedSprite(*m_texture, m_deltaTexture.get(),
+                                          glm::vec2(m_position.x, m_position.y), m_size,
+                                          m_rotation.z, glm::vec3(1.0f),
+                                          m_damage.frontLeft, m_damage.frontRight,
+                                          m_damage.rearLeft, m_damage.rearRight);
+        } else {
+            renderer->renderSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size,
+                                   m_rotation.z, glm::vec3(1.0f));
+        }
         return;
     }
     
@@ -274,4 +322,79 @@ bool Vehicle::canMoveTo(const glm::vec3& from, const glm::vec3& to) const {
 
 bool Vehicle::wouldCollideWithOther(const glm::vec3& newPosition) const {
     return m_collisionManager.wouldCollide(this, newPosition, m_rotation.z);
+}
+
+void Vehicle::setDeltaTexture(std::shared_ptr<Texture> deltaTexture) {
+    m_deltaTexture = deltaTexture;
+}
+
+void Vehicle::applyDamage(CollisionDirection direction) {
+    if (direction == CollisionDirection::None) {
+        return;
+    }
+    
+    // Just set the damage flags - GPU shader handles the visual effect
+    switch (direction) {
+        case CollisionDirection::Front:
+            m_damage.frontLeft = true;
+            m_damage.frontRight = true;
+            break;
+        case CollisionDirection::Rear:
+            m_damage.rearLeft = true;
+            m_damage.rearRight = true;
+            break;
+        case CollisionDirection::Left:
+            m_damage.frontLeft = true;
+            m_damage.rearLeft = true;
+            break;
+        case CollisionDirection::Right:
+            m_damage.frontRight = true;
+            m_damage.rearRight = true;
+            break;
+        default:
+            break;
+    }
+}
+
+void Vehicle::applyDamageFromCollision(const glm::vec3& collisionPoint) {
+    CollisionDirection direction = determineCollisionDirection(collisionPoint);
+    applyDamage(direction);
+}
+
+void Vehicle::resetDamage() {
+    m_damage.reset();
+}
+
+CollisionDirection Vehicle::determineCollisionDirection(const glm::vec3& collisionPoint) const {
+    // Get direction from vehicle center to collision point in world space
+    glm::vec2 toCollision(collisionPoint.x - m_position.x, collisionPoint.y - m_position.y);
+    
+    if (glm::length(toCollision) < 0.001f) {
+        // Collision point is at center - use movement direction (speed)
+        if (m_speed > 0) {
+            return CollisionDirection::Front;
+        } else if (m_speed < 0) {
+            return CollisionDirection::Rear;
+        }
+        return CollisionDirection::Front;
+    }
+    
+    toCollision = glm::normalize(toCollision);
+    
+    // Get vehicle's forward and right vectors
+    glm::vec2 forward = Heading::forwardFromHeadingDeg(m_rotation.z);
+    glm::vec2 right(forward.y, -forward.x);  // 90° clockwise
+    
+    // Project collision direction onto vehicle's local axes
+    float forwardDot = glm::dot(toCollision, forward);
+    float rightDot = glm::dot(toCollision, right);
+    
+    // Determine primary collision direction based on larger component
+    if (std::abs(forwardDot) > std::abs(rightDot)) {
+        // Front or rear collision
+        return forwardDot > 0 ? CollisionDirection::Front : CollisionDirection::Rear;
+    } else {
+        // Left or right collision
+        return rightDot > 0 ? CollisionDirection::Right : CollisionDirection::Left;
+    }
 }
