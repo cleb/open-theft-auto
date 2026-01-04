@@ -11,7 +11,10 @@ Pedestrian::Pedestrian()
     , m_tileGrid(nullptr)
     , m_speed(2.0f)  // Slower than player
     , m_size(0.8f, 0.8f)
-    , m_walkingDirection(SidewalkDirection::NorthSouth) {
+    , m_walkingDirection(SidewalkDirection::NorthSouth)
+    , m_isDead(false)
+    , m_deathFrame(0)
+    , m_deathAnimTimer(0.0f) {
 }
 
 void Pedestrian::initialize(SpriteAnimation* sharedAnimation) {
@@ -56,6 +59,12 @@ void Pedestrian::setWalkingDirection(SidewalkDirection dir) {
 void Pedestrian::update(float deltaTime) {
     if (!m_active) return;
     
+    // If dead, only update death animation
+    if (m_isDead) {
+        updateDeathAnimation(deltaTime);
+        return;
+    }
+    
     // Update per-instance animation timer
     m_animationTime += deltaTime;
     
@@ -96,19 +105,48 @@ void Pedestrian::updateMovement(float deltaTime) {
     }
 }
 
+void Pedestrian::kill() {
+    if (m_isDead) return;
+    
+    m_isDead = true;
+    m_deathFrame = 0;
+    m_deathAnimTimer = 0.0f;
+    m_speed = 0.0f;  // Stop moving
+}
+
+void Pedestrian::updateDeathAnimation(float deltaTime) {
+    const float deathFrameDuration = 0.15f;
+    
+    m_deathAnimTimer += deltaTime;
+    
+    // Advance to frame 1 (the final death frame) after the duration
+    if (m_deathFrame == 0 && m_deathAnimTimer >= deathFrameDuration) {
+        m_deathFrame = 1;
+        // Stay at frame 1 (frame 10 in the sprite sheet)
+    }
+}
+
 glm::vec4 Pedestrian::getCurrentFrameUV() const {
     if (!m_sharedAnimation) {
         return glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
     }
     
-    // Calculate frame based on this pedestrian's animation time
-    // Assuming 8 frames at 0.1s each = 0.8s cycle
-    const float frameDuration = 0.1f;
-    const int numFrames = 8;
-    const float animCycle = frameDuration * numFrames;
+    int frameIndex;
     
-    float wrappedTime = fmod(m_animationTime, animCycle);
-    int frameIndex = static_cast<int>(wrappedTime / frameDuration) % numFrames;
+    if (m_isDead) {
+        // Death animation uses frames 8 and 9 (0-indexed, so frame 9 and 10 in 1-indexed)
+        // Frame 8 = x position 4096, Frame 9 = x position 4608
+        frameIndex = 8 + m_deathFrame;  // 8 or 9
+    } else {
+        // Calculate frame based on this pedestrian's animation time
+        // Assuming 8 frames at 0.1s each = 0.8s cycle
+        const float frameDuration = 0.1f;
+        const int numFrames = 8;
+        const float animCycle = frameDuration * numFrames;
+        
+        float wrappedTime = fmod(m_animationTime, animCycle);
+        frameIndex = static_cast<int>(wrappedTime / frameDuration) % numFrames;
+    }
     
     int frameWidth = m_sharedAnimation->getFrameWidth();
     int frameHeight = m_sharedAnimation->getFrameHeight();

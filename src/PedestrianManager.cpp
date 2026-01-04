@@ -1,6 +1,7 @@
 #include "PedestrianManager.hpp"
 #include "Renderer.hpp"
 #include "Heading.hpp"
+#include "Vehicle.hpp"
 #include <iostream>
 #include <algorithm>
 
@@ -101,6 +102,9 @@ void PedestrianManager::update(float deltaTime) {
     
     // Update pedestrians
     updatePedestrians(deltaTime);
+    
+    // Check for vehicle collisions (kills pedestrians)
+    checkVehicleCollisions();
     
     // Try to spawn new pedestrians
     m_spawnTimer += deltaTime;
@@ -211,6 +215,50 @@ void PedestrianManager::updatePedestrians(float deltaTime) {
     for (auto& pedestrian : m_pedestrians) {
         if (pedestrian && pedestrian->isActive()) {
             pedestrian->update(deltaTime);
+        }
+    }
+}
+
+void PedestrianManager::checkVehicleCollisions() {
+    if (!m_vehicleCallback) return;
+    
+    auto vehicles = m_vehicleCallback();
+    
+    for (auto& pedestrian : m_pedestrians) {
+        if (!pedestrian || !pedestrian->isActive() || pedestrian->isDead()) continue;
+        
+        glm::vec3 pedPos = pedestrian->getPosition();
+        glm::vec2 pedSize = pedestrian->getSize();
+        
+        for (Vehicle* vehicle : vehicles) {
+            if (!vehicle || !vehicle->isActive()) continue;
+            
+            // Simple AABB collision for pedestrian vs vehicle's oriented bounding box
+            glm::vec3 vehPos = vehicle->getPosition();
+            glm::vec2 vehSize = vehicle->getSpriteSize();
+            float vehRotation = vehicle->getRotation().z;
+            
+            // Get vehicle corners
+            glm::vec2 forward = Heading::forwardFromHeadingDeg(vehRotation);
+            glm::vec2 right(forward.y, -forward.x);
+            
+            float halfWidth = vehSize.x * 0.5f;
+            float halfLength = vehSize.y * 0.5f;
+            
+            // Transform pedestrian position to vehicle's local space
+            glm::vec2 toP(pedPos.x - vehPos.x, pedPos.y - vehPos.y);
+            float localX = glm::dot(toP, right);
+            float localY = glm::dot(toP, forward);
+            
+            // Check if pedestrian center is within vehicle bounds (with some tolerance for pedestrian size)
+            float pedRadius = std::max(pedSize.x, pedSize.y) * 0.3f;  // Use smaller collision radius
+            
+            if (std::abs(localX) < halfWidth + pedRadius && 
+                std::abs(localY) < halfLength + pedRadius) {
+                // Collision detected - kill the pedestrian
+                pedestrian->kill();
+                break;  // No need to check other vehicles for this pedestrian
+            }
         }
     }
 }

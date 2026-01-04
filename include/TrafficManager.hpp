@@ -4,6 +4,7 @@
 #include "TileGrid.hpp"
 #include "Camera.hpp"
 #include "Collider.hpp"
+#include "ViewBounds.hpp"
 #include <vector>
 #include <memory>
 #include <glm/glm.hpp>
@@ -81,17 +82,8 @@ private:
     // Random number generation
     std::mt19937 m_rng;
     
-    // View bounds calculation
-    struct ViewBounds {
-        float minX, maxX;
-        float minY, maxY;
-    };
-    
     // Helper methods
     void buildRoadSpawnPoints();
-    ViewBounds calculateViewBounds() const;
-    bool isInView(const glm::vec3& position, const ViewBounds& bounds) const;
-    bool isInSpawnZone(const glm::vec3& position, const ViewBounds& bounds) const;
     void spawnVehicle();
     void despawnOutOfViewVehicles(const ViewBounds& bounds);
     void updateTrafficVehicles(float deltaTime);

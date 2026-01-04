@@ -51,6 +51,26 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     m_pedestrianManager->initialize(m_tileGrid.get(), renderer->getCamera());
     m_pedestrianManager->setProjectionInfo(1.57f, window->getAspectRatio());
     
+    // Set vehicle callback for pedestrian collision detection
+    m_pedestrianManager->setVehicleCallback([this]() -> std::vector<Vehicle*> {
+        std::vector<Vehicle*> allVehicles;
+        // Add player vehicles
+        for (const auto& vehicle : m_vehicles) {
+            if (vehicle && vehicle->isActive()) {
+                allVehicles.push_back(vehicle.get());
+            }
+        }
+        // Add traffic vehicles
+        if (m_trafficManager) {
+            for (const auto& vehicle : m_trafficManager->getTrafficVehicles()) {
+                if (vehicle && vehicle->isActive()) {
+                    allVehicles.push_back(vehicle.get());
+                }
+            }
+        }
+        return allVehicles;
+    });
+    
     // Initialize game logic
     m_gameLogic->setPlayer(m_player.get());
     m_gameLogic->setVehicles(&m_vehicles);

@@ -28,6 +28,10 @@ public:
     SidewalkDirection getWalkingDirection() const { return m_walkingDirection; }
     
     glm::vec2 getSize() const { return m_size; }
+    
+    // Death state
+    void kill();
+    bool isDead() const { return m_isDead; }
 
 private:
     SpriteAnimation* m_sharedAnimation;  // Shared animation (not owned)
@@ -38,6 +42,12 @@ private:
     glm::vec2 m_size;
     SidewalkDirection m_walkingDirection;
     
+    // Death state
+    bool m_isDead;
+    int m_deathFrame;           // Current death animation frame (0 or 1)
+    float m_deathAnimTimer;     // Timer for death animation
+    
     void updateMovement(float deltaTime);
+    void updateDeathAnimation(float deltaTime);
     glm::vec4 getCurrentFrameUV() const;
 };

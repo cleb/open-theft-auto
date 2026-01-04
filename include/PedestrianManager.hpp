@@ -9,8 +9,13 @@
 #include <memory>
 #include <glm/glm.hpp>
 #include <random>
+#include <functional>
 
 class Renderer;
+class Vehicle;
+
+// Callback type for getting all vehicles in the scene
+using VehicleCallback = std::function<std::vector<Vehicle*>()>;
 
 // Structure to hold sidewalk tile information for spawning
 struct SidewalkSpawnPoint {
@@ -41,6 +46,9 @@ public:
     void setViewMargin(float margin) { m_viewMargin = margin; }
     void setEnabled(bool enabled) { m_enabled = enabled; }
     bool isEnabled() const { return m_enabled; }
+    
+    // Vehicle collision callback
+    void setVehicleCallback(VehicleCallback callback) { m_vehicleCallback = callback; }
 
     // Get pedestrians (for collision detection, etc.)
     const std::vector<std::unique_ptr<Pedestrian>>& getPedestrians() const { return m_pedestrians; }
@@ -71,11 +79,15 @@ private:
     // Random number generation
     std::mt19937 m_rng;
     
+    // Vehicle collision callback
+    VehicleCallback m_vehicleCallback;
+    
     // Helper methods
     void buildSidewalkSpawnPoints();
     void spawnPedestrian();
     void despawnOutOfViewPedestrians(const ViewBounds& bounds);
     void updatePedestrians(float deltaTime);
+    void checkVehicleCollisions();
     
     // Get rotation angle from sidewalk direction (random choice for bidirectional)
     float getRotationFromDirection(SidewalkDirection dir);
