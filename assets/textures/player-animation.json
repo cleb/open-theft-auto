@@ -1,0 +1,23 @@
+{
+  "texture": "player-animation.png",
+  "frameWidth": 221,
+  "frameHeight": 350,
+  "animations": {
+    "walk": {
+      "frames": [
+        { "x": 80, "y": 116 },
+        { "x": 360, "y": 116 },
+        { "x": 647, "y": 116 },
+        { "x": 914, "y": 116 },
+        { "x": 1199, "y": 116 },
+        { "x": 80, "y": 532 },
+        { "x": 360, "y": 532 },
+        { "x": 647, "y": 532 },
+        { "x": 914, "y": 532 },
+        { "x": 1199, "y": 532 }
+      ],
+      "frameDuration": 0.1,
+      "loop": true
+    }
+  }
+}

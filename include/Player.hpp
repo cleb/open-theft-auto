@@ -2,19 +2,24 @@
 
 #include "ControllableObject.hpp"
 #include "Collider.hpp"
+#include "SpriteAnimation.hpp"
 #include <memory>
 
 class TileGrid;
 
 class Player : public ControllableObject, public Collider {
 private:
-    std::unique_ptr<Texture> m_texture;
+    std::unique_ptr<Texture> m_texture;          // Static fallback texture
+    std::unique_ptr<SpriteAnimation> m_walkAnimation;
     float m_speed;
     float m_rotationSpeed;
     glm::vec2 m_size;
     TileGrid* m_tileGrid;
     CollisionManager m_collisionManager;
-
+    
+    // Animation state
+    bool m_isMoving;
+    
     void applyMovement(const glm::vec3& delta);
 
 public:

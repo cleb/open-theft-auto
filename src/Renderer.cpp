@@ -174,6 +174,40 @@ void Renderer::renderSprite(const Texture& texture, const glm::vec2& position, c
     shader->setVec3("spriteColor", color);
     shader->setInt("sprite", 0);
     
+    // Full texture UV (no sprite sheet)
+    shader->setVec4("uvOffsetScale", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    
+    texture.bind(0);
+    
+    glBindVertexArray(m_spriteVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+    
+    shader->unuse();
+}
+
+void Renderer::renderAnimatedSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size,
+                                    const glm::vec4& uvOffsetScale, float rotation, const glm::vec3& color) {
+    Shader* shader = getShader("sprite");
+    if (!shader) return;
+    
+    shader->use();
+    
+    // Create model matrix (same as renderSprite)
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, glm::vec3(position.x, position.y, 0.1f));
+    model = glm::rotate(model, glm::radians(rotation - 90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
+    
+    shader->setMat4("model", model);
+    shader->setMat4("view", m_viewMatrix);
+    shader->setMat4("projection", m_projectionMatrix);
+    shader->setVec3("spriteColor", color);
+    shader->setInt("sprite", 0);
+    
+    // Set UV offset and scale for sprite sheet frame
+    shader->setVec4("uvOffsetScale", uvOffsetScale);
+    
     texture.bind(0);
     
     glBindVertexArray(m_spriteVAO);

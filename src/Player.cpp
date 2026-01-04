@@ -9,29 +9,65 @@ Player::Player()
     : m_speed(5.0f)
     , m_rotationSpeed(90.0f)
     , m_size(1.0f, 1.0f)
-    , m_tileGrid(nullptr) {
+    , m_tileGrid(nullptr)
+    , m_isMoving(false) {
 }
 
 bool Player::initialize() {
-    m_texture = std::make_unique<Texture>();
-    m_texture->loadFromFile("assets/textures/player.png");
+    // Load animated walk cycle
+    m_walkAnimation = std::make_unique<SpriteAnimation>();
+    if (m_walkAnimation->loadFromFile("assets/textures/player-animation.json")) {
+        // Calculate aspect ratio from frame dimensions for proper sprite size
+        float aspectRatio = static_cast<float>(m_walkAnimation->getFrameWidth()) / 
+                           static_cast<float>(m_walkAnimation->getFrameHeight());
+        m_size = glm::vec2(1.0f * aspectRatio, 1.0f); // Maintain aspect ratio
+        
+        // Start with idle (first frame of walk)
+        m_walkAnimation->play("walk");
+        m_walkAnimation->pause(); // Start paused until player moves
+    } else {
+        std::cerr << "Failed to load player walk animation, falling back to static texture" << std::endl;
+        m_walkAnimation.reset();
+        
+        // Fallback to static texture
+        m_texture = std::make_unique<Texture>();
+        m_texture->loadFromFile("assets/textures/player.png");
+    }
     
     setPosition(glm::vec3(0.0f, 0.0f, 0.1f)); // Slightly above ground
-    m_size = glm::vec2(1.0f, 1.0f); // Sprite size
     
     return true;
 }
 
 void Player::update(float deltaTime) {
-    // Player updates will be handled by input in the main game loop
-    (void)deltaTime; // Suppress unused parameter warning
+    // Update animation
+    if (m_walkAnimation) {
+        if (m_isMoving) {
+            m_walkAnimation->resume();
+        } else {
+            m_walkAnimation->pause();
+            m_walkAnimation->reset(); // Reset to first frame when idle
+        }
+        m_walkAnimation->update(deltaTime);
+    }
+    
+    // Reset movement flag - will be set again if player moves this frame
+    m_isMoving = false;
 }
 
 void Player::render(Renderer* renderer) {
-    if (!m_active || !renderer || !m_texture) return;
+    if (!m_active || !renderer) return;
     
-    // Render as a flat sprite (billboard)
-    renderer->renderSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size, m_rotation.z, glm::vec3(1.0f));
+    if (m_walkAnimation && m_walkAnimation->getTexture()) {
+        // Render animated sprite
+        glm::vec4 uvOffsetScale = m_walkAnimation->getCurrentFrameUV();
+        renderer->renderAnimatedSprite(*m_walkAnimation->getTexture(), 
+                                        glm::vec2(m_position.x, m_position.y), 
+                                        m_size, uvOffsetScale, m_rotation.z, glm::vec3(1.0f));
+    } else if (m_texture) {
+        // Fallback to static sprite
+        renderer->renderSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size, m_rotation.z, glm::vec3(1.0f));
+    }
 }
 
 void Player::moveForward(float deltaTime) {
@@ -39,12 +75,14 @@ void Player::moveForward(float deltaTime) {
     glm::vec2 f2 = Heading::forwardFromHeadingDeg(m_rotation.z);
     glm::vec3 delta(f2.x * m_speed * deltaTime, f2.y * m_speed * deltaTime, 0.0f);
     applyMovement(delta);
+    m_isMoving = true;
 }
 
 void Player::moveBackward(float deltaTime) {
     glm::vec2 f2 = Heading::forwardFromHeadingDeg(m_rotation.z);
     glm::vec3 delta(-f2.x * m_speed * deltaTime, -f2.y * m_speed * deltaTime, 0.0f);
     applyMovement(delta);
+    m_isMoving = true;
 }
 
 void Player::turnLeft(float deltaTime) {

@@ -44,6 +44,12 @@ public:
     void renderSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size, 
                      float rotation = 0.0f, const glm::vec3& color = glm::vec3(1.0f));
     
+    // 2D animated sprite rendering (sprite sheet with UV coordinates)
+    // uvOffsetScale: xy = UV offset (top-left), zw = UV scale (width/height in UV space)
+    void renderAnimatedSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size,
+                              const glm::vec4& uvOffsetScale, float rotation = 0.0f, 
+                              const glm::vec3& color = glm::vec3(1.0f));
+    
     // 2D sprite rendering with damage overlay (GPU-accelerated)
     void renderDamagedSprite(const Texture& texture, const Texture* deltaTexture,
                              const glm::vec2& position, const glm::vec2& size,
