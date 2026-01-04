@@ -8,9 +8,9 @@ texture roof assets/textures/roof.png
 texture sidewalk assets/textures/sidewalk.jpeg
 texture wall assets/textures/wall.png
 texture wall01 assets/textures/wall01.png
-vehicle 2 7 0 rotation=0.00 texture=car size=1.50x3.00
-vehicle 13 7 0 rotation=0.00 texture=car size=1.50x3.00
-player 5 4 0 rotation=0.00
+vehicle 2 7 0 rotation=90.00 texture=car size=1.50x3.00
+vehicle 13 7 0 rotation=90.00 texture=car size=1.50x3.00
+player 5 4 0 rotation=90.00
 tile 0 0 0 top=solid:grass east=solid:wall01
 tile 1 0 0 top=solid:grass
 tile 2 0 0 top=solid:grass
@@ -72,7 +72,7 @@ tile 25 1 0 top=solid:grass
 tile 26 1 0 top=solid:grass
 tile 27 1 0 top=solid:grass
 tile 28 1 0 top=solid:grass
-tile 29 1 0 top=solid:grass
+tile 29 1 0 top=solid:sidewalk sidewalk=north_south
 tile 30 1 0 top=solid:grass
 tile 31 1 0 top=solid:grass
 tile 0 2 0 top=solid:grass
@@ -91,11 +91,11 @@ tile 12 2 0 top=solid:road car=west
 tile 13 2 0 top=solid:road car=south_west
 tile 14 2 0 top=solid:road car=north
 tile 15 2 0 top=solid:grass
-tile 16 2 0 top=solid:grass
+tile 16 2 0 top=solid:sidewalk sidewalk=north_south
 tile 17 2 0 top=solid:grass
 tile 18 2 0 top=solid:grass
 tile 19 2 0 top=solid:grass
-tile 20 2 0 top=solid:grass
+tile 20 2 0 top=solid:sidewalk sidewalk=north_south
 tile 21 2 0 top=solid:grass
 tile 22 2 0 top=solid:grass
 tile 23 2 0 top=solid:grass
@@ -104,7 +104,7 @@ tile 25 2 0 top=solid:grass
 tile 26 2 0 top=solid:grass
 tile 27 2 0 top=solid:grass
 tile 28 2 0 top=solid:grass
-tile 29 2 0 top=solid:grass
+tile 29 2 0 top=solid:sidewalk sidewalk=north_south
 tile 30 2 0 top=solid:grass
 tile 31 2 0 top=solid:grass
 tile 0 3 0 top=solid:grass
@@ -123,11 +123,11 @@ tile 12 3 0 top=solid:sidewalk sidewalk=northwest_southeast
 tile 13 3 0 top=solid:road car=south
 tile 14 3 0 top=solid:road car=north
 tile 15 3 0 top=solid:grass
-tile 16 3 0 top=solid:grass
+tile 16 3 0 top=solid:sidewalk sidewalk=north_south
 tile 17 3 0 top=solid:grass
 tile 18 3 0 top=solid:grass
 tile 19 3 0 top=solid:grass
-tile 20 3 0 top=solid:grass
+tile 20 3 0 top=solid:sidewalk sidewalk=north_south
 tile 21 3 0 top=solid:grass
 tile 22 3 0 top=solid:grass
 tile 23 3 0 top=solid:grass
@@ -136,7 +136,7 @@ tile 25 3 0 top=solid:grass
 tile 26 3 0 top=solid:grass
 tile 27 3 0 top=solid:grass
 tile 28 3 0 top=solid:grass
-tile 29 3 0 top=solid:grass
+tile 29 3 0 top=solid:sidewalk sidewalk=north_south
 tile 30 3 0 top=solid:grass
 tile 31 3 0 top=solid:grass
 tile 0 4 0 top=solid:grass
@@ -155,11 +155,11 @@ tile 12 4 0 top=solid:sidewalk sidewalk=north_south
 tile 13 4 0 top=solid:road car=south
 tile 14 4 0 top=solid:road car=north
 tile 15 4 0 top=solid:grass
-tile 16 4 0 top=solid:grass
+tile 16 4 0 top=solid:sidewalk sidewalk=north_south
 tile 17 4 0 top=solid:grass
 tile 18 4 0 top=solid:grass
 tile 19 4 0 top=solid:grass
-tile 20 4 0 top=solid:grass
+tile 20 4 0 top=solid:sidewalk sidewalk=north_south
 tile 21 4 0 top=solid:grass
 tile 22 4 0 top=solid:grass
 tile 23 4 0 top=solid:grass
@@ -168,7 +168,7 @@ tile 25 4 0 top=solid:grass
 tile 26 4 0 top=solid:grass
 tile 27 4 0 top=solid:grass
 tile 28 4 0 top=solid:grass
-tile 29 4 0 top=solid:grass
+tile 29 4 0 top=solid:sidewalk sidewalk=north_south
 tile 30 4 0 top=solid:grass
 tile 31 4 0 top=solid:grass
 tile 0 5 0 top=solid:grass
@@ -187,11 +187,11 @@ tile 12 5 0 top=solid:sidewalk sidewalk=north_south
 tile 13 5 0 top=solid:road car=south
 tile 14 5 0 top=solid:road car=north
 tile 15 5 0 top=solid:wall east=solid:wall west=solid:wall
-tile 16 5 0 top=solid:grass
+tile 16 5 0 top=solid:sidewalk sidewalk=north_south
 tile 17 5 0 top=solid:grass
 tile 18 5 0 top=solid:grass
 tile 19 5 0 top=solid:grass
-tile 20 5 0 top=solid:grass
+tile 20 5 0 top=solid:sidewalk sidewalk=north_south
 tile 21 5 0 top=solid:grass
 tile 22 5 0 top=solid:grass
 tile 23 5 0 top=solid:grass
@@ -200,7 +200,7 @@ tile 25 5 0 top=solid:grass
 tile 26 5 0 top=solid:grass
 tile 27 5 0 top=solid:grass
 tile 28 5 0 top=solid:grass
-tile 29 5 0 top=solid:grass
+tile 29 5 0 top=solid:sidewalk sidewalk=north_south
 tile 30 5 0 top=solid:grass
 tile 31 5 0 top=solid:grass
 tile 0 6 0 top=solid:grass
@@ -218,23 +218,23 @@ tile 11 6 0 top=solid:grass
 tile 12 6 0 top=solid:sidewalk sidewalk=north_south
 tile 13 6 0 top=solid:road car=south
 tile 14 6 0 top=solid:road car=north
-tile 15 6 0 top=solid:grass
-tile 16 6 0 top=solid:grass
-tile 17 6 0 top=solid:grass
-tile 18 6 0 top=solid:grass
-tile 19 6 0 top=solid:grass
-tile 20 6 0 top=solid:grass
-tile 21 6 0 top=solid:grass
-tile 22 6 0 top=solid:grass
-tile 23 6 0 top=solid:grass
-tile 24 6 0 top=solid:grass
-tile 25 6 0 top=solid:grass
-tile 26 6 0 top=solid:grass
-tile 27 6 0 top=solid:grass
-tile 28 6 0 top=solid:grass
-tile 29 6 0 top=solid:grass
-tile 30 6 0 top=solid:grass
-tile 31 6 0 top=solid:grass
+tile 15 6 0 top=solid:sidewalk sidewalk=east_west
+tile 16 6 0 top=solid:sidewalk sidewalk=east_west
+tile 17 6 0 top=solid:sidewalk sidewalk=east_west
+tile 18 6 0 top=solid:sidewalk sidewalk=east_west
+tile 19 6 0 top=solid:sidewalk sidewalk=east_west
+tile 20 6 0 top=solid:sidewalk sidewalk=east_west
+tile 21 6 0 top=solid:sidewalk sidewalk=east_west
+tile 22 6 0 top=solid:sidewalk sidewalk=east_west
+tile 23 6 0 top=solid:sidewalk sidewalk=east_west
+tile 24 6 0 top=solid:sidewalk sidewalk=east_west
+tile 25 6 0 top=solid:sidewalk sidewalk=east_west
+tile 26 6 0 top=solid:sidewalk sidewalk=east_west
+tile 27 6 0 top=solid:sidewalk sidewalk=east_west
+tile 28 6 0 top=solid:sidewalk sidewalk=east_west
+tile 29 6 0 top=solid:sidewalk sidewalk=east_west
+tile 30 6 0 top=solid:sidewalk sidewalk=east_west
+tile 31 6 0 top=solid:sidewalk sidewalk=east_west
 tile 0 7 0 top=solid:grass
 tile 1 7 0 top=solid:road car=south
 tile 2 7 0 top=solid:road car=north
@@ -314,23 +314,23 @@ tile 11 9 0 top=solid:grass
 tile 12 9 0 top=solid:sidewalk sidewalk=north_south
 tile 13 9 0 top=solid:road car=south
 tile 14 9 0 top=solid:road car=north
-tile 15 9 0 top=solid:grass
-tile 16 9 0 top=solid:grass
-tile 17 9 0 top=solid:grass
-tile 18 9 0 top=solid:grass
-tile 19 9 0 top=solid:grass
-tile 20 9 0 top=solid:grass
-tile 21 9 0 top=solid:grass
-tile 22 9 0 top=solid:grass
-tile 23 9 0 top=solid:grass
-tile 24 9 0 top=solid:grass
-tile 25 9 0 top=solid:grass
-tile 26 9 0 top=solid:grass
-tile 27 9 0 top=solid:grass
-tile 28 9 0 top=solid:grass
-tile 29 9 0 top=solid:grass
-tile 30 9 0 top=solid:grass
-tile 31 9 0 top=solid:grass
+tile 15 9 0 top=solid:sidewalk sidewalk=east_west
+tile 16 9 0 top=solid:sidewalk sidewalk=east_west
+tile 17 9 0 top=solid:sidewalk sidewalk=east_west
+tile 18 9 0 top=solid:sidewalk sidewalk=east_west
+tile 19 9 0 top=solid:sidewalk sidewalk=east_west
+tile 20 9 0 top=solid:sidewalk sidewalk=east_west
+tile 21 9 0 top=solid:sidewalk sidewalk=east_west
+tile 22 9 0 top=solid:sidewalk sidewalk=east_west
+tile 23 9 0 top=solid:sidewalk sidewalk=east_west
+tile 24 9 0 top=solid:sidewalk sidewalk=east_west
+tile 25 9 0 top=solid:sidewalk sidewalk=east_west
+tile 26 9 0 top=solid:sidewalk sidewalk=east_west
+tile 27 9 0 top=solid:sidewalk sidewalk=east_west
+tile 28 9 0 top=solid:sidewalk sidewalk=east_west
+tile 29 9 0 top=solid:sidewalk sidewalk=east_west
+tile 30 9 0 top=solid:sidewalk sidewalk=east_west
+tile 31 9 0 top=solid:sidewalk sidewalk=east_west
 tile 0 10 0 top=solid:grass
 tile 1 10 0 top=solid:road car=south
 tile 2 10 0 top=solid:road car=north
