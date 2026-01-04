@@ -16,7 +16,7 @@ Vehicle::Vehicle()
     , m_maxSpeed(24.0f)
     , m_maxSpeedRoad(36.0f)
     , m_acceleration(12.0f)
-    , m_turnSpeed(400.0f)
+    , m_turnSpeed(200.0f)
     , m_size(1.5f, 3.0f)
     , m_tileGrid(nullptr) {
 }
