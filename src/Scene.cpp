@@ -4,6 +4,7 @@
 #include "LevelSerialization.hpp"
 #include "GameLogic.hpp"
 #include "TrafficManager.hpp"
+#include "PedestrianManager.hpp"
 #include "Window.hpp"
 #include <iostream>
 #include <string>
@@ -45,6 +46,11 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     // Set projection info for accurate view bounds calculation (FOV matches Renderer::initialize)
     m_trafficManager->setProjectionInfo(1.57f, window->getAspectRatio());
     
+    // Initialize pedestrian manager
+    m_pedestrianManager = std::make_unique<PedestrianManager>();
+    m_pedestrianManager->initialize(m_tileGrid.get(), renderer->getCamera());
+    m_pedestrianManager->setProjectionInfo(1.57f, window->getAspectRatio());
+    
     // Initialize game logic
     m_gameLogic->setPlayer(m_player.get());
     m_gameLogic->setVehicles(&m_vehicles);
@@ -74,6 +80,11 @@ void Scene::update(float deltaTime) {
     // Update traffic manager (AI vehicles)
     if (m_trafficManager && !isEditModeActive()) {
         m_trafficManager->update(deltaTime);
+    }
+    
+    // Update pedestrian manager (AI pedestrians)
+    if (m_pedestrianManager && !isEditModeActive()) {
+        m_pedestrianManager->update(deltaTime);
     }
     
     // Update all game objects
@@ -132,6 +143,11 @@ void Scene::render(Renderer* renderer) {
         m_trafficManager->render(renderer);
         // Render debug spawn points if enabled
         m_trafficManager->renderDebugSpawnPoints(renderer);
+    }
+    
+    // Render pedestrians
+    if (m_pedestrianManager) {
+        m_pedestrianManager->render(renderer);
     }
     
     // Render player (on top)
@@ -215,7 +231,7 @@ void Scene::addVehicle(std::unique_ptr<Vehicle> vehicle) {
 void Scene::createTestScene() {
     // Configure the tile grid with test data
     if (m_tileGrid) {
-        const std::string levelPath = "assets/levels/test_level.tg";
+        const std::string levelPath = "assets/levels/test_level2.tg";
         if (!LevelSerialization::loadLevel(levelPath, *m_tileGrid, m_levelData)) {
             std::cerr << "Failed to load level from " << levelPath << std::endl;
         }
@@ -275,6 +291,11 @@ void Scene::rebuildVehiclesFromSpawns() {
     // Reset traffic manager
     if (m_trafficManager) {
         m_trafficManager->reset();
+    }
+    
+    // Reset pedestrian manager
+    if (m_pedestrianManager) {
+        m_pedestrianManager->reset();
     }
 
     if (!m_tileGrid) {

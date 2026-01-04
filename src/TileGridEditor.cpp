@@ -110,6 +110,38 @@ CarDirection indexToCarDirection(int index) {
     }
 }
 
+const char* sidewalkDirectionToString(SidewalkDirection dir) {
+    switch (dir) {
+        case SidewalkDirection::NorthSouth: return "north_south";
+        case SidewalkDirection::EastWest: return "east_west";
+        case SidewalkDirection::NorthEastSouthWest: return "northeast_southwest";
+        case SidewalkDirection::NorthWestSouthEast: return "northwest_southeast";
+        case SidewalkDirection::None:
+        default: return "none";
+    }
+}
+
+int sidewalkDirectionToIndex(SidewalkDirection dir) {
+    switch (dir) {
+        case SidewalkDirection::None: return 0;
+        case SidewalkDirection::NorthSouth: return 1;
+        case SidewalkDirection::EastWest: return 2;
+        case SidewalkDirection::NorthEastSouthWest: return 3;
+        case SidewalkDirection::NorthWestSouthEast: return 4;
+    }
+    return 0;
+}
+
+SidewalkDirection indexToSidewalkDirection(int index) {
+    switch (index) {
+        case 1: return SidewalkDirection::NorthSouth;
+        case 2: return SidewalkDirection::EastWest;
+        case 3: return SidewalkDirection::NorthEastSouthWest;
+        case 4: return SidewalkDirection::NorthWestSouthEast;
+        default: return SidewalkDirection::None;
+    }
+}
+
 std::string trimCopy(const std::string& value) {
     auto begin = value.begin();
     while (begin != value.end() && std::isspace(static_cast<unsigned char>(*begin))) {
@@ -139,6 +171,7 @@ TileGridEditor::TileGridEditor()
     , m_brush(BrushType::Grass)
     , m_lastAnnouncedBrush(BrushType::Empty)
     , m_roadDirection(CarDirection::SouthNorth)
+    , m_sidewalkDirection(SidewalkDirection::NorthSouth)
     , m_cursorColor(0.3f, 0.9f, 0.3f)
     , m_arrowColor(0.95f, 0.7f, 0.1f)
     , m_isSelecting(false)
@@ -347,6 +380,23 @@ void TileGridEditor::processInput(InputManager* input, float deltaTime) {
                 case CarDirection::NorthWestSouthEast:
                 default:
                     m_roadDirection = CarDirection::SouthNorth;
+                    break;
+            }
+            announceBrush();
+        } else if (m_brush == BrushType::Sidewalk && input->isKeyPressed(GLFW_KEY_R)) {
+            switch (m_sidewalkDirection) {
+                case SidewalkDirection::NorthSouth:
+                    m_sidewalkDirection = SidewalkDirection::EastWest;
+                    break;
+                case SidewalkDirection::EastWest:
+                    m_sidewalkDirection = SidewalkDirection::NorthEastSouthWest;
+                    break;
+                case SidewalkDirection::NorthEastSouthWest:
+                    m_sidewalkDirection = SidewalkDirection::NorthWestSouthEast;
+                    break;
+                case SidewalkDirection::NorthWestSouthEast:
+                default:
+                    m_sidewalkDirection = SidewalkDirection::NorthSouth;
                     break;
             }
             announceBrush();
@@ -877,6 +927,9 @@ void TileGridEditor::refreshCursorColor() {
         case BrushType::Road:
             m_cursorColor = glm::vec3(0.9f, 0.9f, 0.2f);
             break;
+        case BrushType::Sidewalk:
+            m_cursorColor = glm::vec3(0.7f, 0.7f, 0.7f);
+            break;
         case BrushType::Empty:
             m_cursorColor = glm::vec3(0.9f, 0.3f, 0.3f);
             break;
@@ -922,6 +975,9 @@ void TileGridEditor::announceCursor() {
     if (top.carDirection != CarDirection::None) {
         std::cout << " car=" << carDirectionToString(top.carDirection);
     }
+    if (top.sidewalkDirection != SidewalkDirection::None) {
+        std::cout << " sidewalk=" << sidewalkDirectionToString(top.sidewalkDirection);
+    }
 
     bool anyWalls = false;
     for (int i = 0; i < 4; ++i) {
@@ -946,7 +1002,7 @@ void TileGridEditor::announceCursor() {
 }
 
 void TileGridEditor::announceBrush() {
-    if (m_brush == m_lastAnnouncedBrush && m_brush != BrushType::Road && m_brush != BrushType::Vehicle) {
+    if (m_brush == m_lastAnnouncedBrush && m_brush != BrushType::Road && m_brush != BrushType::Sidewalk && m_brush != BrushType::Vehicle) {
         return;
     }
 
@@ -958,6 +1014,9 @@ void TileGridEditor::announceBrush() {
             break;
         case BrushType::Road:
             std::cout << "road (direction=" << carDirectionToString(m_roadDirection) << ")";
+            break;
+        case BrushType::Sidewalk:
+            std::cout << "sidewalk (direction=" << sidewalkDirectionToString(m_sidewalkDirection) << ")";
             break;
         case BrushType::Empty:
             std::cout << "empty";
@@ -988,10 +1047,11 @@ void TileGridEditor::printHelp() const {
               << "  Mouse near edge: scroll camera\n"
               << "  1: grass brush\n"
               << "  2: road brush\n"
-              << "  3: empty brush\n"
-              << "  4: vehicle brush\n"
-              << "  5: player spawn brush\n"
-              << "  R: cycle road direction / rotate vehicle or player\n"
+              << "  3: sidewalk brush\n"
+              << "  4: empty brush\n"
+              << "  5: vehicle brush\n"
+              << "  6: player spawn brush\n"
+              << "  R: cycle road/sidewalk direction / rotate vehicle or player\n"
               << "  Delete: clear tile contents at cursor\n"
               << "  I/J/K/L: toggle wall (north/west/south/east)\n"
               << "  Space: apply brush at cursor\n"
@@ -1024,6 +1084,11 @@ void TileGridEditor::drawBrushControls() {
         changed = true;
     }
     ImGui::SameLine();
+    if (ImGui::RadioButton("Sidewalk", m_brush == BrushType::Sidewalk)) {
+        m_brush = BrushType::Sidewalk;
+        changed = true;
+    }
+    ImGui::SameLine();
     if (ImGui::RadioButton("Empty", m_brush == BrushType::Empty)) {
         m_brush = BrushType::Empty;
         changed = true;
@@ -1053,6 +1118,16 @@ void TileGridEditor::drawBrushControls() {
             m_roadDirection = indexToCarDirection(directionIndex);
             if (m_roadDirection == CarDirection::None) {
                 m_roadDirection = CarDirection::SouthNorth;
+            }
+            announceBrush();
+        }
+    } else if (m_brush == BrushType::Sidewalk) {
+        int directionIndex = sidewalkDirectionToIndex(m_sidewalkDirection);
+        const char* directionLabels[] = {"None", "North-South", "East-West", "NE-SW", "NW-SE"};
+        if (ImGui::Combo("Sidewalk Direction", &directionIndex, directionLabels, IM_ARRAYSIZE(directionLabels))) {
+            m_sidewalkDirection = indexToSidewalkDirection(directionIndex);
+            if (m_sidewalkDirection == SidewalkDirection::None) {
+                m_sidewalkDirection = SidewalkDirection::NorthSouth;
             }
             announceBrush();
         }
@@ -1213,6 +1288,7 @@ void TileGridEditor::drawTopFaceControls(Tile* tile) {
         m_uiTileState.topSolid = solid;
         if (!solid) {
             m_uiTileState.topCarDirection = CarDirection::None;
+            m_uiTileState.topSidewalkDirection = SidewalkDirection::None;
         }
         applyTopSurfaceFromUi();
     }
@@ -1228,6 +1304,13 @@ void TileGridEditor::drawTopFaceControls(Tile* tile) {
                                      "NE-SW", "NW-SE"};
     if (ImGui::Combo("Traffic Direction", &directionIndex, directionLabels, IM_ARRAYSIZE(directionLabels))) {
         m_uiTileState.topCarDirection = indexToCarDirection(directionIndex);
+        applyTopSurfaceFromUi();
+    }
+
+    int sidewalkIndex = sidewalkDirectionToIndex(m_uiTileState.topSidewalkDirection);
+    const char* sidewalkLabels[] = {"None", "North-South", "East-West", "NE-SW", "NW-SE"};
+    if (ImGui::Combo("Sidewalk Direction", &sidewalkIndex, sidewalkLabels, IM_ARRAYSIZE(sidewalkLabels))) {
+        m_uiTileState.topSidewalkDirection = indexToSidewalkDirection(sidewalkIndex);
         applyTopSurfaceFromUi();
     }
 
@@ -1347,10 +1430,12 @@ void TileGridEditor::applyTopSurfaceFromUi() {
     if (!m_uiTileState.topSolid) {
         tile->setTopSurface(false, "", CarDirection::None);
         tile->setCarDirection(CarDirection::None);
+        tile->setSidewalkDirection(SidewalkDirection::None);
     } else {
         const std::string texturePath = m_uiTileState.topTexture.data();
         tile->setTopSurface(true, texturePath, m_uiTileState.topCarDirection);
         tile->setCarDirection(m_uiTileState.topCarDirection);
+        tile->setSidewalkDirection(m_uiTileState.topSidewalkDirection);
     }
 
     announceCursor();
@@ -1524,6 +1609,7 @@ void TileGridEditor::refreshUiStateFromTile() {
         m_uiTileState.hasTile = false;
         m_uiTileState.topSolid = false;
         m_uiTileState.topCarDirection = CarDirection::None;
+        m_uiTileState.topSidewalkDirection = SidewalkDirection::None;
         m_uiTileState.topTexture.fill('\0');
         for (auto& flags : m_uiTileState.wallWalkable) {
             flags = true;
@@ -1540,6 +1626,7 @@ void TileGridEditor::refreshUiStateFromTile() {
     const TopSurfaceData& top = tile->getTopSurface();
     m_uiTileState.topSolid = top.solid;
     m_uiTileState.topCarDirection = top.carDirection;
+    m_uiTileState.topSidewalkDirection = top.sidewalkDirection;
     std::snprintf(m_uiTileState.topTexture.data(), m_uiTileState.topTexture.size(), "%s", top.texturePath.c_str());
 
     for (int i = 0; i < 4; ++i) {
@@ -1589,14 +1676,22 @@ void TileGridEditor::applyBrush() {
         case BrushType::Grass:
             tile->setTopSurface(true, "assets/textures/grass.png", CarDirection::None);
             tile->setCarDirection(CarDirection::None);
+            tile->setSidewalkDirection(SidewalkDirection::None);
             break;
         case BrushType::Road:
             tile->setTopSurface(true, "assets/textures/road.png", m_roadDirection);
             tile->setCarDirection(m_roadDirection);
+            tile->setSidewalkDirection(SidewalkDirection::None);
+            break;
+        case BrushType::Sidewalk:
+            tile->setTopSurface(true, "assets/textures/sidewalk.jpeg", CarDirection::None);
+            tile->setCarDirection(CarDirection::None);
+            tile->setSidewalkDirection(m_sidewalkDirection);
             break;
         case BrushType::Empty:
             tile->setTopSurface(false, "", CarDirection::None);
             tile->setCarDirection(CarDirection::None);
+            tile->setSidewalkDirection(SidewalkDirection::None);
             break;
         case BrushType::Vehicle:
             applyVehicleBrush();
@@ -1650,6 +1745,11 @@ void TileGridEditor::applyBucketFill() {
                 targetTexture = "assets/textures/road.png";
                 targetDirection = m_roadDirection;
                 break;
+            case BrushType::Sidewalk:
+                targetSolid = true;
+                targetTexture = "assets/textures/sidewalk.jpeg";
+                targetDirection = CarDirection::None;
+                break;
             case BrushType::Empty:
                 targetSolid = false;
                 targetTexture.clear();
@@ -1688,14 +1788,22 @@ void TileGridEditor::applyBucketFill() {
             case BrushType::Grass:
                 tile->setTopSurface(true, "assets/textures/grass.png", CarDirection::None);
                 tile->setCarDirection(CarDirection::None);
+                tile->setSidewalkDirection(SidewalkDirection::None);
                 break;
             case BrushType::Road:
                 tile->setTopSurface(true, "assets/textures/road.png", m_roadDirection);
                 tile->setCarDirection(m_roadDirection);
+                tile->setSidewalkDirection(SidewalkDirection::None);
+                break;
+            case BrushType::Sidewalk:
+                tile->setTopSurface(true, "assets/textures/sidewalk.jpeg", CarDirection::None);
+                tile->setCarDirection(CarDirection::None);
+                tile->setSidewalkDirection(m_sidewalkDirection);
                 break;
             case BrushType::Empty:
                 tile->setTopSurface(false, "", CarDirection::None);
                 tile->setCarDirection(CarDirection::None);
+                tile->setSidewalkDirection(SidewalkDirection::None);
                 break;
             case BrushType::Vehicle:
             case BrushType::PlayerSpawn:
@@ -1906,14 +2014,18 @@ void TileGridEditor::handleBrushHotkeys(InputManager* input) {
         announceBrush();
     }
     if (input->isKeyPressed(GLFW_KEY_3)) {
-        m_brush = BrushType::Empty;
+        m_brush = BrushType::Sidewalk;
         announceBrush();
     }
     if (input->isKeyPressed(GLFW_KEY_4)) {
-        m_brush = BrushType::Vehicle;
+        m_brush = BrushType::Empty;
         announceBrush();
     }
     if (input->isKeyPressed(GLFW_KEY_5)) {
+        m_brush = BrushType::Vehicle;
+        announceBrush();
+    }
+    if (input->isKeyPressed(GLFW_KEY_6)) {
         m_brush = BrushType::PlayerSpawn;
         announceBrush();
     }

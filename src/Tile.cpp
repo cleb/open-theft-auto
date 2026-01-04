@@ -105,6 +105,10 @@ void Tile::setCarDirection(CarDirection dir) {
     m_topSurface.carDirection = dir;
 }
 
+void Tile::setSidewalkDirection(SidewalkDirection dir) {
+    m_topSurface.sidewalkDirection = dir;
+}
+
 void Tile::applyUpdate(const Update& update,
                        const std::function<std::string(const std::string&)>& resolveTexture,
                        const std::function<std::shared_ptr<Texture>(const std::string&)>& loadTexture) {

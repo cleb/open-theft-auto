@@ -52,6 +52,8 @@ public:
     bool canOccupy(const glm::vec3& startPos, const glm::vec3& endPos) const;
     bool isRoadTile(const glm::vec3& worldPos) const;
     bool isRoadTile(const glm::ivec3& gridPos) const;
+    bool isSidewalkTile(const glm::vec3& worldPos) const;
+    bool isSidewalkTile(const glm::ivec3& gridPos) const;
 
 private:
     int getIndex(int x, int y, int z) const;

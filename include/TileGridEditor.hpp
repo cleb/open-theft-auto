@@ -54,6 +54,7 @@ private:
     enum class BrushType {
         Grass,
         Road,
+        Sidewalk,
         Empty,
         Vehicle,
         PlayerSpawn
@@ -73,6 +74,7 @@ private:
         bool hasTile = false;
         bool topSolid = false;
         CarDirection topCarDirection = CarDirection::None;
+        SidewalkDirection topSidewalkDirection = SidewalkDirection::None;
         std::array<char, TextureBufferSize> topTexture{};
         std::array<bool, 4> wallWalkable{};
         std::array<std::array<char, TextureBufferSize>, 4> wallTextures{};
@@ -110,6 +112,7 @@ private:
     BrushType m_brush;
     BrushType m_lastAnnouncedBrush;
     CarDirection m_roadDirection;
+    SidewalkDirection m_sidewalkDirection;
     std::string m_levelPath;
 
     std::unique_ptr<Mesh> m_cursorMesh;

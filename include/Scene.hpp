@@ -10,6 +10,7 @@
 #include "LevelData.hpp"
 #include "GameLogic.hpp"
 #include "TrafficManager.hpp"
+#include "PedestrianManager.hpp"
 #include "Collider.hpp"
 
 #include <string>
@@ -26,6 +27,7 @@ private:
     std::unique_ptr<TileGrid> m_tileGrid;
     std::unique_ptr<TileGridEditor> m_tileGridEditor;
     std::unique_ptr<TrafficManager> m_trafficManager;
+    std::unique_ptr<PedestrianManager> m_pedestrianManager;
     LevelData m_levelData;
     std::string m_levelPath;
 
@@ -52,6 +54,7 @@ public:
     TileGrid* getTileGrid() const { return m_tileGrid.get(); }
     GameLogic* getGameLogic() const { return m_gameLogic; }
     TrafficManager* getTrafficManager() const { return m_trafficManager.get(); }
+    PedestrianManager* getPedestrianManager() const { return m_pedestrianManager.get(); }
     bool isEditModeActive() const { return m_tileGridEditor && m_tileGridEditor->isEnabled(); }
     
     // Get all collidable objects for collision detection

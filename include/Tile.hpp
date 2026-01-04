@@ -32,6 +32,16 @@ enum class CarDirection {
     NorthWestSouthEast
 };
 
+// Sidewalk directions - always bidirectional for pedestrian traffic
+enum class SidewalkDirection {
+    None = 0,
+    NorthSouth,  // Bidirectional N-S
+    EastWest,    // Bidirectional E-W
+    // Diagonal directions (bidirectional)
+    NorthEastSouthWest,
+    NorthWestSouthEast
+};
+
 struct WallData {
     bool walkable = true;
     std::string texturePath;
@@ -47,10 +57,11 @@ struct TopSurfaceData {
     std::string texturePath;
     std::shared_ptr<Texture> texture;
     CarDirection carDirection = CarDirection::None;
+    SidewalkDirection sidewalkDirection = SidewalkDirection::None;
     
     TopSurfaceData() = default;
-    TopSurfaceData(bool s, const std::string& path = "", CarDirection dir = CarDirection::None)
-        : solid(s), texturePath(path), carDirection(dir) {}
+    TopSurfaceData(bool s, const std::string& path = "", CarDirection dir = CarDirection::None, SidewalkDirection sDir = SidewalkDirection::None)
+        : solid(s), texturePath(path), carDirection(dir), sidewalkDirection(sDir) {}
 };
 
 class Tile {
@@ -103,9 +114,12 @@ public:
     void setTopTexture(const std::string& texturePath);
     void setTopTexture(std::shared_ptr<Texture> texture);
     void setCarDirection(CarDirection dir);
+    void setSidewalkDirection(SidewalkDirection dir);
     const TopSurfaceData& getTopSurface() const { return m_topSurface; }
     bool isTopSolid() const { return m_topSurface.solid; }
     CarDirection getCarDirection() const { return m_topSurface.carDirection; }
+    SidewalkDirection getSidewalkDirection() const { return m_topSurface.sidewalkDirection; }
+    bool isSidewalk() const { return m_topSurface.sidewalkDirection != SidewalkDirection::None; }
     
     // Position getters
     const glm::ivec3& getGridPosition() const { return m_gridPosition; }

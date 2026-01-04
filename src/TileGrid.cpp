@@ -15,6 +15,7 @@ bool TileGrid::initialize() {
     texMgr.registerAlias("road", "assets/textures/road.png");
     texMgr.registerAlias("wall", "assets/textures/wall.png");
     texMgr.registerAlias("car", "assets/textures/car.png");
+    texMgr.registerAlias("sidewalk", "assets/textures/sidewalk.jpeg");
 
     // Register the default vehicle type (car) for use by TrafficManager and others
     texMgr.registerVehicleType("car", "assets/textures/car.png");
@@ -285,5 +286,29 @@ bool TileGrid::isRoadTile(const glm::ivec3& gridPos) const {
     }
 
     return tile->getCarDirection() != CarDirection::None;
+}
+
+bool TileGrid::isSidewalkTile(const glm::vec3& worldPos) const {
+    glm::ivec3 gridPos = worldToGrid(worldPos);
+    // Check the tile BELOW the entity (same logic as hasGroundSupport)
+    // Entities walk on top of tiles, so we check z-1
+    gridPos.z -= 1;
+    if (!isValidPosition(gridPos)) {
+        return false;
+    }
+    return isSidewalkTile(gridPos);
+}
+
+bool TileGrid::isSidewalkTile(const glm::ivec3& gridPos) const {
+    if (!isValidPosition(gridPos)) {
+        return false;
+    }
+
+    const Tile* tile = getTile(gridPos);
+    if (!tile) {
+        return false;
+    }
+
+    return tile->isSidewalk();
 }
 

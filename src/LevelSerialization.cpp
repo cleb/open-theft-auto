@@ -211,6 +211,33 @@ bool parseCarDirectionValue(const std::string& value, CarDirection& out, const L
     return false;
 }
 
+bool parseSidewalkDirectionValue(const std::string& value, SidewalkDirection& out, const LineLogger& logger) {
+    const std::string lower = toLowerCopy(trimCopy(value));
+    if (lower.empty() || lower == "none" || lower == "off") {
+        out = SidewalkDirection::None;
+        return true;
+    }
+    if (lower == "northsouth" || lower == "north_south" || lower == "ns" || lower == "n_s") {
+        out = SidewalkDirection::NorthSouth;
+        return true;
+    }
+    if (lower == "eastwest" || lower == "east_west" || lower == "ew" || lower == "e_w") {
+        out = SidewalkDirection::EastWest;
+        return true;
+    }
+    if (lower == "northeastsouthwest" || lower == "northeast_southwest" || lower == "nesw" || lower == "ne_sw") {
+        out = SidewalkDirection::NorthEastSouthWest;
+        return true;
+    }
+    if (lower == "northwestsoutheast" || lower == "northwest_southeast" || lower == "nwse" || lower == "nw_se") {
+        out = SidewalkDirection::NorthWestSouthEast;
+        return true;
+    }
+
+    logger.error("Unknown sidewalk direction: " + value);
+    return false;
+}
+
 struct WallConfig {
     bool specified = false;
     bool walkable = true;
@@ -223,6 +250,8 @@ struct TileConfig {
     std::string topTextureId;
     bool carSpecified = false;
     CarDirection carDirection = CarDirection::None;
+    bool sidewalkSpecified = false;
+    SidewalkDirection sidewalkDirection = SidewalkDirection::None;
     WallConfig walls[4];
 };
 
@@ -279,6 +308,11 @@ bool parseTileProperty(const std::string& key, const std::string& value, TileCon
         return parseCarDirectionValue(value, config.carDirection, logger);
     }
 
+    if (lowerKey == "sidewalk" || lowerKey == "sidewalkdirection" || lowerKey == "pedestrian") {
+        config.sidewalkSpecified = true;
+        return parseSidewalkDirectionValue(value, config.sidewalkDirection, logger);
+    }
+
     const int wallIndex = wallKeyToIndex(lowerKey);
     if (wallIndex >= 0 && wallIndex < 4) {
         return parseWallValue(value, config.walls[wallIndex], logger);
@@ -307,6 +341,10 @@ void applyTileConfig(TileGrid& grid, Tile& tile, const TileConfig& config) {
 
     if (config.carSpecified) {
         tile.setCarDirection(config.carDirection);
+    }
+
+    if (config.sidewalkSpecified) {
+        tile.setSidewalkDirection(config.sidewalkDirection);
     }
 
     for (int i = 0; i < 4; ++i) {
@@ -822,6 +860,17 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
         }
     };
 
+    auto sidewalkDirectionToString = [](SidewalkDirection dir) -> std::string {
+        switch (dir) {
+            case SidewalkDirection::NorthSouth: return "north_south";
+            case SidewalkDirection::EastWest: return "east_west";
+            case SidewalkDirection::NorthEastSouthWest: return "northeast_southwest";
+            case SidewalkDirection::NorthWestSouthEast: return "northwest_southeast";
+            case SidewalkDirection::None:
+            default: return "none";
+        }
+    };
+
     auto wallKey = [](WallDirection dir) -> const char* {
         switch (dir) {
             case WallDirection::North: return "north";
@@ -855,6 +904,10 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
 
                 if (top.carDirection != CarDirection::None) {
                     properties.push_back(std::string("car=") + carDirectionToString(top.carDirection));
+                }
+
+                if (top.sidewalkDirection != SidewalkDirection::None) {
+                    properties.push_back(std::string("sidewalk=") + sidewalkDirectionToString(top.sidewalkDirection));
                 }
 
                 for (int dirIndex = 0; dirIndex < 4; ++dirIndex) {
