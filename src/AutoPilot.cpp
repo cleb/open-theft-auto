@@ -11,11 +11,13 @@ AutoPilot::AutoPilot() = default;
 void AutoPilot::onAssign(Vehicle* vehicle) {
     (void)vehicle;
     m_curveState.clear();
+    m_currentSpeed = m_maxSpeed;
 }
 
 void AutoPilot::onRelease(Vehicle* vehicle) {
     (void)vehicle;
     m_curveState.clear();
+    m_currentSpeed = m_maxSpeed;
 }
 
 bool AutoPilot::isCurveTile(CarDirection dir) const {
@@ -95,9 +97,11 @@ void AutoPilot::update(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime) {
     
     if (!tile) {
         // Off the grid, keep moving in current direction
+        updateSpeedForObstacles(vehicle, currentHeading, deltaTime);
+        
         glm::vec2 f2 = Heading::forwardFromHeadingDeg(currentHeading);
         glm::vec3 forward(f2.x, f2.y, 0.0f);
-        glm::vec3 newPos = pos + forward * m_maxSpeed * deltaTime;
+        glm::vec3 newPos = pos + forward * m_currentSpeed * deltaTime;
         newPos.z = pos.z;
         
         // Check for collision before moving
@@ -109,6 +113,7 @@ void AutoPilot::update(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime) {
                 vehicle->setInCollision(true);
             }
             vehicle->setSpeed(0.0f);
+            m_currentSpeed = 0.0f;
             return;
         }
         
@@ -172,8 +177,10 @@ void AutoPilot::updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaT
         // Calculate arc length for a 90-degree turn
         float arcLength = m_curveState.arcRadius * glm::half_pi<float>();  // quarter circle
         
+        updateSpeedForObstacles(vehicle, currentHeading, deltaTime);
+        
         // Calculate how much distance we travel this frame
-        float distanceTraveled = m_maxSpeed * deltaTime;
+        float distanceTraveled = m_currentSpeed * deltaTime;
         
         // Convert to a fraction of the curve (0 to 1)
         float distanceIncrement = distanceTraveled / arcLength;
@@ -195,6 +202,7 @@ void AutoPilot::updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaT
                 vehicle->setInCollision(true);
             }
             vehicle->setSpeed(0.0f);
+            m_currentSpeed = 0.0f;
             return;
         }
 
@@ -217,6 +225,7 @@ void AutoPilot::updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaT
                     vehicle->setInCollision(true);
                 }
                 vehicle->setSpeed(0.0f);
+                m_currentSpeed = 0.0f;
                 return;
             }
             
@@ -230,10 +239,12 @@ void AutoPilot::updateOnStraight(Vehicle* vehicle, TileGrid* tileGrid, float del
     glm::vec3 pos = vehicle->getPosition();
     float currentHeading = vehicle->getRotation().z;
     
-    // Move forward
+    updateSpeedForObstacles(vehicle, currentHeading, deltaTime);
+    
+    // Move forward at current speed
     glm::vec2 fwd2 = Heading::forwardFromHeadingDeg(currentHeading);
     glm::vec3 forward(fwd2.x, fwd2.y, 0.0f);
-    glm::vec3 newPos = pos + forward * m_maxSpeed * deltaTime;
+    glm::vec3 newPos = pos + forward * m_currentSpeed * deltaTime;
     newPos.z = pos.z;
     
     // Check for collision with other vehicles first
@@ -245,6 +256,7 @@ void AutoPilot::updateOnStraight(Vehicle* vehicle, TileGrid* tileGrid, float del
             vehicle->setInCollision(true);
         }
         vehicle->setSpeed(0.0f);
+        m_currentSpeed = 0.0f;
         return;
     }
     
@@ -254,5 +266,54 @@ void AutoPilot::updateOnStraight(Vehicle* vehicle, TileGrid* tileGrid, float del
     // Check tile grid collision
     if (tileGrid->canOccupy(pos, newPos)) {
         vehicle->setPosition(newPos);
+    }
+}
+
+float AutoPilot::checkForObstaclesAhead(Vehicle* vehicle, float heading) const {
+    if (!vehicle) return -1.0f;
+    
+    const CollisionManager& collisionMgr = vehicle->getCollisionManager();
+    if (!collisionMgr.hasCallback()) return -1.0f;
+    
+    glm::vec3 pos = vehicle->getPosition();
+    glm::vec2 fwd2 = Heading::forwardFromHeadingDeg(heading);
+    glm::vec3 forward(fwd2.x, fwd2.y, 0.0f);
+    
+    // Check multiple points along the lookahead path
+    const int numChecks = 5;
+    float stepSize = m_lookaheadDistance / static_cast<float>(numChecks);
+    
+    for (int i = 1; i <= numChecks; ++i) {
+        float checkDistance = stepSize * static_cast<float>(i);
+        glm::vec3 checkPos = pos + forward * checkDistance;
+        
+        if (collisionMgr.wouldCollide(vehicle, checkPos, heading)) {
+            // Return the distance to the first collision point
+            // Subtract a small amount to account for the vehicle's own size
+            return checkDistance - (vehicle->getColliderSize().y * 0.5f);
+        }
+    }
+    
+    return -1.0f;  // No obstacle found
+}
+
+void AutoPilot::updateSpeedForObstacles(Vehicle* vehicle, float heading, float deltaTime) {
+    float obstacleDistance = checkForObstaclesAhead(vehicle, heading);
+    
+    if (obstacleDistance > 0.0f && obstacleDistance < m_lookaheadDistance) {
+        // Calculate speed needed to stop at a safe distance
+        // Using v² = 2*a*d, so v = sqrt(2*a*d)
+        float availableDistance = std::max(0.0f, obstacleDistance - m_minStoppingDistance);
+        float maxSafeSpeed = std::sqrt(2.0f * m_brakingDeceleration * availableDistance);
+        
+        // Apply braking at a realistic deceleration rate
+        if (m_currentSpeed > maxSafeSpeed) {
+            m_currentSpeed = std::max(0.0f, m_currentSpeed - m_brakingDeceleration * deltaTime);
+        }
+    } else {
+        // No obstacle ahead, accelerate back to max speed
+        if (m_currentSpeed < m_maxSpeed) {
+            m_currentSpeed = std::min(m_maxSpeed, m_currentSpeed + m_brakingDeceleration * 0.5f * deltaTime);
+        }
     }
 }
