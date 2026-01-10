@@ -52,6 +52,12 @@ public:
 
     // Get pedestrians (for collision detection, etc.)
     const std::vector<std::unique_ptr<Pedestrian>>& getPedestrians() const { return m_pedestrians; }
+    
+    // Spawn a carjacked pedestrian at a specific position (called when player takes an autopiloted vehicle)
+    void spawnCarjackedPedestrian(const glm::vec3& position, float rotation);
+    
+    // Get the shared animation (for external pedestrian creation)
+    SpriteAnimation* getSharedAnimation() const { return m_sharedAnimation.get(); }
 
 private:
     TileGrid* m_tileGrid;

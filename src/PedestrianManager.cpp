@@ -262,3 +262,25 @@ void PedestrianManager::checkVehicleCollisions() {
         }
     }
 }
+
+void PedestrianManager::spawnCarjackedPedestrian(const glm::vec3& position, float rotation) {
+    if (!m_sharedAnimation) {
+        std::cerr << "Cannot spawn carjacked pedestrian: no shared animation loaded" << std::endl;
+        return;
+    }
+    
+    auto pedestrian = std::make_unique<Pedestrian>();
+    pedestrian->initialize(m_sharedAnimation.get());
+    pedestrian->setPosition(position);
+    pedestrian->setRotation(glm::vec3(0.0f, 0.0f, rotation));
+    pedestrian->setTileGrid(m_tileGrid);
+    pedestrian->setActive(true);
+    pedestrian->setSpeed(2.0f);
+    
+    // Start the carjack exit animation
+    pedestrian->startCarjackExit();
+    
+    m_pedestrians.push_back(std::move(pedestrian));
+    
+    std::cout << "Spawned carjacked pedestrian at (" << position.x << ", " << position.y << ")" << std::endl;
+}

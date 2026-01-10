@@ -75,6 +75,7 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     m_gameLogic->setPlayer(m_player.get());
     m_gameLogic->setVehicles(&m_vehicles);
     m_gameLogic->setTrafficManager(m_trafficManager.get());
+    m_gameLogic->setPedestrianManager(m_pedestrianManager.get());
     
     // Create test scene
     createTestScene();

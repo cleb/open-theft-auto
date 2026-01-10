@@ -1,7 +1,9 @@
 #include "GameLogic.hpp"
 #include "InputManager.hpp"
 #include "UserPilot.hpp"
+#include "AutoPilot.hpp"
 #include "TrafficManager.hpp"
+#include "PedestrianManager.hpp"
 #include "Heading.hpp"
 #include <glm/glm.hpp>
 #include <glm/geometric.hpp>
@@ -41,7 +43,8 @@ GameLogic::GameLogic()
     , m_player(nullptr)
     , m_vehicles(nullptr)
     , m_inputManager(nullptr)
-    , m_trafficManager(nullptr) {
+    , m_trafficManager(nullptr)
+    , m_pedestrianManager(nullptr) {
 }
 
 void GameLogic::setPlayer(Player* player) {
@@ -112,6 +115,8 @@ bool GameLogic::tryEnterNearestVehicle(float radius) {
 
     Vehicle* nearestVehicle = findNearestVehicle(*m_vehicles, playerPos, radius, nearestDistance);
     bool nearestIsTraffic = false;
+    bool hadAutoPilot = false;
+    
     if (m_trafficManager) {
         float nearestTrafficDistance = radius;
         Vehicle* nearestTrafficVehicle = findNearestVehicle(m_trafficManager->getTrafficVehicles(),
@@ -129,12 +134,37 @@ bool GameLogic::tryEnterNearestVehicle(float radius) {
         return false;
     }
 
+    // Check if the vehicle had an autopilot (for pedestrian spawning)
+    hadAutoPilot = nearestVehicle->hasPilot() && dynamic_cast<AutoPilot*>(nearestVehicle->getPilot()) != nullptr;
+    
+    // Store vehicle position and rotation before any changes
+    glm::vec3 vehiclePos = nearestVehicle->getPosition();
+    float vehicleRotation = nearestVehicle->getRotation().z;
+    glm::vec2 vehicleSize = nearestVehicle->getSpriteSize();
+
     if (nearestIsTraffic && m_trafficManager) {
         std::unique_ptr<Vehicle> claimed = m_trafficManager->claimTrafficVehicle(nearestVehicle);
         if (claimed) {
             nearestVehicle = claimed.get();
             m_vehicles->push_back(std::move(claimed));
         }
+    }
+
+    // Spawn a pedestrian if the vehicle had an autopilot (carjacking scenario)
+    if (hadAutoPilot && m_pedestrianManager) {
+        // Calculate exit position to the left of the vehicle (driver's side)
+        glm::vec2 forward = Heading::forwardFromHeadingDeg(vehicleRotation);
+        // Left is perpendicular to forward (90° counter-clockwise)
+        glm::vec2 left(-forward.y, forward.x);
+        
+        // Place pedestrian to the left of the vehicle
+        float exitOffset = (vehicleSize.x * 0.5f) + 0.8f; // Half vehicle width + margin
+        glm::vec3 exitPosition = vehiclePos + glm::vec3(left.x * exitOffset, left.y * exitOffset, 0.0f);
+        
+        // Pedestrian faces away from the vehicle (towards where they exited)
+        float pedestrianRotation = Heading::headingDegFromForward(left);
+        
+        m_pedestrianManager->spawnCarjackedPedestrian(exitPosition, pedestrianRotation);
     }
 
     // Switch control to vehicle with UserPilot

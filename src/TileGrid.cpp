@@ -269,6 +269,9 @@ bool TileGrid::canOccupy(const glm::vec3& startPos, const glm::vec3& endPos) con
 
 bool TileGrid::isRoadTile(const glm::vec3& worldPos) const {
     glm::ivec3 gridPos = worldToGrid(worldPos);
+    // Check the tile BELOW the entity (same logic as hasGroundSupport)
+    // Entities walk on top of tiles, so we check z-1
+    gridPos.z -= 1;
     if (!isValidPosition(gridPos)) {
         return false;
     }
