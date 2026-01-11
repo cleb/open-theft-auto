@@ -11,6 +11,7 @@
 #include <random>
 
 class Renderer;
+class PedestrianManager;
 
 // Structure to hold road tile information for spawning
 struct RoadSpawnPoint {
@@ -46,6 +47,9 @@ public:
     
     // Set collision callback for all traffic vehicles
     void setCollisionCallback(ColliderCallback callback);
+    
+    // Set pedestrian manager for carjack callbacks
+    void setPedestrianManager(PedestrianManager* pedestrianManager) { m_pedestrianManager = pedestrianManager; }
 
     // Get traffic vehicles (for collision detection, etc.)
     const std::vector<std::unique_ptr<Vehicle>>& getTrafficVehicles() const { return m_trafficVehicles; }
@@ -60,6 +64,7 @@ private:
     TileGrid* m_tileGrid;
     Camera* m_camera;
     const std::vector<std::unique_ptr<Vehicle>>* m_playerVehicles;
+    PedestrianManager* m_pedestrianManager;
     
     std::vector<std::unique_ptr<Vehicle>> m_trafficVehicles;
     std::vector<RoadSpawnPoint> m_roadSpawnPoints;

@@ -3,6 +3,7 @@
 #include "Renderer.hpp"
 #include "Heading.hpp"
 #include "AutoPilot.hpp"
+#include "PedestrianManager.hpp"
 #include <iostream>
 #include <algorithm>
 
@@ -10,6 +11,7 @@ TrafficManager::TrafficManager()
     : m_tileGrid(nullptr)
     , m_camera(nullptr)
     , m_playerVehicles(nullptr)
+    , m_pedestrianManager(nullptr)
     , m_collisionCallback(nullptr)
     , m_maxTrafficVehicles(10)
     , m_spawnIntervalMin(1.5f)   // Minimum time between spawns
@@ -198,6 +200,26 @@ void TrafficManager::spawnVehicle() {
     // Set collision callback
     if (m_collisionCallback) {
         vehicle->setCollisionCallback(m_collisionCallback);
+    }
+    
+    // Set carjack callback to spawn a pedestrian when vehicle is taken
+    if (m_pedestrianManager) {
+        PedestrianManager* pedMgr = m_pedestrianManager;
+        vehicle->setCarjackCallback([pedMgr](const glm::vec3& vehiclePos, float vehicleRotation, const glm::vec2& vehicleSize) {
+            // Calculate exit position to the left of the vehicle (driver's side)
+            glm::vec2 forward = Heading::forwardFromHeadingDeg(vehicleRotation);
+            // Left is perpendicular to forward (90° counter-clockwise)
+            glm::vec2 left(-forward.y, forward.x);
+            
+            // Place pedestrian to the left of the vehicle
+            float exitOffset = (vehicleSize.x * 0.5f) + 0.8f; // Half vehicle width + margin
+            glm::vec3 exitPosition = vehiclePos + glm::vec3(left.x * exitOffset, left.y * exitOffset, 0.0f);
+            
+            // Pedestrian faces away from the vehicle (towards where they exited)
+            float pedestrianRotation = Heading::headingDegFromForward(left);
+            
+            pedMgr->spawnCarjackedPedestrian(exitPosition, pedestrianRotation);
+        });
     }
     
     // Assign an AutoPilot

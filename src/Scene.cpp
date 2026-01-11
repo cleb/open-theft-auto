@@ -51,6 +51,9 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     m_pedestrianManager->initialize(m_tileGrid.get(), renderer->getCamera());
     m_pedestrianManager->setProjectionInfo(1.57f, window->getAspectRatio());
     
+    // Connect traffic manager to pedestrian manager for carjack callbacks
+    m_trafficManager->setPedestrianManager(m_pedestrianManager.get());
+    
     // Set vehicle callback for pedestrian collision detection
     m_pedestrianManager->setVehicleCallback([this]() -> std::vector<Vehicle*> {
         std::vector<Vehicle*> allVehicles;
@@ -75,7 +78,6 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     m_gameLogic->setPlayer(m_player.get());
     m_gameLogic->setVehicles(&m_vehicles);
     m_gameLogic->setTrafficManager(m_trafficManager.get());
-    m_gameLogic->setPedestrianManager(m_pedestrianManager.get());
     
     // Create test scene
     createTestScene();

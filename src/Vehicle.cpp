@@ -144,6 +144,14 @@ void Vehicle::clearPilot() {
     m_pilot.reset();
 }
 
+void Vehicle::triggerCarjack() {
+    if (m_carjackCallback) {
+        m_carjackCallback(m_position, m_rotation.z, m_size);
+        // Clear the callback after triggering (one-time event)
+        m_carjackCallback = nullptr;
+    }
+}
+
 void Vehicle::render(Renderer* renderer) {
     if (!m_active || !renderer) return;
 

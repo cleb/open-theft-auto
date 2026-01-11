@@ -4,10 +4,16 @@
 #include "Collider.hpp"
 #include <memory>
 #include <array>
+#include <functional>
 #include <glm/glm.hpp>
 
 class TileGrid;
 class Pilot;
+class Vehicle;
+
+// Callback invoked when a vehicle is carjacked
+// Parameters: vehicle position, vehicle rotation (degrees), vehicle size
+using CarjackCallback = std::function<void(const glm::vec3&, float, const glm::vec2&)>;
 
 // Damage state for vehicle quadrants
 struct VehicleDamage {
@@ -39,6 +45,7 @@ private:
     std::shared_ptr<Texture> m_texture;
     std::shared_ptr<Texture> m_deltaTexture;     // Damage overlay texture
     std::unique_ptr<Pilot> m_pilot;
+    CarjackCallback m_carjackCallback;           // Called when vehicle is carjacked
     float m_speed;
     float m_maxSpeed;
     float m_maxSpeedRoad;
@@ -73,6 +80,11 @@ public:
     Pilot* getPilot() const { return m_pilot.get(); }
     void clearPilot();
     bool hasPilot() const { return m_pilot != nullptr; }
+    
+    // Carjack callback - called when player takes the vehicle
+    void setCarjackCallback(CarjackCallback callback) { m_carjackCallback = std::move(callback); }
+    void triggerCarjack();
+    bool hasCarjackCallback() const { return m_carjackCallback != nullptr; }
     
     // Speed access for pilots
     float getSpeed() const { return m_speed; }
