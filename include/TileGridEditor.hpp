@@ -8,10 +8,10 @@
 #include <vector>
 
 #include "Tile.hpp"
+#include "LevelData.hpp"
 
 class TileGrid;
 struct LevelData;
-struct VehicleSpawnDefinition;
 class Renderer;
 class InputManager;
 class Mesh;
@@ -78,6 +78,8 @@ private:
         std::array<char, TextureBufferSize> topTexture{};
         std::array<bool, 4> wallWalkable{};
         std::array<std::array<char, TextureBufferSize>, 4> wallTextures{};
+        // Vehicle spawn weights for traffic spawning (indexed by vehicle type order from config)
+        std::vector<float> spawnWeights;
     };
 
     struct UiVehicleState {
@@ -86,6 +88,7 @@ private:
         float rotationDegrees = 0.0f;
         glm::vec2 size = glm::vec2(1.5f, 3.0f);
         std::array<char, TextureBufferSize> texture{};
+        int vehicleTypeIndex = 0;  // Index into VehicleConfig definitions
     };
 
     struct UiPlayerSpawnState {
@@ -194,6 +197,7 @@ private:
     bool drawTexturePicker(const char* label, std::array<char, TextureBufferSize>& buffer);
     std::string findAliasForPath(const std::string& path) const;
     void applyTopSurfaceFromUi();
+    void applySpawnWeightsFromUi();
     void applyWallFromUi(int wallIndex, WallDirection direction);
     void applyVehicleBrush();
     void removeVehicleAtCursor();

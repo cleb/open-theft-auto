@@ -17,6 +17,9 @@ find_package(GLEW REQUIRED)
 # Find GLM (header-only library)
 find_package(glm REQUIRED)
 
+# Find nlohmann_json for vehicle config
+find_package(nlohmann_json REQUIRED)
+
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/src)
@@ -71,6 +74,7 @@ target_link_libraries(${PROJECT_NAME}
     glfw
     GLEW::GLEW
     glm::glm
+    nlohmann_json::nlohmann_json
     ${IMGUI_LIBRARY}
     ${STB_LIBRARY}
 )

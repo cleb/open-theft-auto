@@ -253,6 +253,9 @@ struct TileConfig {
     bool sidewalkSpecified = false;
     SidewalkDirection sidewalkDirection = SidewalkDirection::None;
     WallConfig walls[4];
+    // Vehicle spawn weights for this tile
+    std::vector<VehicleSpawnWeight> vehicleSpawnWeights;
+    bool spawnWeightsSpecified = false;
 };
 
 bool parseWallValue(const std::string& value, WallConfig& wall, const LineLogger& logger) {
@@ -313,6 +316,42 @@ bool parseTileProperty(const std::string& key, const std::string& value, TileCon
         return parseSidewalkDirectionValue(value, config.sidewalkDirection, logger);
     }
 
+    // Parse spawn weights: spawn_sedan=1.5 or spawn_pickup=0.5
+    if (lowerKey.rfind("spawn_", 0) == 0 || lowerKey.rfind("spawnweight_", 0) == 0) {
+        // Extract vehicle type name from key
+        std::string vehicleTypeName;
+        if (lowerKey.rfind("spawn_", 0) == 0) {
+            vehicleTypeName = lowerKey.substr(6);  // After "spawn_"
+        } else {
+            vehicleTypeName = lowerKey.substr(12);  // After "spawnweight_"
+        }
+        
+        float weight = 0.0f;
+        if (!parseFloat(value, weight)) {
+            logger.error("Invalid spawn weight value: " + value);
+            return false;
+        }
+        if (weight < 0.0f) {
+            logger.warning("Spawn weight clamped to 0: " + value);
+            weight = 0.0f;
+        }
+        
+        // Check if this type already exists in the weights
+        bool found = false;
+        for (auto& w : config.vehicleSpawnWeights) {
+            if (w.typeId == vehicleTypeName) {
+                w.weight = weight;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            config.vehicleSpawnWeights.push_back({vehicleTypeName, weight});
+        }
+        config.spawnWeightsSpecified = true;
+        return true;
+    }
+
     const int wallIndex = wallKeyToIndex(lowerKey);
     if (wallIndex >= 0 && wallIndex < 4) {
         return parseWallValue(value, config.walls[wallIndex], logger);
@@ -345,6 +384,13 @@ void applyTileConfig(TileGrid& grid, Tile& tile, const TileConfig& config) {
 
     if (config.sidewalkSpecified) {
         tile.setSidewalkDirection(config.sidewalkDirection);
+    }
+
+    // Apply vehicle spawn weights
+    if (config.spawnWeightsSpecified) {
+        for (const auto& weight : config.vehicleSpawnWeights) {
+            tile.setVehicleSpawnWeight(weight.typeId, weight.weight);
+        }
     }
 
     for (int i = 0; i < 4; ++i) {
@@ -436,6 +482,11 @@ bool parseVehicleProperty(const std::string& key,
             return false;
         }
         spawn.size = glm::vec2(width, length);
+        return true;
+    }
+
+    if (lowerKey == "type" || lowerKey == "vehicletype" || lowerKey == "vehicle_type") {
+        spawn.vehicleTypeId = toLowerCopy(trimCopy(value));
         return true;
     }
 
@@ -824,6 +875,7 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
         output << "vehicle " << spawn.gridPosition.x << ' ' << spawn.gridPosition.y << ' ' << spawn.gridPosition.z;
     // rotation is a heading in degrees where 0°=+X (East) and angles increase CCW.
     output << " rotation=" << formatFloat(spawn.rotationDegrees);
+        output << " type=" << spawn.vehicleTypeId;
         if (!spawn.texturePath.empty()) {
             output << " texture=" << identifierForSave(spawn.texturePath);
         }
@@ -908,6 +960,16 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
 
                 if (top.sidewalkDirection != SidewalkDirection::None) {
                     properties.push_back(std::string("sidewalk=") + sidewalkDirectionToString(top.sidewalkDirection));
+                }
+
+                // Save vehicle spawn weights (only if they differ from default 1.0)
+                for (const auto& weight : top.vehicleSpawnWeights) {
+                    // Only save if weight is not 1.0 (default)
+                    if (std::abs(weight.weight - 1.0f) > 0.001f) {
+                        std::ostringstream weightProp;
+                        weightProp << "spawn_" << weight.typeId << "=" << std::fixed << std::setprecision(2) << weight.weight;
+                        properties.push_back(weightProp.str());
+                    }
                 }
 
                 for (int dirIndex = 0; dirIndex < 4; ++dirIndex) {

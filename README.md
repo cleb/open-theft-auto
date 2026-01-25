@@ -33,13 +33,13 @@ A top-down 2.5D game engine inspired by GTA 1 & 2, featuring 2D sprites for cars
 ```bash
 sudo apt update
 sudo apt install build-essential cmake
-sudo apt install libglfw3-dev libglew-dev libglm-dev libimgui-dev
+sudo apt install libglfw3-dev libglew-dev libglm-dev libimgui-dev nlohmann-json3-dev
 ```
 
 ### Linux (Fedora/CentOS)
 ```bash
 sudo dnf install gcc-c++ cmake
-sudo dnf install glfw-devel glew-devel glm-devel
+sudo dnf install glfw-devel glew-devel glm-devel nlohmann-json-devel
 ```
 
 ### Windows
@@ -47,7 +47,7 @@ sudo dnf install glfw-devel glew-devel glm-devel
 2. Install [CMake](https://cmake.org/download/)
 3. Install [vcpkg](https://github.com/Microsoft/vcpkg) and install dependencies:
    ```cmd
-   vcpkg install glfw3 glew glm
+   vcpkg install glfw3 glew glm nlohmann-json
    ```
 
 ## Building

@@ -1,4 +1,5 @@
 #include "Engine.hpp"
+#include "VehicleConfig.hpp"
 #include <iostream>
 #include <GL/glew.h>
 #include <imgui.h>
@@ -41,6 +42,11 @@ bool Engine::initialize(int width, int height, const std::string& title) {
     if (!m_renderer->initialize(width, height)) {
         std::cerr << "Failed to initialize renderer" << std::endl;
         return false;
+    }
+    
+    // Load vehicle configuration
+    if (!VehicleConfig::getInstance().loadFromFile("assets/vehicles.json")) {
+        std::cerr << "Warning: Failed to load vehicles.json, using defaults" << std::endl;
     }
     
     // Set up window resize callback to update renderer projection

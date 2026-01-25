@@ -9,6 +9,7 @@
 #include "Texture.hpp"
 #include "LevelData.hpp"
 #include "LevelSerialization.hpp"
+#include "VehicleConfig.hpp"
 #include "Window.hpp"
 #include "Camera.hpp"
 
@@ -32,7 +33,7 @@
 
 namespace {
 constexpr const char* kWallLabels[4] = {"North", "South", "East", "West"};
-constexpr const char* kDefaultVehicleTexture = "assets/textures/car.png";
+constexpr const char* kDefaultVehicleTexture = "assets/textures/sedan.png";
 float normalizeDegrees(float value) {
     if (!std::isfinite(value)) {
         return 0.0f;
@@ -1307,6 +1308,39 @@ void TileGridEditor::drawTopFaceControls(Tile* tile) {
         applyTopSurfaceFromUi();
     }
 
+    // Show vehicle spawn weights when this is a road tile
+    if (m_uiTileState.topCarDirection != CarDirection::None) {
+        ImGui::SeparatorText("Vehicle Spawn Weights");
+        ImGui::TextDisabled("Adjust likelihood of each vehicle type spawning on this road");
+        
+        const auto& config = VehicleConfig::getInstance();
+        const auto& definitions = config.getAllDefinitions();
+        
+        // Ensure spawn weights vector is properly sized
+        if (m_uiTileState.spawnWeights.size() != definitions.size()) {
+            m_uiTileState.spawnWeights.resize(definitions.size(), 1.0f);
+        }
+        
+        bool weightsChanged = false;
+        for (size_t i = 0; i < definitions.size(); ++i) {
+            std::string label = definitions[i].displayName + " Weight";
+            if (ImGui::SliderFloat(label.c_str(), &m_uiTileState.spawnWeights[i], 0.0f, 5.0f, "%.2f")) {
+                weightsChanged = true;
+            }
+        }
+        
+        if (weightsChanged) {
+            applySpawnWeightsFromUi();
+        }
+        
+        if (ImGui::Button("Reset to Default##SpawnWeights")) {
+            for (size_t i = 0; i < m_uiTileState.spawnWeights.size(); ++i) {
+                m_uiTileState.spawnWeights[i] = 1.0f;
+            }
+            applySpawnWeightsFromUi();
+        }
+    }
+
     int sidewalkIndex = sidewalkDirectionToIndex(m_uiTileState.topSidewalkDirection);
     const char* sidewalkLabels[] = {"None", "North-South", "East-West", "NE-SW", "NW-SE"};
     if (ImGui::Combo("Sidewalk Direction", &sidewalkIndex, sidewalkLabels, IM_ARRAYSIZE(sidewalkLabels))) {
@@ -1442,6 +1476,20 @@ void TileGridEditor::applyTopSurfaceFromUi() {
     refreshUiStateFromTile();
 }
 
+void TileGridEditor::applySpawnWeightsFromUi() {
+    Tile* tile = currentTile();
+    if (!tile) {
+        return;
+    }
+
+    const auto& config = VehicleConfig::getInstance();
+    const auto& definitions = config.getAllDefinitions();
+    
+    for (size_t i = 0; i < definitions.size() && i < m_uiTileState.spawnWeights.size(); ++i) {
+        tile->setVehicleSpawnWeight(definitions[i].id, m_uiTileState.spawnWeights[i]);
+    }
+}
+
 void TileGridEditor::applyWallFromUi(int wallIndex, WallDirection direction) {
     Tile* tile = currentTile();
     if (!tile) {
@@ -1500,16 +1548,22 @@ void TileGridEditor::applyVehicleBrush() {
         return;
     }
 
+    // Get vehicle type info from config
+    const auto& config = VehicleConfig::getInstance();
+    const auto* typeDef = config.getDefinitionByIndex(m_uiVehicleState.vehicleTypeIndex);
+    std::string vehicleTypeId = typeDef ? typeDef->id : "sedan";
+
     VehicleSpawnDefinition spawn;
     spawn.gridPosition = m_cursor;
     spawn.rotationDegrees = normalizeDegrees(m_uiVehicleState.rotationDegrees);
     spawn.size = glm::vec2(
         std::max(0.1f, m_uiVehicleState.size.x),
         std::max(0.1f, m_uiVehicleState.size.y));
+    spawn.vehicleTypeId = vehicleTypeId;
 
     std::string texturePath = m_uiVehicleState.texture.data();
-    if (texturePath.empty()) {
-        texturePath = kDefaultVehicleTexture;
+    if (texturePath.empty() && typeDef) {
+        texturePath = typeDef->texturePath;
     }
     spawn.texturePath = texturePath;
 
@@ -1522,7 +1576,7 @@ void TileGridEditor::applyVehicleBrush() {
     } else {
         spawns.push_back(spawn);
     }
-    std::cout << "Placed vehicle at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z
+    std::cout << "Placed " << vehicleTypeId << " at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z
               << ") rotation=" << spawn.rotationDegrees
               << " size=" << spawn.size.x << "x" << spawn.size.y
               << " texture=" << spawn.texturePath << std::endl;
@@ -1590,18 +1644,27 @@ void TileGridEditor::clearTileAtCursor() {
 void TileGridEditor::refreshUiStateFromTile() {
     m_uiTileState.position = m_cursor;
 
+    const auto& config = VehicleConfig::getInstance();
+    
     m_uiVehicleState.cursorHasVehicle = false;
     if (const auto* spawn = findVehicleSpawn(m_cursor)) {
         m_uiVehicleState.cursorHasVehicle = true;
         m_uiVehicleState.rotationDegrees = normalizeDegrees(spawn->rotationDegrees);
         m_uiVehicleState.size = spawn->size;
+        m_uiVehicleState.vehicleTypeIndex = config.getIndexById(spawn->vehicleTypeId);
+        if (m_uiVehicleState.vehicleTypeIndex < 0) {
+            m_uiVehicleState.vehicleTypeIndex = 0;  // Default to first type
+        }
         std::snprintf(m_uiVehicleState.texture.data(),
                       m_uiVehicleState.texture.size(),
                       "%s",
                       spawn->texturePath.c_str());
     }
     if (!m_uiVehicleState.cursorHasVehicle && m_uiVehicleState.texture[0] == '\0') {
-        std::snprintf(m_uiVehicleState.texture.data(), m_uiVehicleState.texture.size(), "%s", kDefaultVehicleTexture);
+        // Default texture based on current vehicle type selection
+        const auto* typeDef = config.getDefinitionByIndex(m_uiVehicleState.vehicleTypeIndex);
+        const char* defaultTexture = typeDef ? typeDef->texturePath.c_str() : "assets/textures/car.png";
+        std::snprintf(m_uiVehicleState.texture.data(), m_uiVehicleState.texture.size(), "%s", defaultTexture);
     }
 
     Tile* tile = currentTile();
@@ -1628,6 +1691,13 @@ void TileGridEditor::refreshUiStateFromTile() {
     m_uiTileState.topCarDirection = top.carDirection;
     m_uiTileState.topSidewalkDirection = top.sidewalkDirection;
     std::snprintf(m_uiTileState.topTexture.data(), m_uiTileState.topTexture.size(), "%s", top.texturePath.c_str());
+    
+    // Load spawn weights for all defined vehicle types
+    const auto& definitions = config.getAllDefinitions();
+    m_uiTileState.spawnWeights.resize(definitions.size());
+    for (size_t i = 0; i < definitions.size(); ++i) {
+        m_uiTileState.spawnWeights[i] = top.getSpawnWeight(definitions[i].id);
+    }
 
     for (int i = 0; i < 4; ++i) {
         const WallDirection direction = static_cast<WallDirection>(i);
@@ -2125,6 +2195,31 @@ void TileGridEditor::drawVehicleBrushControls() {
     }
 
     if (!m_uiVehicleState.removeMode) {
+        // Vehicle type selection - dynamically built from VehicleConfig
+        const auto& config = VehicleConfig::getInstance();
+        const auto& definitions = config.getAllDefinitions();
+        
+        if (!definitions.empty()) {
+            // Build labels for combo box
+            std::vector<const char*> typeLabels;
+            typeLabels.reserve(definitions.size());
+            for (const auto& def : definitions) {
+                typeLabels.push_back(def.displayName.c_str());
+            }
+            
+            if (ImGui::Combo("Vehicle Type", &m_uiVehicleState.vehicleTypeIndex, typeLabels.data(), static_cast<int>(typeLabels.size()))) {
+                // Update texture path and size to match the vehicle type
+                const auto* typeDef = config.getDefinitionByIndex(m_uiVehicleState.vehicleTypeIndex);
+                if (typeDef) {
+                    std::snprintf(m_uiVehicleState.texture.data(), m_uiVehicleState.texture.size(), "%s", typeDef->texturePath.c_str());
+                    m_uiVehicleState.size = typeDef->size;
+                }
+                announceBrush();
+            }
+        } else {
+            ImGui::TextDisabled("No vehicle types loaded");
+        }
+
         float rotation = m_uiVehicleState.rotationDegrees;
         if (ImGui::SliderFloat("Rotation", &rotation, 0.0f, 360.0f, "%.1f deg")) {
             m_uiVehicleState.rotationDegrees = normalizeDegrees(rotation);

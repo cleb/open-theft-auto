@@ -5,6 +5,7 @@
 #include "GameLogic.hpp"
 #include "TrafficManager.hpp"
 #include "PedestrianManager.hpp"
+#include "VehicleConfig.hpp"
 #include "Window.hpp"
 #include <iostream>
 #include <string>
@@ -327,7 +328,22 @@ void Scene::rebuildVehiclesFromSpawns() {
 
     for (const auto& spawn : m_levelData.vehicleSpawns) {
         auto vehicle = std::make_unique<Vehicle>();
-        const std::string texture = spawn.texturePath.empty() ? "assets/textures/car.png" : spawn.texturePath;
+        
+        // Set vehicle type first (this configures speed, acceleration, etc.)
+        vehicle->setVehicleType(spawn.vehicleTypeId);
+        
+        // Get the type definition for texture/size defaults
+        const auto& config = VehicleConfig::getInstance();
+        const auto* typeDef = config.getDefinition(spawn.vehicleTypeId);
+        
+        // Use spawn texture if provided, otherwise use default for the vehicle type
+        std::string texture = spawn.texturePath;
+        if (texture.empty() && typeDef) {
+            texture = typeDef->texturePath;
+        }
+        if (texture.empty()) {
+            texture = "textures/car.png";
+        }
         vehicle->initialize(texture);
         vehicle->setSpriteSize(spawn.size);
         glm::vec3 position(

@@ -5,6 +5,7 @@
 #include "Camera.hpp"
 #include "Collider.hpp"
 #include "ViewBounds.hpp"
+#include "LevelData.hpp"
 #include <vector>
 #include <memory>
 #include <glm/glm.hpp>

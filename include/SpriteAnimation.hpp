@@ -2,6 +2,7 @@
 
 #include "Texture.hpp"
 #include <glm/glm.hpp>
+#include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -39,7 +40,7 @@ private:
     bool m_isPlaying;
     bool m_animationFinished;
 
-    bool parseAnimationFile(const std::string& jsonPath);
+    bool parseAnimationFile(const nlohmann::json& json);
 
 public:
     SpriteAnimation();

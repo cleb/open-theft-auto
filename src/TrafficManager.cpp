@@ -4,6 +4,7 @@
 #include "Heading.hpp"
 #include "AutoPilot.hpp"
 #include "PedestrianManager.hpp"
+#include "VehicleConfig.hpp"
 #include <iostream>
 #include <algorithm>
 
@@ -180,21 +181,66 @@ void TrafficManager::spawnVehicle() {
     std::uniform_int_distribution<size_t> dist(0, validPoints.size() - 1);
     const RoadSpawnPoint* spawnPoint = validPoints[dist(m_rng)];
     
-    // Create the vehicle with an AutoPilot
+    // Get the tile to check spawn weights
+    const Tile* tile = m_tileGrid->getTile(spawnPoint->gridPos);
+    
+    // Determine which vehicle type to spawn based on tile spawn weights and config
+    const auto& config = VehicleConfig::getInstance();
+    const auto& definitions = config.getAllDefinitions();
+    
+    std::string vehicleTypeId = "sedan";  // Default
+    if (tile && !definitions.empty()) {
+        // Calculate total weight
+        float totalWeight = 0.0f;
+        std::vector<std::pair<std::string, float>> typeWeights;
+        
+        for (const auto& def : definitions) {
+            float weight = tile->getVehicleSpawnWeight(def.id);
+            if (weight > 0.0f) {
+                totalWeight += weight;
+                typeWeights.push_back({def.id, weight});
+            }
+        }
+        
+        if (totalWeight > 0.0f && !typeWeights.empty()) {
+            std::uniform_real_distribution<float> weightDist(0.0f, totalWeight);
+            float roll = weightDist(m_rng);
+            
+            float cumulative = 0.0f;
+            for (const auto& tw : typeWeights) {
+                cumulative += tw.second;
+                if (roll < cumulative) {
+                    vehicleTypeId = tw.first;
+                    break;
+                }
+            }
+        }
+    }
+    
+    // Get the definition for this vehicle type
+    const auto* typeDef = config.getDefinition(vehicleTypeId);
+    
+    // Create the vehicle with the selected type
     auto vehicle = std::make_unique<Vehicle>();
-    // Get vehicle texture from TextureManager (shared across all traffic vehicles)
-    auto carTexture = TextureManager::instance().getVehicleTexture("car");
-    if (carTexture) {
-        vehicle->initialize(carTexture);
+    vehicle->setVehicleType(vehicleTypeId);
+    
+    // Get vehicle texture based on type
+    std::string texturePath = typeDef ? typeDef->texturePath : "textures/car.png";
+    auto vehicleTexture = TextureManager::instance().getTextureFromPath(texturePath);
+    if (vehicleTexture) {
+        vehicle->initialize(vehicleTexture);
     } else {
-        vehicle->initialize("assets/textures/car.png"); // fallback, should not happen
+        vehicle->initialize(texturePath);
     }
     vehicle->setPosition(spawnPoint->worldPos);
     
     // Recalculate rotation for bidirectional roads
     float rotation = getRotationFromDirection(spawnPoint->direction, m_rng);
     vehicle->setRotation(glm::vec3(0.0f, 0.0f, rotation));
-    vehicle->setSpriteSize(glm::vec2(1.5f, 3.0f));
+    
+    // Set sprite size from config
+    glm::vec2 spriteSize = typeDef ? typeDef->size : glm::vec2(1.5f, 3.0f);
+    vehicle->setSpriteSize(spriteSize);
     vehicle->setTileGrid(m_tileGrid);
     
     // Set collision callback

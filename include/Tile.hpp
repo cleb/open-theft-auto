@@ -4,8 +4,10 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 #include "Mesh.hpp"
 #include "Texture.hpp"
+#include "LevelData.hpp"
 
 enum class WallDirection {
     North = 0,  // +Y
@@ -58,10 +60,35 @@ struct TopSurfaceData {
     std::shared_ptr<Texture> texture;
     CarDirection carDirection = CarDirection::None;
     SidewalkDirection sidewalkDirection = SidewalkDirection::None;
+    // Spawn weights for each vehicle type on this road tile
+    // Key: vehicle type ID (e.g., "sedan", "pickup")
+    std::vector<VehicleSpawnWeight> vehicleSpawnWeights;
     
     TopSurfaceData() = default;
     TopSurfaceData(bool s, const std::string& path = "", CarDirection dir = CarDirection::None, SidewalkDirection sDir = SidewalkDirection::None)
         : solid(s), texturePath(path), carDirection(dir), sidewalkDirection(sDir) {}
+    
+    // Get spawn weight for a specific vehicle type (returns default 1.0 if not specified)
+    float getSpawnWeight(const std::string& typeId) const {
+        for (const auto& weight : vehicleSpawnWeights) {
+            if (weight.typeId == typeId) {
+                return weight.weight;
+            }
+        }
+        return 1.0f;  // Default weight
+    }
+    
+    // Set spawn weight for a specific vehicle type
+    void setSpawnWeight(const std::string& typeId, float weight) {
+        for (auto& w : vehicleSpawnWeights) {
+            if (w.typeId == typeId) {
+                w.weight = weight;
+                return;
+            }
+        }
+        // Not found, add new entry
+        vehicleSpawnWeights.push_back({typeId, weight});
+    }
 };
 
 class Tile {
@@ -120,6 +147,11 @@ public:
     CarDirection getCarDirection() const { return m_topSurface.carDirection; }
     SidewalkDirection getSidewalkDirection() const { return m_topSurface.sidewalkDirection; }
     bool isSidewalk() const { return m_topSurface.sidewalkDirection != SidewalkDirection::None; }
+    
+    // Vehicle spawn weights for traffic spawning on road tiles
+    float getVehicleSpawnWeight(const std::string& typeId) const { return m_topSurface.getSpawnWeight(typeId); }
+    void setVehicleSpawnWeight(const std::string& typeId, float weight) { m_topSurface.setSpawnWeight(typeId, weight); }
+    const std::vector<VehicleSpawnWeight>& getVehicleSpawnWeights() const { return m_topSurface.vehicleSpawnWeights; }
     
     // Position getters
     const glm::ivec3& getGridPosition() const { return m_gridPosition; }

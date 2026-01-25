@@ -4,21 +4,30 @@
 #include "Heading.hpp"
 #include "Pilot.hpp"
 #include "TextureManager.hpp"
+#include "VehicleConfig.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <iostream>
 #include <vector>
 
+// Default values if config not loaded
+namespace {
+    constexpr float DEFAULT_MAX_SPEED = 24.0f;
+    constexpr float DEFAULT_MAX_SPEED_ROAD = 36.0f;
+    constexpr float DEFAULT_ACCELERATION = 12.0f;
+}
+
 Vehicle::Vehicle() 
     : m_pilot(nullptr)
     , m_speed(0.0f)
-    , m_maxSpeed(24.0f)
-    , m_maxSpeedRoad(36.0f)
-    , m_acceleration(12.0f)
+    , m_maxSpeed(DEFAULT_MAX_SPEED)
+    , m_maxSpeedRoad(DEFAULT_MAX_SPEED_ROAD)
+    , m_acceleration(DEFAULT_ACCELERATION)
     , m_turnSpeed(200.0f)
     , m_size(1.5f, 3.0f)
-    , m_tileGrid(nullptr) {
+    , m_tileGrid(nullptr)
+    , m_vehicleTypeId("sedan") {
 }
 
 Vehicle::~Vehicle() = default;
@@ -32,8 +41,11 @@ bool Vehicle::initialize(const std::string& texturePath) {
         }
     }
     
-    // Load delta texture for damage effects
-    m_deltaTexture = TextureManager::instance().getTextureFromPath("assets/textures/car-deltas.png");
+    // Load delta texture for damage effects based on vehicle type
+    const auto* def = VehicleConfig::getInstance().getDefinition(m_vehicleTypeId);
+    if (def && !def->deltaTexturePath.empty()) {
+        m_deltaTexture = TextureManager::instance().getTextureFromPath(def->deltaTexturePath);
+    }
     
     setPosition(glm::vec3(0.0f, 0.0f, 0.1f)); // Slightly above ground
     return true;
@@ -42,8 +54,11 @@ bool Vehicle::initialize(const std::string& texturePath) {
 bool Vehicle::initialize(std::shared_ptr<Texture> texture) {
     m_texture = texture;
     
-    // Load delta texture for damage effects
-    m_deltaTexture = TextureManager::instance().getTextureFromPath("assets/textures/car-deltas.png");
+    // Load delta texture for damage effects based on vehicle type
+    const auto* def = VehicleConfig::getInstance().getDefinition(m_vehicleTypeId);
+    if (def && !def->deltaTexturePath.empty()) {
+        m_deltaTexture = TextureManager::instance().getTextureFromPath(def->deltaTexturePath);
+    }
     
     setPosition(glm::vec3(0.0f, 0.0f, 0.1f)); // Slightly above ground
     return true;
@@ -404,5 +419,27 @@ CollisionDirection Vehicle::determineCollisionDirection(const glm::vec3& collisi
     } else {
         // Left or right collision
         return rightDot > 0 ? CollisionDirection::Right : CollisionDirection::Left;
+    }
+}
+
+void Vehicle::setVehicleType(const std::string& typeId) {
+    m_vehicleTypeId = typeId;
+    
+    const auto* def = VehicleConfig::getInstance().getDefinition(typeId);
+    if (def) {
+        m_maxSpeed = def->maxSpeed;
+        m_maxSpeedRoad = def->maxSpeed + def->maxSpeedVariance;
+        m_acceleration = def->acceleration;
+        
+        // Update delta texture for the new vehicle type
+        if (!def->deltaTexturePath.empty()) {
+            m_deltaTexture = TextureManager::instance().getTextureFromPath(def->deltaTexturePath);
+        }
+    } else {
+        // Fallback to defaults if type not found
+        m_maxSpeed = DEFAULT_MAX_SPEED;
+        m_maxSpeedRoad = DEFAULT_MAX_SPEED_ROAD;
+        m_acceleration = DEFAULT_ACCELERATION;
+        std::cerr << "Vehicle: Unknown vehicle type '" << typeId << "', using defaults" << std::endl;
     }
 }

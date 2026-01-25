@@ -5,6 +5,7 @@
 #include <memory>
 #include <array>
 #include <functional>
+#include <string>
 #include <glm/glm.hpp>
 
 class TileGrid;
@@ -56,6 +57,7 @@ private:
     CollisionManager m_collisionManager;
     VehicleDamage m_damage;
     bool m_inCollision = false;  // Tracks if currently in collision state
+    std::string m_vehicleTypeId = "sedan";  // Type ID of this vehicle (from VehicleConfig)
 
 public:
     Vehicle();
@@ -74,6 +76,10 @@ public:
     const glm::vec2& getSpriteSize() const { return m_size; }
     void setTileGrid(class TileGrid* tileGrid) { m_tileGrid = tileGrid; }
     TileGrid* getTileGrid() const { return m_tileGrid; }
+    
+    // Vehicle type configuration
+    void setVehicleType(const std::string& typeId);
+    const std::string& getVehicleTypeId() const { return m_vehicleTypeId; }
     
     // Pilot management
     void setPilot(std::unique_ptr<Pilot> pilot);
