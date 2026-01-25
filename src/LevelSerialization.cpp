@@ -252,6 +252,8 @@ struct TileConfig {
     CarDirection carDirection = CarDirection::None;
     bool sidewalkSpecified = false;
     SidewalkDirection sidewalkDirection = SidewalkDirection::None;
+    bool drivabilitySpecified = false;
+    float drivability = 1.0f;
     WallConfig walls[4];
     // Vehicle spawn weights for this tile
     std::vector<VehicleSpawnWeight> vehicleSpawnWeights;
@@ -314,6 +316,20 @@ bool parseTileProperty(const std::string& key, const std::string& value, TileCon
     if (lowerKey == "sidewalk" || lowerKey == "sidewalkdirection" || lowerKey == "pedestrian") {
         config.sidewalkSpecified = true;
         return parseSidewalkDirectionValue(value, config.sidewalkDirection, logger);
+    }
+
+    // Parse drivability: drivability=0.3 (0.0-1.0, how easily vehicles can drive)
+    if (lowerKey == "drivability" || lowerKey == "driv") {
+        float driv = 0.0f;
+        if (!parseFloat(value, driv)) {
+            logger.error("Invalid drivability value: " + value);
+            return false;
+        }
+        if (driv < 0.0f) driv = 0.0f;
+        if (driv > 1.0f) driv = 1.0f;
+        config.drivability = driv;
+        config.drivabilitySpecified = true;
+        return true;
     }
 
     // Parse spawn weights: spawn_sedan=1.5 or spawn_pickup=0.5
@@ -384,6 +400,11 @@ void applyTileConfig(TileGrid& grid, Tile& tile, const TileConfig& config) {
 
     if (config.sidewalkSpecified) {
         tile.setSidewalkDirection(config.sidewalkDirection);
+    }
+
+    // Apply drivability
+    if (config.drivabilitySpecified) {
+        tile.setDrivability(config.drivability);
     }
 
     // Apply vehicle spawn weights
@@ -960,6 +981,13 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
 
                 if (top.sidewalkDirection != SidewalkDirection::None) {
                     properties.push_back(std::string("sidewalk=") + sidewalkDirectionToString(top.sidewalkDirection));
+                }
+
+                // Save drivability (only if different from default 1.0)
+                if (std::abs(top.drivability - 1.0f) > 0.001f) {
+                    std::ostringstream drivProp;
+                    drivProp << "drivability=" << std::fixed << std::setprecision(2) << top.drivability;
+                    properties.push_back(drivProp.str());
                 }
 
                 // Save vehicle spawn weights (only if they differ from default 1.0)

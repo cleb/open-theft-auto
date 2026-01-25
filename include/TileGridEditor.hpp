@@ -75,6 +75,7 @@ private:
         bool topSolid = false;
         CarDirection topCarDirection = CarDirection::None;
         SidewalkDirection topSidewalkDirection = SidewalkDirection::None;
+        float drivability = 1.0f;  // Surface drivability (0.0-1.0)
         std::array<char, TextureBufferSize> topTexture{};
         std::array<bool, 4> wallWalkable{};
         std::array<std::array<char, TextureBufferSize>, 4> wallTextures{};
@@ -198,6 +199,7 @@ private:
     std::string findAliasForPath(const std::string& path) const;
     void applyTopSurfaceFromUi();
     void applySpawnWeightsFromUi();
+    void applyDrivabilityFromUi();
     void applyWallFromUi(int wallIndex, WallDirection direction);
     void applyVehicleBrush();
     void removeVehicleAtCursor();

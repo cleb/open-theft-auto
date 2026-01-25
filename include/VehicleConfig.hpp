@@ -15,6 +15,12 @@ struct VehicleTypeDefinition {
     glm::vec2 size = glm::vec2(1.5f, 3.0f);
     std::string texturePath;
     std::string deltaTexturePath;
+    
+    // How much the vehicle is affected by low-drivability surfaces
+    // 0.0 = completely immune to surface conditions (always full speed)
+    // 1.0 = fully affected (speed = baseSpeed * drivability)
+    // Values between allow partial resistance (e.g., 0.5 = half the slowdown effect)
+    float drivabilityImpact = 1.0f;
 };
 
 // Singleton class to manage vehicle type definitions

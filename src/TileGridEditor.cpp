@@ -1348,6 +1348,27 @@ void TileGridEditor::drawTopFaceControls(Tile* tile) {
         applyTopSurfaceFromUi();
     }
 
+    // Drivability slider - affects vehicle max speed on this surface
+    ImGui::SeparatorText("Surface Drivability");
+    ImGui::TextDisabled("1.0 = full speed (roads), lower = vehicles slow down");
+    if (ImGui::SliderFloat("Drivability", &m_uiTileState.drivability, 0.0f, 1.0f, "%.2f")) {
+        applyDrivabilityFromUi();
+    }
+    if (ImGui::Button("Road (1.0)##driv")) {
+        m_uiTileState.drivability = 1.0f;
+        applyDrivabilityFromUi();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Grass (0.3)##driv")) {
+        m_uiTileState.drivability = 0.3f;
+        applyDrivabilityFromUi();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Dirt (0.6)##driv")) {
+        m_uiTileState.drivability = 0.6f;
+        applyDrivabilityFromUi();
+    }
+
     if (ImGui::InputText("Texture Path##top", m_uiTileState.topTexture.data(), m_uiTileState.topTexture.size())) {
         applyTopSurfaceFromUi();
     }
@@ -1488,6 +1509,15 @@ void TileGridEditor::applySpawnWeightsFromUi() {
     for (size_t i = 0; i < definitions.size() && i < m_uiTileState.spawnWeights.size(); ++i) {
         tile->setVehicleSpawnWeight(definitions[i].id, m_uiTileState.spawnWeights[i]);
     }
+}
+
+void TileGridEditor::applyDrivabilityFromUi() {
+    Tile* tile = currentTile();
+    if (!tile) {
+        return;
+    }
+
+    tile->setDrivability(m_uiTileState.drivability);
 }
 
 void TileGridEditor::applyWallFromUi(int wallIndex, WallDirection direction) {
@@ -1673,6 +1703,7 @@ void TileGridEditor::refreshUiStateFromTile() {
         m_uiTileState.topSolid = false;
         m_uiTileState.topCarDirection = CarDirection::None;
         m_uiTileState.topSidewalkDirection = SidewalkDirection::None;
+        m_uiTileState.drivability = 1.0f;
         m_uiTileState.topTexture.fill('\0');
         for (auto& flags : m_uiTileState.wallWalkable) {
             flags = true;
@@ -1690,6 +1721,7 @@ void TileGridEditor::refreshUiStateFromTile() {
     m_uiTileState.topSolid = top.solid;
     m_uiTileState.topCarDirection = top.carDirection;
     m_uiTileState.topSidewalkDirection = top.sidewalkDirection;
+    m_uiTileState.drivability = top.drivability;
     std::snprintf(m_uiTileState.topTexture.data(), m_uiTileState.topTexture.size(), "%s", top.texturePath.c_str());
     
     // Load spawn weights for all defined vehicle types

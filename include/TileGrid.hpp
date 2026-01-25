@@ -54,6 +54,10 @@ public:
     bool isRoadTile(const glm::ivec3& gridPos) const;
     bool isSidewalkTile(const glm::vec3& worldPos) const;
     bool isSidewalkTile(const glm::ivec3& gridPos) const;
+    
+    // Get the drivability at a world position (1.0 = fully drivable, 0.0 = impassable)
+    float getDrivability(const glm::vec3& worldPos) const;
+    float getDrivability(const glm::ivec3& gridPos) const;
 
 private:
     int getIndex(int x, int y, int z) const;

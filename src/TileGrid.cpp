@@ -114,12 +114,13 @@ void TileGrid::reset() {
     const std::string grassTexturePath = "assets/textures/grass.png";
     std::shared_ptr<Texture> grassTexture = TextureManager::instance().getTextureFromPath(grassTexturePath);
     
-    // Fill the bottom layer (z=0) with grass
+    // Fill the bottom layer (z=0) with grass (low drivability)
     for (int y = 0; y < m_gridSize.y; ++y) {
         for (int x = 0; x < m_gridSize.x; ++x) {
             Tile* tile = getTile(x, y, 0);
             if (tile) {
                 tile->setTopSurface(true, grassTexturePath, grassTexture, CarDirection::None);
+                tile->setDrivability(0.3f);  // Grass is hard to drive on
             }
         }
     }
@@ -315,3 +316,25 @@ bool TileGrid::isSidewalkTile(const glm::ivec3& gridPos) const {
     return tile->isSidewalk();
 }
 
+float TileGrid::getDrivability(const glm::vec3& worldPos) const {
+    glm::ivec3 gridPos = worldToGrid(worldPos);
+    // Check the tile BELOW the entity (same logic as hasGroundSupport)
+    gridPos.z -= 1;
+    if (!isValidPosition(gridPos)) {
+        return 0.5f;  // Default to moderate drivability for out-of-bounds
+    }
+    return getDrivability(gridPos);
+}
+
+float TileGrid::getDrivability(const glm::ivec3& gridPos) const {
+    if (!isValidPosition(gridPos)) {
+        return 0.5f;
+    }
+
+    const Tile* tile = getTile(gridPos);
+    if (!tile) {
+        return 0.5f;
+    }
+
+    return tile->getTopSurface().drivability;
+}

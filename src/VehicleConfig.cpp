@@ -73,6 +73,11 @@ bool VehicleConfig::loadFromFile(const std::string& filepath) {
                 def.deltaTexturePath = vt["deltaTexture"].get<std::string>();
             }
             
+            // Parse drivability impact (how much surface conditions affect this vehicle)
+            if (vt.contains("drivabilityImpact") && vt["drivabilityImpact"].is_number()) {
+                def.drivabilityImpact = vt["drivabilityImpact"].get<float>();
+            }
+            
             // Add to collection
             m_idToIndex[def.id] = static_cast<int>(m_definitions.size());
             m_definitions.push_back(std::move(def));

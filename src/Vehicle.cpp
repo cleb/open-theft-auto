@@ -70,6 +70,20 @@ void Vehicle::update(float deltaTime) {
         m_pilot->update(this, m_tileGrid, deltaTime);
     }
     
+    // Check if we're over the max speed for current surface and apply deceleration
+    float maxSpeed = getCurrentMaxSpeed();
+    if (std::abs(m_speed) > maxSpeed) {
+        // Apply surface-based deceleration (gentler than braking)
+        float surfaceDecel = m_acceleration * 0.5f * deltaTime;
+        if (m_speed > maxSpeed) {
+            m_speed -= surfaceDecel;
+            if (m_speed < maxSpeed) m_speed = maxSpeed;
+        } else if (m_speed < -maxSpeed * 0.5f) {  // Reverse max is half
+            m_speed += surfaceDecel;
+            if (m_speed > -maxSpeed * 0.5f) m_speed = -maxSpeed * 0.5f;
+        }
+    }
+    
     // Apply friction so the car gradually coasts to a stop
     bool hasUserPilot = m_pilot != nullptr; // TODO: could check pilot type
     const float damping = hasUserPilot ? 0.985f : 0.95f;
@@ -250,18 +264,41 @@ void Vehicle::render(Renderer* renderer) {
 }
 
 void Vehicle::moveForward(float deltaTime) {
-    m_speed += m_acceleration * deltaTime;
     float maxSpeed = getCurrentMaxSpeed();
-    if (m_speed > maxSpeed) {
-        m_speed = maxSpeed;
+    
+    // If under max speed, accelerate normally
+    if (m_speed < maxSpeed) {
+        m_speed += m_acceleration * deltaTime;
+        if (m_speed > maxSpeed) {
+            m_speed = maxSpeed;
+        }
+    } else if (m_speed > maxSpeed) {
+        // If over max speed (e.g., entered rough terrain), decelerate gradually
+        // Use a gentler deceleration than braking - surface resistance slows you down
+        float surfaceDecel = m_acceleration * 0.5f;  // Half the normal acceleration
+        m_speed -= surfaceDecel * deltaTime;
+        if (m_speed < maxSpeed) {
+            m_speed = maxSpeed;
+        }
     }
 }
 
 void Vehicle::moveBackward(float deltaTime) {
-    m_speed -= m_acceleration * deltaTime;
-    float maxSpeed = getCurrentMaxSpeed() * 0.5f;
-    if (m_speed < -maxSpeed) { // Reverse is slower
-        m_speed = -maxSpeed;
+    float maxSpeed = getCurrentMaxSpeed() * 0.5f;  // Reverse is slower
+    
+    // If not at reverse max speed, accelerate backward
+    if (m_speed > -maxSpeed) {
+        m_speed -= m_acceleration * deltaTime;
+        if (m_speed < -maxSpeed) {
+            m_speed = -maxSpeed;
+        }
+    } else if (m_speed < -maxSpeed) {
+        // If going faster in reverse than allowed, decelerate
+        float surfaceDecel = m_acceleration * 0.5f;
+        m_speed += surfaceDecel * deltaTime;
+        if (m_speed > -maxSpeed) {
+            m_speed = -maxSpeed;
+        }
     }
 }
 
@@ -296,14 +333,36 @@ void Vehicle::turnLeft(float deltaTime) {
 }
 
 float Vehicle::getCurrentMaxSpeed() const {
-    return isOnRoad() ? m_maxSpeedRoad : m_maxSpeed;
+    float drivability = getCurrentDrivability();
+    
+    // Base speed depends on whether we're on a well-paved surface
+    // Drivability of 1.0 means full speed, lower values reduce max speed
+    float baseSpeed = m_maxSpeedRoad;
+    
+    // Apply drivability effect based on vehicle's resistance to poor surfaces
+    const auto* def = VehicleConfig::getInstance().getDefinition(m_vehicleTypeId);
+    float impact = def ? def->drivabilityImpact : 1.0f;
+    
+    // Calculate effective speed multiplier:
+    // drivability=1.0 -> multiplier=1.0 (full speed)
+    // drivability=0.0 -> multiplier=(1-impact) (minimum speed based on vehicle's resistance)
+    // For impact=1.0 (fully affected): multiplier = drivability
+    // For impact=0.0 (immune): multiplier = 1.0
+    float multiplier = 1.0f - (impact * (1.0f - drivability));
+    
+    return baseSpeed * multiplier;
+}
+
+float Vehicle::getCurrentDrivability() const {
+    if (!m_tileGrid) {
+        return 0.5f;  // Default moderate drivability
+    }
+    return m_tileGrid->getDrivability(m_position);
 }
 
 bool Vehicle::isOnRoad() const {
-    if (!m_tileGrid) {
-        return false;
-    }
-    return m_tileGrid->isRoadTile(m_position);
+    // Consider a surface "road-like" if drivability is high
+    return getCurrentDrivability() >= 0.9f;
 }
 
 std::array<glm::vec3, 8> Vehicle::getCollisionOffsets() const {

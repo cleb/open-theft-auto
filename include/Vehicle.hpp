@@ -98,6 +98,7 @@ public:
     float getMaxSpeed() const { return m_maxSpeed; }
     float getAcceleration() const { return m_acceleration; }
     float getTurnSpeed() const { return m_turnSpeed; }
+    float getCurrentMaxSpeed() const;  // Get max speed based on current surface
     
     // Collider interface implementation
     glm::vec3 getColliderPosition() const override { return m_position; }
@@ -122,7 +123,7 @@ public:
     bool isInCollision() const { return m_inCollision; }
 
 private:
-    float getCurrentMaxSpeed() const;
+    float getCurrentDrivability() const;
     bool isOnRoad() const;
     std::array<glm::vec3, 8> getCollisionOffsets() const;
     bool canMoveTo(const glm::vec3& from, const glm::vec3& to) const;
