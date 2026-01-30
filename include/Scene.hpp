@@ -12,7 +12,7 @@
 #include "TrafficManager.hpp"
 #include "PedestrianManager.hpp"
 #include "Pickup.hpp"
-#include "Texture.hpp"
+#include "ProjectileManager.hpp"
 #include "Collider.hpp"
 
 #include <string>
@@ -33,14 +33,7 @@ private:
     std::unique_ptr<PedestrianManager> m_pedestrianManager;
     LevelData m_levelData;
     std::string m_levelPath;
-    std::shared_ptr<Texture> m_projectileTexture;
-
-    struct Projectile {
-        glm::vec3 position{0.0f};
-        glm::vec2 velocity{0.0f};
-        float life = 0.0f;
-    };
-    std::vector<Projectile> m_projectiles;
+    ProjectileManager m_projectileManager;
 
     // Game logic handler (owned by Engine)
     GameLogic* m_gameLogic;
@@ -80,5 +73,4 @@ private:
     void rebuildPickupsFromSpawns();
     void handlePickupCollection();
     void firePistolShot();
-    void updateProjectiles(float deltaTime);
 };

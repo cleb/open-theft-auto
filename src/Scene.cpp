@@ -85,10 +85,7 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     // Create test scene
     createTestScene();
 
-    if (!m_projectileTexture) {
-        m_projectileTexture = std::make_shared<Texture>();
-        m_projectileTexture->createSolidColor(255, 255, 255, 255);
-    }
+    m_projectileManager.initialize();
     
     return true;
 }
@@ -120,7 +117,7 @@ void Scene::update(float deltaTime) {
 
     if (!isEditModeActive()) {
         handlePickupCollection();
-        updateProjectiles(deltaTime);
+    m_projectileManager.update(deltaTime, m_pedestrianManager.get(), &m_vehicles, m_trafficManager.get());
     }
     
     // Update all game objects
@@ -174,12 +171,7 @@ void Scene::render(Renderer* renderer) {
             }
         }
 
-        if (m_projectileTexture) {
-            const glm::vec2 dotSize(0.15f, 0.15f);
-            for (const auto& projectile : m_projectiles) {
-                renderer->renderSprite(*m_projectileTexture, glm::vec2(projectile.position.x, projectile.position.y), dotSize, 0.0f, glm::vec3(1.0f));
-            }
-        }
+        m_projectileManager.render(renderer);
     }
     
     // Render vehicles
@@ -517,94 +509,8 @@ void Scene::firePistolShot() {
     constexpr float kProjectileSpeed = 35.0f;
     constexpr float kProjectileLifetime = 0.25f;
     float bestT = kMaxRange + 1.0f;
-    Projectile projectile;
-    projectile.position = glm::vec3(origin.x, origin.y, playerPos.z + 0.15f);
-    projectile.velocity = dir * kProjectileSpeed;
-    projectile.life = kMaxRange / kProjectileSpeed;
-    m_projectiles.push_back(projectile);
-}
-
-void Scene::updateProjectiles(float deltaTime) {
-    if (m_projectiles.empty()) {
-        return;
-    }
-
-    for (auto& projectile : m_projectiles) {
-        projectile.position.x += projectile.velocity.x * deltaTime;
-        projectile.position.y += projectile.velocity.y * deltaTime;
-        projectile.life -= deltaTime;
-
-        if (projectile.life <= 0.0f) {
-            continue;
-        }
-
-        bool hitSomething = false;
-        const glm::vec2 projPos(projectile.position.x, projectile.position.y);
-    const float projRadius = 0.08f;
-
-        if (m_pedestrianManager) {
-            for (const auto& pedestrian : m_pedestrianManager->getPedestrians()) {
-                if (!pedestrian || !pedestrian->isActive() || pedestrian->isDead()) {
-                    continue;
-                }
-                const glm::vec3 pedPos3 = pedestrian->getPosition();
-                const glm::vec2 pedPos(pedPos3.x, pedPos3.y);
-                const glm::vec2 diff = pedPos - projPos;
-                const glm::vec2 pedSize = pedestrian->getSize();
-                const float pedRadius = std::max(pedSize.x, pedSize.y) * 0.25f;
-                const float radius = projRadius + pedRadius;
-                if ((diff.x * diff.x + diff.y * diff.y) <= radius * radius) {
-                    pedestrian->kill();
-                    hitSomething = true;
-                    break;
-                }
-            }
-        }
-
-        if (!hitSomething) {
-            auto testVehicle = [&](Vehicle* vehicle) {
-                if (!vehicle || !vehicle->isActive()) {
-                    return false;
-                }
-                const glm::vec3 vehPos3 = vehicle->getPosition();
-                const glm::vec2 vehPos(vehPos3.x, vehPos3.y);
-                const glm::vec2 diff = vehPos - projPos;
-                const glm::vec2 vehSize = vehicle->getSpriteSize();
-                const float vehRadius = std::max(vehSize.x, vehSize.y) * 0.5f;
-                const float radius = projRadius + vehRadius;
-                if ((diff.x * diff.x + diff.y * diff.y) <= radius * radius) {
-                    std::cout << "Pistol shot hit vehicle" << std::endl;
-                    return true;
-                }
-                return false;
-            };
-
-            for (const auto& vehicle : m_vehicles) {
-                if (testVehicle(vehicle.get())) {
-                    hitSomething = true;
-                    break;
-                }
-            }
-            if (!hitSomething && m_trafficManager) {
-                for (const auto& vehicle : m_trafficManager->getTrafficVehicles()) {
-                    if (testVehicle(vehicle.get())) {
-                        hitSomething = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (hitSomething) {
-            projectile.life = 0.0f;
-        }
-    }
-
-    m_projectiles.erase(
-        std::remove_if(m_projectiles.begin(), m_projectiles.end(), [](const Projectile& projectile) {
-            return projectile.life <= 0.0f;
-        }),
-        m_projectiles.end());
+    m_projectileManager.spawnProjectile(glm::vec3(origin.x, origin.y, playerPos.z + 0.15f), dir,
+                                        kProjectileSpeed, kMaxRange);
 }
 
 std::vector<const Collider*> Scene::getAllColliders() const {
