@@ -118,6 +118,11 @@ void Scene::update(float deltaTime) {
     if (!isEditModeActive()) {
         handlePickupCollection();
     m_projectileManager.update(deltaTime, m_pedestrianManager.get(), &m_vehicles, m_trafficManager.get());
+        for (auto& pickup : m_pickups) {
+            if (pickup && pickup->isActive()) {
+                pickup->update(deltaTime);
+            }
+        }
     }
     
     // Update all game objects

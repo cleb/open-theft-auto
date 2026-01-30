@@ -25,4 +25,5 @@ private:
     PickupType m_type;
     std::shared_ptr<Texture> m_texture;
     glm::vec2 m_size;
+    float m_rotationSpeed;
 };

@@ -5,7 +5,8 @@
 
 Pickup::Pickup(PickupType type)
     : m_type(type)
-    , m_size(pickupDefaultSize(type)) {
+    , m_size(pickupDefaultSize(type))
+    , m_rotationSpeed(120.0f) {
 }
 
 bool Pickup::initialize() {
@@ -18,7 +19,10 @@ bool Pickup::initialize() {
 }
 
 void Pickup::update(float deltaTime) {
-    (void)deltaTime;
+    m_rotation.z += m_rotationSpeed * deltaTime;
+    if (m_rotation.z >= 360.0f) {
+        m_rotation.z -= 360.0f;
+    }
 }
 
 void Pickup::render(Renderer* renderer) {
@@ -26,5 +30,5 @@ void Pickup::render(Renderer* renderer) {
         return;
     }
 
-    renderer->renderSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size, 0.0f, glm::vec3(1.0f));
+    renderer->renderSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size, m_rotation.z, glm::vec3(1.0f));
 }

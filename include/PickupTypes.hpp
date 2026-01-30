@@ -36,7 +36,7 @@ inline glm::vec2 pickupDefaultSize(PickupType type) {
     switch (type) {
         case PickupType::Pistol:
         default:
-            return glm::vec2(1.0f, 1.0f);
+            return glm::vec2(1.6f, 1.6f);
     }
 }
 
