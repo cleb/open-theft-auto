@@ -512,8 +512,6 @@ void Scene::firePistolShot() {
 
     constexpr float kMaxRange = 25.0f;
     constexpr float kProjectileSpeed = 35.0f;
-    constexpr float kProjectileLifetime = 0.25f;
-    float bestT = kMaxRange + 1.0f;
     m_projectileManager.spawnProjectile(glm::vec3(origin.x, origin.y, playerPos.z + 0.15f), dir,
                                         kProjectileSpeed, kMaxRange);
 }

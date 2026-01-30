@@ -452,7 +452,7 @@ void TileGridEditor::processInput(InputManager* input, float deltaTime) {
                           << ", Camera: " << (m_renderer && m_renderer->getCamera() ? "OK" : "NULL") << std::endl;
             }
         }
-        
+
         handleMouseSelection(input);
     }
 
@@ -1936,6 +1936,7 @@ void TileGridEditor::applyBucketFill() {
                 break;
             case BrushType::Vehicle:
             case BrushType::PlayerSpawn:
+            case BrushType::Pickup:
                 break;
         }
     }
@@ -1986,6 +1987,7 @@ void TileGridEditor::applyBucketFill() {
                 break;
             case BrushType::Vehicle:
             case BrushType::PlayerSpawn:
+            case BrushType::Pickup:
                 break;
         }
     };

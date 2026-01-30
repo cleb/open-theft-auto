@@ -377,7 +377,7 @@ bool parseTileProperty(const std::string& key, const std::string& value, TileCon
     return false;
 }
 
-void applyTileConfig(TileGrid& grid, Tile& tile, const TileConfig& config) {
+void applyTileConfig(Tile& tile, const TileConfig& config) {
     if (config.topSpecified) {
         if (config.topSolid) {
             const std::string resolved = LevelSerialization::GridAccess::resolveTexturePath(config.topTextureId);
@@ -462,7 +462,6 @@ KeyValueTokens collectKeyValueTokens(std::istringstream& stream, const LineLogge
 bool parseVehicleProperty(const std::string& key,
                           const std::string& value,
                           VehicleSpawnDefinition& spawn,
-                          const TileGrid& grid,
                           const LineLogger& logger) {
     const std::string lowerKey = toLowerCopy(trimCopy(key));
     if (lowerKey == "rotation" || lowerKey == "angle" || lowerKey == "yaw") {
@@ -677,7 +676,7 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
                 continue;
             }
 
-            applyTileConfig(grid, *tile, config);
+            applyTileConfig(*tile, config);
         } else if (lowerCmd == "fill") {
             KeyValueTokens tokens = collectKeyValueTokens(stream, logger);
             if (!tokens.valid) {
@@ -747,7 +746,7 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
                         if (!tile) {
                             continue;
                         }
-                        applyTileConfig(grid, *tile, config);
+                        applyTileConfig(*tile, config);
                     }
                 }
             }
@@ -769,7 +768,7 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
                 parseOk = false;
             }
             for (const auto& entry : tokens.entries) {
-                if (!parseVehicleProperty(entry.first, entry.second, spawn, grid, logger)) {
+                if (!parseVehicleProperty(entry.first, entry.second, spawn, logger)) {
                     parseOk = false;
                 }
             }
