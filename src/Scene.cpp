@@ -8,6 +8,7 @@
 #include "VehicleConfig.hpp"
 #include "Window.hpp"
 #include "Heading.hpp"
+#include "PistolWeapon.hpp"
 #include <iostream>
 #include <string>
 #include <algorithm>
@@ -484,7 +485,7 @@ void Scene::handlePickupCollection() {
         const float distanceSq = delta.x * delta.x + delta.y * delta.y;
         if (distanceSq <= radius * radius) {
             if (pickup->getType() == PickupType::Pistol) {
-                m_player->givePistol();
+                m_player->equipWeapon(std::make_unique<PistolWeapon>());
                 std::cout << "Picked up pistol" << std::endl;
             }
             return true;

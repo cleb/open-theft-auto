@@ -3,6 +3,7 @@
 #include "ControllableObject.hpp"
 #include "Collider.hpp"
 #include "SpriteAnimation.hpp"
+#include "Weapon.hpp"
 #include <memory>
 
 class TileGrid;
@@ -19,9 +20,7 @@ private:
     
     // Animation state
     bool m_isMoving;
-    bool m_hasPistol;
-    float m_shotCooldown;
-    float m_timeSinceLastShot;
+    std::unique_ptr<Weapon> m_weapon;
     
     void applyMovement(const glm::vec3& delta);
 
@@ -39,8 +38,8 @@ public:
     void turnRight(float deltaTime);
     void setTileGrid(TileGrid* tileGrid) { m_tileGrid = tileGrid; }
 
-    bool hasPistol() const { return m_hasPistol; }
-    void givePistol();
+    bool hasWeapon() const { return m_weapon != nullptr; }
+    void equipWeapon(std::unique_ptr<Weapon> weapon);
     bool canShoot() const;
     void recordShot();
     

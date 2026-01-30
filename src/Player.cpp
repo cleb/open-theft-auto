@@ -4,7 +4,6 @@
 #include "Heading.hpp"
 #include <glm/gtc/constants.hpp>
 #include <iostream>
-#include <algorithm>
 
 Player::Player() 
     : m_speed(5.0f)
@@ -12,9 +11,7 @@ Player::Player()
     , m_size(1.0f, 1.0f)
     , m_tileGrid(nullptr)
     , m_isMoving(false)
-    , m_hasPistol(false)
-    , m_shotCooldown(0.5f)
-    , m_timeSinceLastShot(0.5f) {
+    , m_weapon(nullptr) {
 }
 
 bool Player::initialize() {
@@ -44,7 +41,9 @@ bool Player::initialize() {
 }
 
 void Player::update(float deltaTime) {
-    m_timeSinceLastShot = std::min(m_timeSinceLastShot + deltaTime, m_shotCooldown);
+    if (m_weapon) {
+        m_weapon->update(deltaTime);
+    }
 
     // Update animation
     if (m_walkAnimation) {
@@ -61,17 +60,18 @@ void Player::update(float deltaTime) {
     m_isMoving = false;
 }
 
-void Player::givePistol() {
-    m_hasPistol = true;
-    m_timeSinceLastShot = m_shotCooldown;
-}
-
 bool Player::canShoot() const {
-    return m_hasPistol && m_timeSinceLastShot >= m_shotCooldown;
+    return m_weapon && m_weapon->canFire();
 }
 
 void Player::recordShot() {
-    m_timeSinceLastShot = 0.0f;
+    if (m_weapon) {
+        m_weapon->recordFire();
+    }
+}
+
+void Player::equipWeapon(std::unique_ptr<Weapon> weapon) {
+    m_weapon = std::move(weapon);
 }
 
 void Player::render(Renderer* renderer) {
