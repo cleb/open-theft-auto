@@ -1,0 +1,94 @@
+#pragma once
+
+#include "Vehicle.hpp"
+#include "TileGrid.hpp"
+#include "Camera.hpp"
+#include "ViewBounds.hpp"
+#include "TrafficManager.hpp"
+#include <vector>
+#include <memory>
+#include <glm/glm.hpp>
+#include <random>
+#include <deque>
+#include <functional>
+
+class Renderer;
+class Player;
+
+// Callback to get the current player position
+using PlayerPositionCallback = std::function<glm::vec3()>;
+// Callback to get all colliders
+using ColliderCallback = std::function<std::vector<const class Collider*>()>;
+
+class PoliceChaseManager {
+public:
+    PoliceChaseManager();
+    ~PoliceChaseManager() = default;
+
+    void initialize(TileGrid* tileGrid, Camera* camera, Player* player, TrafficManager* trafficManager);
+    void update(float deltaTime);
+    void render(Renderer* renderer);
+    void reset();
+    
+    // Set projection info for accurate view bounds calculation
+    void setProjectionInfo(float fovRadians, float aspectRatio);
+    
+    // Called when a pedestrian is killed by the player
+    void onPedestrianKilled();
+    
+    // Set callbacks
+    void setPlayerPositionCallback(PlayerPositionCallback callback) { m_playerPositionCallback = std::move(callback); }
+    void setCollisionCallback(ColliderCallback callback);
+    
+    // Get police vehicles (for collision detection)
+    const std::vector<std::unique_ptr<Vehicle>>& getPoliceVehicles() const { return m_policeVehicles; }
+    
+    // Configuration
+    void setKillThreshold(int threshold) { m_killThreshold = threshold; }
+    void setKillWindowSeconds(float seconds) { m_killWindowSeconds = seconds; }
+    void setEnabled(bool enabled) { m_enabled = enabled; }
+    bool isEnabled() const { return m_enabled; }
+    
+    // Chase state
+    bool isChaseActive() const { return m_chaseActive; }
+    int getRecentKillCount() const;
+
+private:
+    TileGrid* m_tileGrid;
+    Camera* m_camera;
+    Player* m_player;
+    TrafficManager* m_trafficManager;
+    
+    std::vector<std::unique_ptr<Vehicle>> m_policeVehicles;
+    ColliderCallback m_collisionCallback;
+    PlayerPositionCallback m_playerPositionCallback;
+    
+    // Kill tracking: timestamps of recent pedestrian kills
+    std::deque<float> m_killTimestamps;
+    float m_currentTime;
+    
+    // Configuration
+    int m_killThreshold;           // Number of kills to trigger chase (default: 3)
+    float m_killWindowSeconds;     // Time window for counting kills (default: 60s)
+    float m_viewMargin;            // Margin for spawn zone
+    bool m_enabled;
+    bool m_chaseActive;
+    
+    // Projection info for view bounds
+    float m_fovRadians;
+    float m_aspectRatio;
+    
+    // Random number generation
+    std::mt19937 m_rng;
+    
+    // Temp storage for spawn rotation (set by findValidSpawnPoint)
+    float m_lastSpawnRotation = 0.0f;
+    
+    // Helper methods
+    void checkChaseCondition();
+    void spawnPoliceVehicle();
+    void updatePoliceVehicles(float deltaTime);
+    void cleanupOldKills();
+    glm::vec3 findValidSpawnPoint();
+    bool isTooCloseToOtherVehicles(const glm::vec3& position) const;
+};
