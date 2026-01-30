@@ -11,6 +11,7 @@
 #include "GameLogic.hpp"
 #include "TrafficManager.hpp"
 #include "PedestrianManager.hpp"
+#include "PoliceChaseManager.hpp"
 #include "Pickup.hpp"
 #include "ProjectileManager.hpp"
 #include "Collider.hpp"
@@ -25,12 +26,13 @@ private:
     std::unique_ptr<Player> m_player;
     std::vector<std::unique_ptr<Vehicle>> m_vehicles;
     std::vector<std::unique_ptr<Pickup>> m_pickups;
-    
+
     // New tile grid system
     std::unique_ptr<TileGrid> m_tileGrid;
     std::unique_ptr<TileGridEditor> m_tileGridEditor;
     std::unique_ptr<TrafficManager> m_trafficManager;
     std::unique_ptr<PedestrianManager> m_pedestrianManager;
+    std::unique_ptr<PoliceChaseManager> m_policeChaseManager;
     LevelData m_levelData;
     std::string m_levelPath;
     ProjectileManager m_projectileManager;
@@ -59,6 +61,7 @@ public:
     GameLogic* getGameLogic() const { return m_gameLogic; }
     TrafficManager* getTrafficManager() const { return m_trafficManager.get(); }
     PedestrianManager* getPedestrianManager() const { return m_pedestrianManager.get(); }
+    PoliceChaseManager* getPoliceChaseManager() const { return m_policeChaseManager.get(); }
     bool isEditModeActive() const { return m_tileGridEditor && m_tileGridEditor->isEnabled(); }
     
     // Get all collidable objects for collision detection

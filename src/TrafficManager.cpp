@@ -205,6 +205,9 @@ void TrafficManager::spawnVehicle() {
         std::vector<std::pair<std::string, float>> typeWeights;
         
         for (const auto& def : definitions) {
+            // Skip police vehicles - they are only spawned by PoliceChaseManager
+            if (def.id == "police") continue;
+            
             float weight = tile->getVehicleSpawnWeight(def.id);
             if (weight > 0.0f) {
                 totalWeight += weight;

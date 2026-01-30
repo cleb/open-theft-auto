@@ -47,6 +47,11 @@ private:
     float m_lookaheadDistance = 8.0f;  // How far ahead to check for obstacles
     float m_minStoppingDistance = 1.5f;  // Minimum distance to maintain from obstacles
     
+protected:
+    // Helper methods available to subclasses
+    float normalizeAngle(float angle) const;
+    
+private:
     // Helper methods
     float checkForObstaclesAhead(Vehicle* vehicle, float heading) const;
     void updateSpeedForObstacles(Vehicle* vehicle, float heading, float deltaTime);
@@ -54,8 +59,6 @@ private:
     glm::vec2 getCornerOffset(CarDirection tileDir, float tileSize, float currentAngle) const;
     void updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime, const glm::ivec3& gridPos, CarDirection tileDir);
     void updateOnStraight(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime, const glm::ivec3& gridPos, CarDirection tileDir);
-
-    float normalizeAngle(float angle) const;
 
     int getCurveDirection(CarDirection tileDir, float currentAngle) const;
 

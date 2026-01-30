@@ -23,6 +23,17 @@
             "deltaTexture": "assets/textures/pickup-deltas.png",
             "maxHealth": 15,
             "drivabilityImpact": 0.5
+        },
+        {
+            "id": "police",
+            "displayName": "Police",
+            "maxSpeed": 32.0,
+            "maxSpeedVariance": 0.0,
+            "acceleration": 16.0,
+            "size": [1.6, 3.2],
+            "texture": "assets/textures/police.png",
+            "deltaTexture": "assets/textures/police-deltas.png",
+            "drivabilityImpact": 0.0
         }
     ]
 }

@@ -273,6 +273,12 @@ void PedestrianManager::checkVehicleCollisions() {
                 std::abs(localY) < halfLength + pedRadius) {
                 // Collision detected - kill the pedestrian
                 pedestrian->kill();
+                
+                // Notify kill callback with the killer vehicle
+                if (m_pedestrianKillCallback) {
+                    m_pedestrianKillCallback(vehicle);
+                }
+                
                 break;  // No need to check other vehicles for this pedestrian
             }
         }

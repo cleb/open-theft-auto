@@ -5,6 +5,7 @@
 #include "GameLogic.hpp"
 #include "TrafficManager.hpp"
 #include "PedestrianManager.hpp"
+#include "PoliceChaseManager.hpp"
 #include "VehicleConfig.hpp"
 #include "Window.hpp"
 #include "Heading.hpp"
@@ -81,6 +82,38 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
         return allVehicles;
     });
     
+    // Initialize police chase manager
+    m_policeChaseManager = std::make_unique<PoliceChaseManager>();
+    m_policeChaseManager->initialize(m_tileGrid.get(), renderer->getCamera(), m_player.get(), m_trafficManager.get());
+    m_policeChaseManager->setProjectionInfo(1.57f, window->getAspectRatio());
+    
+    // Set up player position callback for police to chase
+    m_policeChaseManager->setPlayerPositionCallback([this]() -> glm::vec3 {
+        if (m_gameLogic && m_gameLogic->isPlayerInVehicle()) {
+            Vehicle* activeVehicle = m_gameLogic->getActiveVehicle();
+            if (activeVehicle) {
+                return activeVehicle->getPosition();
+            }
+        }
+        if (m_player) {
+            return m_player->getPosition();
+        }
+        return glm::vec3(0.0f);
+    });
+    
+    // Set up pedestrian kill callback to notify police chase manager
+    m_pedestrianManager->setPedestrianKillCallback([this](Vehicle* killerVehicle) {
+        // Only count kills by the player's vehicle
+        if (m_gameLogic && m_gameLogic->isPlayerInVehicle()) {
+            Vehicle* playerVehicle = m_gameLogic->getActiveVehicle();
+            if (playerVehicle == killerVehicle) {
+                if (m_policeChaseManager) {
+                    m_policeChaseManager->onPedestrianKilled();
+                }
+            }
+        }
+    });
+    
     // Initialize game logic
     m_gameLogic->setPlayer(m_player.get());
     m_gameLogic->setVehicles(&m_vehicles);
@@ -127,6 +160,11 @@ void Scene::update(float deltaTime) {
                 pickup->update(deltaTime);
             }
         }
+    }
+    
+    // Update police chase manager
+    if (m_policeChaseManager && !isEditModeActive()) {
+        m_policeChaseManager->update(deltaTime);
     }
     
     // Update all game objects
@@ -195,6 +233,11 @@ void Scene::render(Renderer* renderer) {
         m_trafficManager->render(renderer);
         // Render debug spawn points if enabled
         m_trafficManager->renderDebugSpawnPoints(renderer);
+    }
+    
+    // Render police vehicles
+    if (m_policeChaseManager) {
+        m_policeChaseManager->render(renderer);
     }
     
     // Render pedestrians
@@ -357,6 +400,11 @@ void Scene::rebuildVehiclesFromSpawns() {
     if (m_pedestrianManager) {
         m_pedestrianManager->reset();
     }
+    
+    // Reset police chase manager
+    if (m_policeChaseManager) {
+        m_policeChaseManager->reset();
+    }
 
     if (!m_tileGrid) {
         return;
@@ -429,6 +477,11 @@ void Scene::rebuildVehiclesFromSpawns() {
     // Set up collision callback for traffic manager
     if (m_trafficManager) {
         m_trafficManager->setCollisionCallback([this]() { return getAllColliders(); });
+    }
+    
+    // Set up collision callback for police chase manager
+    if (m_policeChaseManager) {
+        m_policeChaseManager->setCollisionCallback([this]() { return getAllColliders(); });
     }
 
     std::cout << "Rebuilt vehicles from grid: " << m_vehicles.size() << std::endl;
@@ -546,6 +599,15 @@ std::vector<const Collider*> Scene::getAllColliders() const {
     // Add traffic vehicles
     if (m_trafficManager) {
         for (const auto& vehicle : m_trafficManager->getTrafficVehicles()) {
+            if (vehicle && vehicle->isActive()) {
+                allColliders.push_back(vehicle.get());
+            }
+        }
+    }
+    
+    // Add police vehicles
+    if (m_policeChaseManager) {
+        for (const auto& vehicle : m_policeChaseManager->getPoliceVehicles()) {
             if (vehicle && vehicle->isActive()) {
                 allColliders.push_back(vehicle.get());
             }

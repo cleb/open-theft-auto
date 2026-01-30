@@ -17,6 +17,10 @@ class Vehicle;
 // Callback type for getting all vehicles in the scene
 using VehicleCallback = std::function<std::vector<Vehicle*>()>;
 
+// Callback type for when a pedestrian is killed by a vehicle
+// Parameters: killer vehicle (can be used to check if it's the player's vehicle)
+using PedestrianKillCallback = std::function<void(Vehicle*)>;
+
 // Structure to hold sidewalk tile information for spawning
 struct SidewalkSpawnPoint {
     glm::ivec3 gridPos;
@@ -49,6 +53,9 @@ public:
     
     // Vehicle collision callback
     void setVehicleCallback(VehicleCallback callback) { m_vehicleCallback = callback; }
+    
+    // Pedestrian kill callback (called when a pedestrian is killed by a vehicle)
+    void setPedestrianKillCallback(PedestrianKillCallback callback) { m_pedestrianKillCallback = callback; }
 
     // Get pedestrians (for collision detection, etc.)
     const std::vector<std::unique_ptr<Pedestrian>>& getPedestrians() const { return m_pedestrians; }
@@ -89,6 +96,9 @@ private:
     
     // Vehicle collision callback
     VehicleCallback m_vehicleCallback;
+    
+    // Pedestrian kill callback
+    PedestrianKillCallback m_pedestrianKillCallback;
     
     // Helper methods
     void buildSidewalkSpawnPoints();

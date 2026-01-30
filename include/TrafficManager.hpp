@@ -59,6 +59,9 @@ public:
     const std::vector<std::unique_ptr<Vehicle>>& getTrafficVehicles() const { return m_trafficVehicles; }
     std::unique_ptr<Vehicle> claimTrafficVehicle(Vehicle* vehicle);
     
+    // Get road spawn points (for police spawning, etc.)
+    const std::vector<RoadSpawnPoint>& getRoadSpawnPoints() const { return m_roadSpawnPoints; }
+    
     // Debug rendering
     void setDebugRenderSpawnPoints(bool enabled) { m_debugRenderSpawnPoints = enabled; }
     bool isDebugRenderSpawnPointsEnabled() const { return m_debugRenderSpawnPoints; }
