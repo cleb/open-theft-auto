@@ -2,6 +2,7 @@
 #include "Renderer.hpp"
 #include "TileGrid.hpp"
 #include "Heading.hpp"
+#include <glm/geometric.hpp>
 #include <iostream>
 #include <cmath>
 
@@ -10,6 +11,8 @@ Pedestrian::Pedestrian()
     , m_animationTime(0.0f)
     , m_tileGrid(nullptr)
     , m_speed(2.0f)  // Slower than player
+    , m_baseSpeed(2.0f)
+    , m_panicSpeed(5.0f)
     , m_size(0.8f, 0.8f)
     , m_walkingDirection(SidewalkDirection::NorthSouth)
     , m_state(PedestrianState::Walking)
@@ -20,7 +23,9 @@ Pedestrian::Pedestrian()
     , m_targetSidewalkPos(0.0f)
     , m_hasTargetSidewalk(false)
     , m_sidewalkCenterPos(0.0f)
-    , m_pendingSidewalkDir(SidewalkDirection::None) {
+    , m_pendingSidewalkDir(SidewalkDirection::None)
+    , m_panicSource(0.0f)
+    , m_panicDuration(0.0f) {
 }
 
 void Pedestrian::initialize(SpriteAnimation* sharedAnimation) {
@@ -34,6 +39,14 @@ void Pedestrian::initialize(SpriteAnimation* sharedAnimation) {
         
         // Randomize starting animation time so pedestrians aren't all in sync
         m_animationTime = static_cast<float>(rand()) / RAND_MAX * 0.8f;
+    }
+}
+
+void Pedestrian::setSpeed(float speed) {
+    m_baseSpeed = speed;
+    m_panicSpeed = speed * 2.5f;
+    if (m_state != PedestrianState::Panic) {
+        m_speed = speed;
     }
 }
 
@@ -115,6 +128,11 @@ void Pedestrian::update(float deltaTime) {
             // Update animation time for walking
             m_animationTime += deltaTime;
             return;
+
+        case PedestrianState::Panic:
+            updatePanic(deltaTime);
+            m_animationTime += deltaTime;
+            return;
             
         case PedestrianState::Walking:
         default:
@@ -168,6 +186,18 @@ void Pedestrian::kill() {
     m_deathFrame = 0;
     m_deathAnimTimer = 0.0f;
     m_speed = 0.0f;  // Stop moving
+}
+
+void Pedestrian::startPanic(const glm::vec3& threatPosition, float durationSeconds) {
+    if (m_state == PedestrianState::Dead || isCarjacking()) {
+        return;
+    }
+
+    m_state = PedestrianState::Panic;
+    m_stateTimer = 0.0f;
+    m_panicDuration = durationSeconds;
+    m_panicSource = threatPosition;
+    m_speed = m_panicSpeed;
 }
 
 void Pedestrian::updateDeathAnimation(float deltaTime) {
@@ -302,6 +332,59 @@ void Pedestrian::updateCarjackAnimation(float deltaTime) {
         default:
             break;
     }
+}
+
+void Pedestrian::updatePanic(float deltaTime) {
+    if (!m_tileGrid) {
+        return;
+    }
+
+    m_stateTimer += deltaTime;
+    if (m_stateTimer >= m_panicDuration) {
+        m_state = PedestrianState::SeekingSidewalk;
+        m_stateTimer = 0.0f;
+        m_speed = m_baseSpeed;
+        findNearestSidewalk();
+        return;
+    }
+
+    glm::vec2 away(m_position.x - m_panicSource.x, m_position.y - m_panicSource.y);
+    if (away.x == 0.0f && away.y == 0.0f) {
+        away = glm::vec2(1.0f, 0.0f);
+    }
+
+    away = glm::normalize(away);
+
+    const float candidateAngles[] = {0.0f, 30.0f, -30.0f, 60.0f, -60.0f, 90.0f, -90.0f, 135.0f, -135.0f, 180.0f};
+    glm::vec2 bestDir = away;
+    float bestScore = -1.0f;
+
+    for (float angleDeg : candidateAngles) {
+        const float angleRad = glm::radians(angleDeg);
+        glm::vec2 candidate(
+            away.x * std::cos(angleRad) - away.y * std::sin(angleRad),
+            away.x * std::sin(angleRad) + away.y * std::cos(angleRad));
+
+        glm::vec3 delta(candidate.x * m_speed * deltaTime, candidate.y * m_speed * deltaTime, 0.0f);
+        glm::vec3 newPosition = m_position + delta;
+        if (!m_tileGrid->canOccupy(m_position, newPosition)) {
+            continue;
+        }
+
+        const float score = glm::dot(candidate, away);
+        if (score > bestScore) {
+            bestScore = score;
+            bestDir = candidate;
+        }
+    }
+
+    glm::vec3 delta(bestDir.x * m_speed * deltaTime, bestDir.y * m_speed * deltaTime, 0.0f);
+    glm::vec3 newPosition = m_position + delta;
+    if (m_tileGrid->canOccupy(m_position, newPosition)) {
+        m_position = newPosition;
+    }
+
+    m_rotation.z = Heading::wrapDegrees360(Heading::headingDegFromForward(bestDir));
 }
 
 void Pedestrian::findNearestSidewalk() {

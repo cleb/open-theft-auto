@@ -17,6 +17,7 @@ enum class PedestrianState {
     CarjackRecovery,   // Playing frame 9 again before resuming
     SeekingSidewalk,   // Walking towards nearest sidewalk
     CenteringSidewalk, // Walking to center of sidewalk tile before normal walking
+    Panic,             // Running away from the player
     Dead               // Death animation
 };
 
@@ -31,7 +32,7 @@ public:
     void render(Renderer* renderer) override;
 
     void setTileGrid(TileGrid* tileGrid) { m_tileGrid = tileGrid; }
-    void setSpeed(float speed) { m_speed = speed; }
+    void setSpeed(float speed);
     float getSpeed() const { return m_speed; }
     
     // Set the walking direction based on sidewalk direction
@@ -48,6 +49,8 @@ public:
     // Carjack state - pedestrian was ejected from vehicle
     void startCarjackExit();
     bool isCarjacking() const;
+
+    void startPanic(const glm::vec3& threatPosition, float durationSeconds);
     
     // State access
     PedestrianState getState() const { return m_state; }
@@ -58,6 +61,8 @@ private:
     
     TileGrid* m_tileGrid;
     float m_speed;
+    float m_baseSpeed;
+    float m_panicSpeed;
     glm::vec2 m_size;
     SidewalkDirection m_walkingDirection;
     
@@ -75,12 +80,15 @@ private:
     bool m_hasTargetSidewalk;
     glm::vec3 m_sidewalkCenterPos;  // Center of current sidewalk tile
     SidewalkDirection m_pendingSidewalkDir; // Direction to use after centering
+    glm::vec3 m_panicSource;
+    float m_panicDuration;
     
     void updateMovement(float deltaTime);
     void updateDeathAnimation(float deltaTime);
     void updateCarjackAnimation(float deltaTime);
     void updateSeekingSidewalk(float deltaTime);
     void updateCenteringSidewalk(float deltaTime);
+    void updatePanic(float deltaTime);
     void findNearestSidewalk();
     glm::vec4 getCurrentFrameUV() const;
 };

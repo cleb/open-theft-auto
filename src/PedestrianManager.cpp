@@ -118,6 +118,22 @@ void PedestrianManager::update(float deltaTime) {
     }
 }
 
+void PedestrianManager::notifyGunshot(const glm::vec3& sourcePosition) {
+    if (!m_enabled) {
+        return;
+    }
+
+    std::uniform_real_distribution<float> durationDist(10.0f, 15.0f);
+
+    for (auto& pedestrian : m_pedestrians) {
+        if (!pedestrian || !pedestrian->isActive() || pedestrian->isDead()) {
+            continue;
+        }
+        const float duration = durationDist(m_rng);
+        pedestrian->startPanic(sourcePosition, duration);
+    }
+}
+
 void PedestrianManager::render(Renderer* renderer) {
     if (!renderer) return;
     

@@ -59,6 +59,8 @@ public:
     // Get the shared animation (for external pedestrian creation)
     SpriteAnimation* getSharedAnimation() const { return m_sharedAnimation.get(); }
 
+    void notifyGunshot(const glm::vec3& sourcePosition);
+
 private:
     TileGrid* m_tileGrid;
     Camera* m_camera;
