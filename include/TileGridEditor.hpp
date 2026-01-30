@@ -57,7 +57,8 @@ private:
         Sidewalk,
         Empty,
         Vehicle,
-        PlayerSpawn
+    PlayerSpawn,
+    Pickup
     };
 
     enum class VehiclePlacementStatus {
@@ -94,6 +95,12 @@ private:
 
     struct UiPlayerSpawnState {
         float rotationDegrees = 0.0f;
+    };
+
+    struct UiPickupState {
+        bool cursorHasPickup = false;
+        bool removeMode = false;
+        int pickupTypeIndex = 0;
     };
 
     struct AliasEntry {
@@ -154,6 +161,7 @@ private:
     glm::ivec3 m_pendingGridSize;
     std::string m_gridResizeError;
     UiPlayerSpawnState m_uiPlayerSpawnState;
+    UiPickupState m_uiPickupState;
     std::unique_ptr<Mesh> m_playerSpawnMesh;
     glm::vec3 m_playerSpawnColor;
 
@@ -173,6 +181,8 @@ private:
 
     VehicleSpawnDefinition* findVehicleSpawn(const glm::ivec3& gridPos);
     const VehicleSpawnDefinition* findVehicleSpawn(const glm::ivec3& gridPos) const;
+    PickupSpawnDefinition* findPickupSpawn(const glm::ivec3& gridPos);
+    const PickupSpawnDefinition* findPickupSpawn(const glm::ivec3& gridPos) const;
 
     VehiclePlacementStatus evaluateVehiclePlacement(const glm::ivec3& position) const;
 
@@ -190,6 +200,7 @@ private:
     void drawBrushControls();
     void drawVehicleBrushControls();
     void drawPlayerSpawnBrushControls();
+    void drawPickupBrushControls();
     void drawPrefabControls();
     void drawTileFaceTabs();
     void drawTopFaceControls(Tile* tile);
@@ -205,6 +216,7 @@ private:
     void removeVehicleAtCursor();
     void clearTileAtCursor();
     void applyPlayerSpawnBrush();
+    void applyPickupBrush();
     void syncPendingGridSizeFromGrid();
 
     void applyBrush();

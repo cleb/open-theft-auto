@@ -597,6 +597,16 @@ void TileGridEditor::render(Renderer* renderer) {
         renderer->renderMesh(*m_playerSpawnMesh, model, "model", m_playerSpawnColor);
     }
 
+    if (m_levelData) {
+        for (const auto& pickup : m_levelData->pickups) {
+            const glm::vec3 worldPos = m_grid->gridToWorld(pickup.gridPosition);
+            const auto texture = TextureManager::instance().getTextureFromPath(pickupTexturePath(pickup.type));
+            if (texture) {
+                renderer->renderSprite(*texture, glm::vec2(worldPos.x, worldPos.y), pickupDefaultSize(pickup.type));
+            }
+        }
+    }
+
     if (m_cursorMesh) {
         const glm::vec3 base = m_grid->gridToWorld(m_cursor);
         const float offset = m_grid->getTileSize() * 0.02f;
@@ -676,6 +686,25 @@ VehicleSpawnDefinition* TileGridEditor::findVehicleSpawn(const glm::ivec3& gridP
 
 const VehicleSpawnDefinition* TileGridEditor::findVehicleSpawn(const glm::ivec3& gridPos) const {
     return const_cast<TileGridEditor*>(this)->findVehicleSpawn(gridPos);
+}
+
+PickupSpawnDefinition* TileGridEditor::findPickupSpawn(const glm::ivec3& gridPos) {
+    if (!m_levelData) {
+        return nullptr;
+    }
+
+    auto& pickups = m_levelData->pickups;
+    auto it = std::find_if(pickups.begin(), pickups.end(), [&](const PickupSpawnDefinition& spawn) {
+        return spawn.gridPosition == gridPos;
+    });
+    if (it == pickups.end()) {
+        return nullptr;
+    }
+    return &(*it);
+}
+
+const PickupSpawnDefinition* TileGridEditor::findPickupSpawn(const glm::ivec3& gridPos) const {
+    return const_cast<TileGridEditor*>(this)->findPickupSpawn(gridPos);
 }
 
 TileGridEditor::VehiclePlacementStatus TileGridEditor::evaluateVehiclePlacement(const glm::ivec3& position) const {
@@ -940,6 +969,9 @@ void TileGridEditor::refreshCursorColor() {
         case BrushType::PlayerSpawn:
             m_cursorColor = glm::vec3(0.2f, 0.8f, 1.0f);
             break;
+        case BrushType::Pickup:
+            m_cursorColor = glm::vec3(0.9f, 0.4f, 0.9f);
+            break;
     }
 }
 
@@ -999,11 +1031,15 @@ void TileGridEditor::announceCursor() {
             std::cout << " texture=" << spawn->texturePath;
         }
     }
+    if (const auto* pickup = findPickupSpawn(m_cursor)) {
+        std::cout << " pickup=" << pickupTypeToString(pickup->type);
+    }
     std::cout << std::endl;
 }
 
 void TileGridEditor::announceBrush() {
-    if (m_brush == m_lastAnnouncedBrush && m_brush != BrushType::Road && m_brush != BrushType::Sidewalk && m_brush != BrushType::Vehicle) {
+    if (m_brush == m_lastAnnouncedBrush && m_brush != BrushType::Road && m_brush != BrushType::Sidewalk
+        && m_brush != BrushType::Vehicle && m_brush != BrushType::Pickup) {
         return;
     }
 
@@ -1035,6 +1071,16 @@ void TileGridEditor::announceBrush() {
         case BrushType::PlayerSpawn:
             std::cout << "player spawn (rotation=" << normalizeDegrees(m_uiPlayerSpawnState.rotationDegrees) << ")";
             break;
+        case BrushType::Pickup: {
+            const auto& types = getAllPickupTypes();
+            const PickupType type = types.empty() ? PickupType::Pistol
+                : types[static_cast<std::size_t>(std::clamp(m_uiPickupState.pickupTypeIndex, 0, static_cast<int>(types.size()) - 1))];
+            std::cout << "pickup (type=" << pickupTypeToString(type) << ")";
+            if (m_uiPickupState.removeMode) {
+                std::cout << " (remove)";
+            }
+            break;
+        }
     }
     std::cout << std::endl;
     refreshCursorColor();
@@ -1052,6 +1098,7 @@ void TileGridEditor::printHelp() const {
               << "  4: empty brush\n"
               << "  5: vehicle brush\n"
               << "  6: player spawn brush\n"
+              << "  7: pickup brush\n"
               << "  R: cycle road/sidewalk direction / rotate vehicle or player\n"
               << "  Delete: clear tile contents at cursor\n"
               << "  I/J/K/L: toggle wall (north/west/south/east)\n"
@@ -1104,6 +1151,11 @@ void TileGridEditor::drawBrushControls() {
         m_brush = BrushType::PlayerSpawn;
         changed = true;
     }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Pickup", m_brush == BrushType::Pickup)) {
+        m_brush = BrushType::Pickup;
+        changed = true;
+    }
 
     if (changed) {
         announceBrush();
@@ -1136,6 +1188,8 @@ void TileGridEditor::drawBrushControls() {
         drawVehicleBrushControls();
     } else if (m_brush == BrushType::PlayerSpawn) {
         drawPlayerSpawnBrushControls();
+    } else if (m_brush == BrushType::Pickup) {
+        drawPickupBrushControls();
     }
 }
 
@@ -1664,6 +1718,14 @@ void TileGridEditor::clearTileAtCursor() {
         if (m_levelData->playerSpawn.isSet && m_levelData->playerSpawn.gridPosition == m_cursor) {
             m_levelData->playerSpawn.isSet = false;
         }
+
+        auto& pickups = m_levelData->pickups;
+        auto pickupIt = std::find_if(pickups.begin(), pickups.end(), [&](const PickupSpawnDefinition& spawn) {
+            return spawn.gridPosition == m_cursor;
+        });
+        if (pickupIt != pickups.end()) {
+            pickups.erase(pickupIt);
+        }
     }
 
     std::cout << "Cleared tile at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
@@ -1695,6 +1757,18 @@ void TileGridEditor::refreshUiStateFromTile() {
         const auto* typeDef = config.getDefinitionByIndex(m_uiVehicleState.vehicleTypeIndex);
         const char* defaultTexture = typeDef ? typeDef->texturePath.c_str() : "assets/textures/car.png";
         std::snprintf(m_uiVehicleState.texture.data(), m_uiVehicleState.texture.size(), "%s", defaultTexture);
+    }
+
+    m_uiPickupState.cursorHasPickup = false;
+    if (const auto* pickup = findPickupSpawn(m_cursor)) {
+        m_uiPickupState.cursorHasPickup = true;
+        const auto& types = getAllPickupTypes();
+        auto it = std::find(types.begin(), types.end(), pickup->type);
+        if (it != types.end()) {
+            m_uiPickupState.pickupTypeIndex = static_cast<int>(std::distance(types.begin(), it));
+        } else {
+            m_uiPickupState.pickupTypeIndex = 0;
+        }
     }
 
     Tile* tile = currentTile();
@@ -1801,6 +1875,9 @@ void TileGridEditor::applyBrush() {
         case BrushType::PlayerSpawn:
             applyPlayerSpawnBrush();
             return;
+        case BrushType::Pickup:
+            applyPickupBrush();
+            return;
     }
 
     announceCursor();
@@ -1820,7 +1897,7 @@ void TileGridEditor::applyBucketFill() {
         }
     }
 
-    if (!prefab && (m_brush == BrushType::Vehicle || m_brush == BrushType::PlayerSpawn)) {
+    if (!prefab && (m_brush == BrushType::Vehicle || m_brush == BrushType::PlayerSpawn || m_brush == BrushType::Pickup)) {
         applyBrush();
         return;
     }
@@ -2131,6 +2208,10 @@ void TileGridEditor::handleBrushHotkeys(InputManager* input) {
         m_brush = BrushType::PlayerSpawn;
         announceBrush();
     }
+    if (input->isKeyPressed(GLFW_KEY_7)) {
+        m_brush = BrushType::Pickup;
+        announceBrush();
+    }
 }
 
 void TileGridEditor::handleWallHotkeys(InputManager* input) {
@@ -2377,6 +2458,53 @@ void TileGridEditor::drawPlayerSpawnBrushControls() {
     }
 }
 
+void TileGridEditor::drawPickupBrushControls() {
+    ImGui::SeparatorText("Pickup Settings");
+
+    ImGui::Text("Cursor: %s", m_uiPickupState.cursorHasPickup ? "pickup present" : "empty");
+
+    bool removeMode = m_uiPickupState.removeMode;
+    if (ImGui::Checkbox("Remove Pickup", &removeMode)) {
+        m_uiPickupState.removeMode = removeMode;
+        announceBrush();
+    }
+
+    const auto& types = getAllPickupTypes();
+    if (!m_uiPickupState.removeMode) {
+        if (!types.empty()) {
+            std::vector<const char*> labels;
+            labels.reserve(types.size());
+            for (PickupType type : types) {
+                labels.push_back(pickupTypeDisplayName(type));
+            }
+
+            if (ImGui::Combo("Pickup Type", &m_uiPickupState.pickupTypeIndex, labels.data(), static_cast<int>(labels.size()))) {
+                announceBrush();
+            }
+        } else {
+            ImGui::TextDisabled("No pickup types available");
+        }
+
+        const char* applyLabel = m_uiPickupState.cursorHasPickup ? "Update Pickup" : "Place Pickup";
+        if (ImGui::Button(applyLabel)) {
+            applyPickupBrush();
+        }
+        if (m_uiPickupState.cursorHasPickup) {
+            ImGui::SameLine();
+            if (ImGui::Button("Remove Pickup Here")) {
+                bool previousRemove = m_uiPickupState.removeMode;
+                m_uiPickupState.removeMode = true;
+                applyPickupBrush();
+                m_uiPickupState.removeMode = previousRemove;
+            }
+        }
+    } else {
+        if (ImGui::Button("Remove Pickup")) {
+            applyPickupBrush();
+        }
+    }
+}
+
 void TileGridEditor::applyPlayerSpawnBrush() {
     if (!m_grid || !m_levelData) {
         return;
@@ -2401,6 +2529,63 @@ void TileGridEditor::applyPlayerSpawnBrush() {
 
     std::cout << "Set player spawn at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z 
               << ") rotation=" << m_levelData->playerSpawn.rotationDegrees << std::endl;
+}
+
+void TileGridEditor::applyPickupBrush() {
+    if (!m_grid || !m_levelData) {
+        return;
+    }
+
+    if (!m_grid->isValidPosition(m_cursor)) {
+        std::cout << "Cannot place pickup outside of grid bounds" << std::endl;
+        return;
+    }
+
+    const Tile* tile = m_grid->getTile(m_cursor);
+    if (!tile || !tile->isTopSolid()) {
+        std::cout << "Cannot place pickup without solid ground at (" 
+                  << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+        return;
+    }
+
+    if (m_uiPickupState.removeMode) {
+        auto& pickups = m_levelData->pickups;
+        auto it = std::find_if(pickups.begin(), pickups.end(), [&](const PickupSpawnDefinition& spawn) {
+            return spawn.gridPosition == m_cursor;
+        });
+        if (it != pickups.end()) {
+            pickups.erase(it);
+            std::cout << "Removed pickup at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+        }
+        refreshUiStateFromTile();
+        announceCursor();
+        return;
+    }
+
+    PickupSpawnDefinition spawn;
+    spawn.gridPosition = m_cursor;
+    const auto& types = getAllPickupTypes();
+    if (types.empty()) {
+        spawn.type = PickupType::Pistol;
+    } else {
+        const int index = std::clamp(m_uiPickupState.pickupTypeIndex, 0, static_cast<int>(types.size()) - 1);
+        spawn.type = types[static_cast<std::size_t>(index)];
+    }
+
+    auto& pickups = m_levelData->pickups;
+    auto existing = std::find_if(pickups.begin(), pickups.end(), [&](const PickupSpawnDefinition& entry) {
+        return entry.gridPosition == spawn.gridPosition;
+    });
+    if (existing != pickups.end()) {
+        *existing = spawn;
+    } else {
+        pickups.push_back(spawn);
+    }
+
+    std::cout << "Placed pickup " << pickupTypeToString(spawn.type) << " at (" << m_cursor.x << ", " << m_cursor.y
+              << ", " << m_cursor.z << ")" << std::endl;
+    refreshUiStateFromTile();
+    announceCursor();
 }
 
 void TileGridEditor::ensurePlayerSpawnMesh() {

@@ -4,13 +4,17 @@
 #include "Heading.hpp"
 #include <glm/gtc/constants.hpp>
 #include <iostream>
+#include <algorithm>
 
 Player::Player() 
     : m_speed(5.0f)
     , m_rotationSpeed(90.0f)
     , m_size(1.0f, 1.0f)
     , m_tileGrid(nullptr)
-    , m_isMoving(false) {
+    , m_isMoving(false)
+    , m_hasPistol(false)
+    , m_shotCooldown(0.5f)
+    , m_timeSinceLastShot(0.5f) {
 }
 
 bool Player::initialize() {
@@ -40,6 +44,8 @@ bool Player::initialize() {
 }
 
 void Player::update(float deltaTime) {
+    m_timeSinceLastShot = std::min(m_timeSinceLastShot + deltaTime, m_shotCooldown);
+
     // Update animation
     if (m_walkAnimation) {
         if (m_isMoving) {
@@ -53,6 +59,19 @@ void Player::update(float deltaTime) {
     
     // Reset movement flag - will be set again if player moves this frame
     m_isMoving = false;
+}
+
+void Player::givePistol() {
+    m_hasPistol = true;
+    m_timeSinceLastShot = m_shotCooldown;
+}
+
+bool Player::canShoot() const {
+    return m_hasPistol && m_timeSinceLastShot >= m_shotCooldown;
+}
+
+void Player::recordShot() {
+    m_timeSinceLastShot = 0.0f;
 }
 
 void Player::render(Renderer* renderer) {

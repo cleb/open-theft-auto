@@ -7,8 +7,10 @@
 #include "PedestrianManager.hpp"
 #include "VehicleConfig.hpp"
 #include "Window.hpp"
+#include "Heading.hpp"
 #include <iostream>
 #include <string>
+#include <algorithm>
 #include <glm/glm.hpp>
 #include <glm/geometric.hpp>
 #include <GLFW/glfw3.h>
@@ -82,6 +84,11 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     
     // Create test scene
     createTestScene();
+
+    if (!m_projectileTexture) {
+        m_projectileTexture = std::make_shared<Texture>();
+        m_projectileTexture->createSolidColor(255, 255, 255, 255);
+    }
     
     return true;
 }
@@ -109,6 +116,11 @@ void Scene::update(float deltaTime) {
     // Update pedestrian manager (AI pedestrians)
     if (m_pedestrianManager && !isEditModeActive()) {
         m_pedestrianManager->update(deltaTime);
+    }
+
+    if (!isEditModeActive()) {
+        handlePickupCollection();
+        updateProjectiles(deltaTime);
     }
     
     // Update all game objects
@@ -153,6 +165,21 @@ void Scene::render(Renderer* renderer) {
 
     if (m_tileGridEditor) {
         m_tileGridEditor->render(renderer);
+    }
+
+    if (!isEditModeActive()) {
+        for (auto& pickup : m_pickups) {
+            if (pickup && pickup->isActive()) {
+                pickup->render(renderer);
+            }
+        }
+
+        if (m_projectileTexture) {
+            const glm::vec2 dotSize(0.15f, 0.15f);
+            for (const auto& projectile : m_projectiles) {
+                renderer->renderSprite(*m_projectileTexture, glm::vec2(projectile.position.x, projectile.position.y), dotSize, 0.0f, glm::vec3(1.0f));
+            }
+        }
     }
     
     // Render vehicles
@@ -234,6 +261,13 @@ void Scene::processInput(InputManager* input, float deltaTime) {
     // Delegate all game input to GameLogic
     if (m_gameLogic) {
         m_gameLogic->processInput(input, deltaTime);
+    }
+
+    const bool ctrlDown = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
+    if (!editActive && !captureKeyboard && ctrlDown && m_player && m_player->canShoot()
+        && (!m_gameLogic || !m_gameLogic->isPlayerInVehicle())) {
+        firePistolShot();
+        m_player->recordShot();
     }
 }
 
@@ -326,6 +360,8 @@ void Scene::rebuildVehiclesFromSpawns() {
         return;
     }
 
+    rebuildPickupsFromSpawns();
+
     for (const auto& spawn : m_levelData.vehicleSpawns) {
         auto vehicle = std::make_unique<Vehicle>();
         
@@ -406,6 +442,169 @@ void Scene::onLevelChanged() {
     rebuildVehiclesFromSpawns();
     
     std::cout << "Level changed, rebuilt scene with " << m_vehicles.size() << " vehicles" << std::endl;
+}
+
+void Scene::rebuildPickupsFromSpawns() {
+    m_pickups.clear();
+    if (!m_tileGrid) {
+        return;
+    }
+
+    for (const auto& spawn : m_levelData.pickups) {
+        auto pickup = std::make_unique<Pickup>(spawn.type);
+        if (!pickup->initialize()) {
+            std::cerr << "Failed to initialize pickup type " << pickupTypeToString(spawn.type) << std::endl;
+            continue;
+        }
+        glm::vec3 position = m_tileGrid->gridToWorld(spawn.gridPosition);
+        position.z += 0.1f;
+        pickup->setPosition(position);
+        pickup->setActive(true);
+        m_pickups.push_back(std::move(pickup));
+    }
+}
+
+void Scene::handlePickupCollection() {
+    if (!m_player || m_pickups.empty()) {
+        return;
+    }
+
+    if (m_gameLogic && m_gameLogic->isPlayerInVehicle()) {
+        return;
+    }
+
+    const glm::vec3 playerPos = m_player->getPosition();
+    const glm::vec2 playerSize = m_player->getColliderSize();
+    const float playerRadius = std::max(playerSize.x, playerSize.y) * 0.35f;
+
+    auto it = std::remove_if(m_pickups.begin(), m_pickups.end(), [&](const std::unique_ptr<Pickup>& pickup) {
+        if (!pickup || !pickup->isActive()) {
+            return true;
+        }
+        const glm::vec3 pickupPos = pickup->getPosition();
+        const glm::vec2 delta(pickupPos.x - playerPos.x, pickupPos.y - playerPos.y);
+        const float radius = playerRadius + pickup->getRadius();
+        const float distanceSq = delta.x * delta.x + delta.y * delta.y;
+        if (distanceSq <= radius * radius) {
+            if (pickup->getType() == PickupType::Pistol) {
+                m_player->givePistol();
+                std::cout << "Picked up pistol" << std::endl;
+            }
+            return true;
+        }
+        return false;
+    });
+
+    if (it != m_pickups.end()) {
+        m_pickups.erase(it, m_pickups.end());
+    }
+}
+
+void Scene::firePistolShot() {
+    if (!m_player) {
+        return;
+    }
+
+    const glm::vec3 playerPos = m_player->getPosition();
+    glm::vec2 origin(playerPos.x, playerPos.y);
+    glm::vec2 dir = Heading::forwardFromHeadingDeg(m_player->getRotation().z);
+    if ((dir.x * dir.x + dir.y * dir.y) < 0.0001f) {
+        return;
+    }
+    dir = glm::normalize(dir);
+
+    constexpr float kMaxRange = 25.0f;
+    constexpr float kProjectileSpeed = 35.0f;
+    constexpr float kProjectileLifetime = 0.25f;
+    float bestT = kMaxRange + 1.0f;
+    Projectile projectile;
+    projectile.position = glm::vec3(origin.x, origin.y, playerPos.z + 0.15f);
+    projectile.velocity = dir * kProjectileSpeed;
+    projectile.life = kMaxRange / kProjectileSpeed;
+    m_projectiles.push_back(projectile);
+}
+
+void Scene::updateProjectiles(float deltaTime) {
+    if (m_projectiles.empty()) {
+        return;
+    }
+
+    for (auto& projectile : m_projectiles) {
+        projectile.position.x += projectile.velocity.x * deltaTime;
+        projectile.position.y += projectile.velocity.y * deltaTime;
+        projectile.life -= deltaTime;
+
+        if (projectile.life <= 0.0f) {
+            continue;
+        }
+
+        bool hitSomething = false;
+        const glm::vec2 projPos(projectile.position.x, projectile.position.y);
+    const float projRadius = 0.08f;
+
+        if (m_pedestrianManager) {
+            for (const auto& pedestrian : m_pedestrianManager->getPedestrians()) {
+                if (!pedestrian || !pedestrian->isActive() || pedestrian->isDead()) {
+                    continue;
+                }
+                const glm::vec3 pedPos3 = pedestrian->getPosition();
+                const glm::vec2 pedPos(pedPos3.x, pedPos3.y);
+                const glm::vec2 diff = pedPos - projPos;
+                const glm::vec2 pedSize = pedestrian->getSize();
+                const float pedRadius = std::max(pedSize.x, pedSize.y) * 0.25f;
+                const float radius = projRadius + pedRadius;
+                if ((diff.x * diff.x + diff.y * diff.y) <= radius * radius) {
+                    pedestrian->kill();
+                    hitSomething = true;
+                    break;
+                }
+            }
+        }
+
+        if (!hitSomething) {
+            auto testVehicle = [&](Vehicle* vehicle) {
+                if (!vehicle || !vehicle->isActive()) {
+                    return false;
+                }
+                const glm::vec3 vehPos3 = vehicle->getPosition();
+                const glm::vec2 vehPos(vehPos3.x, vehPos3.y);
+                const glm::vec2 diff = vehPos - projPos;
+                const glm::vec2 vehSize = vehicle->getSpriteSize();
+                const float vehRadius = std::max(vehSize.x, vehSize.y) * 0.5f;
+                const float radius = projRadius + vehRadius;
+                if ((diff.x * diff.x + diff.y * diff.y) <= radius * radius) {
+                    std::cout << "Pistol shot hit vehicle" << std::endl;
+                    return true;
+                }
+                return false;
+            };
+
+            for (const auto& vehicle : m_vehicles) {
+                if (testVehicle(vehicle.get())) {
+                    hitSomething = true;
+                    break;
+                }
+            }
+            if (!hitSomething && m_trafficManager) {
+                for (const auto& vehicle : m_trafficManager->getTrafficVehicles()) {
+                    if (testVehicle(vehicle.get())) {
+                        hitSomething = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (hitSomething) {
+            projectile.life = 0.0f;
+        }
+    }
+
+    m_projectiles.erase(
+        std::remove_if(m_projectiles.begin(), m_projectiles.end(), [](const Projectile& projectile) {
+            return projectile.life <= 0.0f;
+        }),
+        m_projectiles.end());
 }
 
 std::vector<const Collider*> Scene::getAllColliders() const {

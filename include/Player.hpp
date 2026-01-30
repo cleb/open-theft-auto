@@ -19,6 +19,9 @@ private:
     
     // Animation state
     bool m_isMoving;
+    bool m_hasPistol;
+    float m_shotCooldown;
+    float m_timeSinceLastShot;
     
     void applyMovement(const glm::vec3& delta);
 
@@ -35,6 +38,11 @@ public:
     void turnLeft(float deltaTime);
     void turnRight(float deltaTime);
     void setTileGrid(TileGrid* tileGrid) { m_tileGrid = tileGrid; }
+
+    bool hasPistol() const { return m_hasPistol; }
+    void givePistol();
+    bool canShoot() const;
+    void recordShot();
     
     float getSpeed() const { return m_speed; }
     void setSpeed(float speed) { m_speed = speed; }

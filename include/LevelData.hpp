@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include <string>
 #include <vector>
+#include "PickupTypes.hpp"
 
 // Spawn weight for a specific vehicle type on a road tile
 struct VehicleSpawnWeight {
@@ -24,7 +25,13 @@ struct PlayerSpawnDefinition {
     bool isSet = false;  // Whether a spawn point has been explicitly set
 };
 
+struct PickupSpawnDefinition {
+    glm::ivec3 gridPosition{0, 0, 0};
+    PickupType type = PickupType::Pistol;
+};
+
 struct LevelData {
     std::vector<VehicleSpawnDefinition> vehicleSpawns;
     PlayerSpawnDefinition playerSpawn;
+    std::vector<PickupSpawnDefinition> pickups;
 };

@@ -552,6 +552,7 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
     }
 
     data.vehicleSpawns.clear();
+    data.pickups.clear();
 
     auto& texMgr = TextureManager::instance();
     std::unordered_map<std::string, std::string> aliasMap = texMgr.getAliases();
@@ -783,6 +784,57 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
                 continue;
             }
             pendingVehicles.push_back(PendingVehicle{line.number, std::move(spawn)});
+        } else if (lowerCmd == "pickup" || lowerCmd == "item") {
+            int x = 0;
+            int y = 0;
+            int z = 0;
+            if (!(stream >> x >> y >> z)) {
+                logger.error("Expected coordinates after 'pickup'");
+                continue;
+            }
+
+            PickupSpawnDefinition spawn;
+            spawn.gridPosition = glm::ivec3(x, y, z);
+
+            bool parseOk = true;
+            KeyValueTokens tokens = collectKeyValueTokens(stream, logger);
+            if (!tokens.valid) {
+                parseOk = false;
+            }
+            for (const auto& entry : tokens.entries) {
+                const std::string lowerKey = toLowerCopy(entry.first);
+                if (lowerKey == "type" || lowerKey == "id" || lowerKey == "pickup") {
+                    PickupType parsedType = PickupType::Pistol;
+                    if (!pickupTypeFromString(toLowerCopy(entry.second), parsedType)) {
+                        logger.error("Unknown pickup type: " + entry.second);
+                        parseOk = false;
+                        continue;
+                    }
+                    spawn.type = parsedType;
+                } else {
+                    logger.warning("Unknown pickup property: " + entry.first);
+                }
+            }
+
+            if (!parseOk) {
+                continue;
+            }
+
+            if (!grid.isValidPosition(spawn.gridPosition)) {
+                logger.error("Pickup coordinates out of bounds: (" + std::to_string(spawn.gridPosition.x) + ", "
+                             + std::to_string(spawn.gridPosition.y) + ", " + std::to_string(spawn.gridPosition.z) + ")");
+                continue;
+            }
+
+            auto& pickups = data.pickups;
+            auto existing = std::find_if(pickups.begin(), pickups.end(), [&](const PickupSpawnDefinition& entry) {
+                return entry.gridPosition == spawn.gridPosition;
+            });
+            if (existing != pickups.end()) {
+                *existing = spawn;
+            } else {
+                pickups.push_back(spawn);
+            }
         } else if (lowerCmd == "player" || lowerCmd == "player_spawn" || lowerCmd == "playerspawn") {
             int x = 0;
             int y = 0;
@@ -901,6 +953,12 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
             output << " texture=" << identifierForSave(spawn.texturePath);
         }
         output << " size=" << formatFloat(spawn.size.x) << 'x' << formatFloat(spawn.size.y);
+        output << std::endl;
+    }
+
+    for (const auto& pickup : data.pickups) {
+        output << "pickup " << pickup.gridPosition.x << ' ' << pickup.gridPosition.y << ' ' << pickup.gridPosition.z;
+        output << " type=" << pickupTypeToString(pickup.type);
         output << std::endl;
     }
 

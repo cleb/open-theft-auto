@@ -11,6 +11,8 @@
 #include "GameLogic.hpp"
 #include "TrafficManager.hpp"
 #include "PedestrianManager.hpp"
+#include "Pickup.hpp"
+#include "Texture.hpp"
 #include "Collider.hpp"
 
 #include <string>
@@ -22,6 +24,7 @@ private:
     std::vector<std::unique_ptr<GameObject>> m_gameObjects;
     std::unique_ptr<Player> m_player;
     std::vector<std::unique_ptr<Vehicle>> m_vehicles;
+    std::vector<std::unique_ptr<Pickup>> m_pickups;
     
     // New tile grid system
     std::unique_ptr<TileGrid> m_tileGrid;
@@ -30,6 +33,14 @@ private:
     std::unique_ptr<PedestrianManager> m_pedestrianManager;
     LevelData m_levelData;
     std::string m_levelPath;
+    std::shared_ptr<Texture> m_projectileTexture;
+
+    struct Projectile {
+        glm::vec3 position{0.0f};
+        glm::vec2 velocity{0.0f};
+        float life = 0.0f;
+    };
+    std::vector<Projectile> m_projectiles;
 
     // Game logic handler (owned by Engine)
     GameLogic* m_gameLogic;
@@ -66,4 +77,8 @@ private:
     void rebuildVehiclesFromSpawns();
     void onLevelChanged();
     void setupCollisionCallbacks();
+    void rebuildPickupsFromSpawns();
+    void handlePickupCollection();
+    void firePistolShot();
+    void updateProjectiles(float deltaTime);
 };
