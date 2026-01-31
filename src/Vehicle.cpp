@@ -227,8 +227,18 @@ void Vehicle::render(Renderer* renderer) {
             renderer->renderExplosionSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size,
                                             m_rotation.z, glm::vec3(1.0f), progress);
         } else if (m_burning) {
-            renderer->renderFireSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size,
-                                       m_rotation.z, glm::vec3(1.0f), getFireIntensity(), m_effectTime);
+            // Burning vehicles: render with damage overlay if applicable, then fire on top
+            if (m_damage.hasAnyDamage() && m_deltaTexture) {
+                renderer->renderFireDamagedSprite(*m_texture, m_deltaTexture.get(),
+                                                  glm::vec2(m_position.x, m_position.y), m_size,
+                                                  m_rotation.z, glm::vec3(1.0f),
+                                                  m_damage.frontLeft, m_damage.frontRight,
+                                                  m_damage.rearLeft, m_damage.rearRight,
+                                                  getFireIntensity(), m_effectTime);
+            } else {
+                renderer->renderFireSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size,
+                                           m_rotation.z, glm::vec3(1.0f), getFireIntensity(), m_effectTime);
+            }
         } else if (m_hasExploded) {
             renderer->renderSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size,
                                    m_rotation.z, glm::vec3(1.0f));

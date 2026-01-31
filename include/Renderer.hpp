@@ -61,6 +61,14 @@ public:
     void renderFireSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size,
                           float rotation, const glm::vec3& color, float fireIntensity, float timeSeconds);
 
+    // 2D sprite rendering with fire shader and damage overlay
+    void renderFireDamagedSprite(const Texture& texture, const Texture* deltaTexture,
+                                 const glm::vec2& position, const glm::vec2& size,
+                                 float rotation, const glm::vec3& color,
+                                 bool damageFrontLeft, bool damageFrontRight,
+                                 bool damageRearLeft, bool damageRearRight,
+                                 float fireIntensity, float timeSeconds);
+
     // 2D sprite rendering with explosion shader
     void renderExplosionSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size,
                                float rotation, const glm::vec3& color, float explosionProgress);

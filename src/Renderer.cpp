@@ -46,6 +46,10 @@ bool Renderer::initialize(int windowWidth, int windowHeight) {
         std::cerr << "Failed to load fire sprite shader" << std::endl;
     }
 
+    if (!loadShader("sprite_fire_damaged", "assets/shaders/sprite_damaged.vert", "assets/shaders/sprite_fire_damaged.frag")) {
+        std::cerr << "Failed to load fire damaged sprite shader" << std::endl;
+    }
+
     if (!loadShader("sprite_explosion", "assets/shaders/sprite.vert", "assets/shaders/sprite_explosion.frag")) {
         std::cerr << "Failed to load explosion sprite shader" << std::endl;
     }
@@ -306,6 +310,49 @@ void Renderer::renderFireSprite(const Texture& texture, const glm::vec2& positio
     glBindVertexArray(m_spriteVAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
+    shader->unuse();
+}
+
+void Renderer::renderFireDamagedSprite(const Texture& texture, const Texture* deltaTexture,
+                                       const glm::vec2& position, const glm::vec2& size,
+                                       float rotation, const glm::vec3& color,
+                                       bool damageFrontLeft, bool damageFrontRight,
+                                       bool damageRearLeft, bool damageRearRight,
+                                       float fireIntensity, float timeSeconds) {
+    Shader* shader = getShader("sprite_fire_damaged");
+    if (!shader || !deltaTexture) {
+        renderFireSprite(texture, position, size, rotation, color, fireIntensity, timeSeconds);
+        return;
+    }
+
+    shader->use();
+
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, glm::vec3(position.x, position.y, 0.1f));
+    model = glm::rotate(model, glm::radians(rotation - 90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
+
+    shader->setMat4("model", model);
+    shader->setMat4("view", m_viewMatrix);
+    shader->setMat4("projection", m_projectionMatrix);
+    shader->setVec3("spriteColor", color);
+    shader->setInt("sprite", 0);
+    shader->setInt("deltaTexture", 1);
+    shader->setVec4("uvOffsetScale", glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    shader->setFloat("fireIntensity", fireIntensity);
+    shader->setFloat("timeSeconds", timeSeconds);
+    shader->setInt("damageFrontLeft", damageFrontLeft ? 1 : 0);
+    shader->setInt("damageFrontRight", damageFrontRight ? 1 : 0);
+    shader->setInt("damageRearLeft", damageRearLeft ? 1 : 0);
+    shader->setInt("damageRearRight", damageRearRight ? 1 : 0);
+
+    texture.bind(0);
+    deltaTexture->bind(1);
+    glBindVertexArray(m_spriteVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
+    texture.unbind();
+    deltaTexture->unbind();
     shader->unuse();
 }
 

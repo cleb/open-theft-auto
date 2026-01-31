@@ -574,6 +574,39 @@ void Scene::handleVehicleExploded(Vehicle* vehicle) {
         return;
     }
 
+    // Apply explosion damage to nearby vehicles
+    const glm::vec3 explosionPos = vehicle->getPosition();
+    const float tileSize = m_tileGrid ? m_tileGrid->getTileSize() : 3.0f;
+    const float explosionRadius = tileSize * 3.0f;  // 4 tile radius
+    const float maxDamage = 8.0f;
+
+    auto applyExplosionDamage = [&](Vehicle* target) {
+        if (!target || target == vehicle || target->isWrecked() || target->isExploding()) {
+            return;
+        }
+        const glm::vec3 targetPos = target->getPosition();
+        const float dx = targetPos.x - explosionPos.x;
+        const float dy = targetPos.y - explosionPos.y;
+        const float dist = std::sqrt(dx * dx + dy * dy);
+        if (dist < explosionRadius) {
+            // Linear falloff: full damage at center, zero at edge
+            const float factor = 1.0f - (dist / explosionRadius);
+            const int damage = static_cast<int>(std::ceil(maxDamage * factor));
+            if (damage > 0) {
+                target->applyHit(damage);
+            }
+        }
+    };
+
+    for (auto& v : m_vehicles) {
+        applyExplosionDamage(v.get());
+    }
+    if (m_trafficManager) {
+        for (auto& v : m_trafficManager->getTrafficVehicles()) {
+            applyExplosionDamage(v.get());
+        }
+    }
+
     const bool playerInside = m_gameLogic && m_gameLogic->getActiveVehicle() == vehicle;
     if (playerInside) {
         restartLevel();
