@@ -49,6 +49,9 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     m_trafficManager->initialize(m_tileGrid.get(), renderer->getCamera(), &m_vehicles);
     // Set projection info for accurate view bounds calculation (FOV matches Renderer::initialize)
     m_trafficManager->setProjectionInfo(1.57f, window->getAspectRatio());
+    m_trafficManager->setVehicleExplodeCallback([this](Vehicle* vehicle) {
+        handleVehicleExploded(vehicle);
+    });
     
     // Initialize pedestrian manager
     m_pedestrianManager = std::make_unique<PedestrianManager>();
@@ -280,6 +283,7 @@ void Scene::addVehicle(std::unique_ptr<Vehicle> vehicle) {
     // Set up collision callback for the new vehicle
     if (vehicle) {
         vehicle->setCollisionCallback([this]() { return getAllColliders(); });
+        vehicle->setExplodeCallback([this](Vehicle* exploded) { handleVehicleExploded(exploded); });
     }
     m_vehicles.push_back(std::move(vehicle));
 }
@@ -563,4 +567,20 @@ void Scene::setupCollisionCallbacks() {
             vehicle->setCollisionCallback([this]() { return getAllColliders(); });
         }
     }
+}
+
+void Scene::handleVehicleExploded(Vehicle* vehicle) {
+    if (!vehicle) {
+        return;
+    }
+
+    const bool playerInside = m_gameLogic && m_gameLogic->getActiveVehicle() == vehicle;
+    if (playerInside) {
+        restartLevel();
+    }
+}
+
+void Scene::restartLevel() {
+    rebuildVehiclesFromSpawns();
+    std::cout << "Restarted level after vehicle explosion" << std::endl;
 }

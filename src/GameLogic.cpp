@@ -17,7 +17,7 @@ Vehicle* findNearestVehicle(const std::vector<std::unique_ptr<Vehicle>>& vehicle
     nearestDistance = radius;
 
     for (const auto& vehicle : vehicles) {
-        if (!vehicle || !vehicle->isActive()) {
+        if (!vehicle || !vehicle->isActive() || vehicle->isWrecked() || vehicle->isExploding()) {
             continue;
         }
 

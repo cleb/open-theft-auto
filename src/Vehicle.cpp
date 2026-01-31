@@ -65,6 +65,37 @@ bool Vehicle::initialize(std::shared_ptr<Texture> texture) {
 }
 
 void Vehicle::update(float deltaTime) {
+    if (!m_active) {
+        return;
+    }
+
+    m_effectTime += deltaTime;
+    if (m_collisionDamageCooldown > 0.0f) {
+        m_collisionDamageCooldown = std::max(0.0f, m_collisionDamageCooldown - deltaTime);
+    }
+
+    if (m_exploding) {
+        m_explosionTimer += deltaTime;
+        if (m_explosionTimer >= 1.2f) {
+            m_exploding = false;
+            m_hasExploded = true;
+            setExplodedTextureIfNeeded();
+        }
+    }
+
+    if (m_burning && !m_exploding && !m_hasExploded) {
+        m_burnTimer += deltaTime;
+        while (m_burnTimer >= 10.0f && m_health > 0) {
+            m_burnTimer -= 10.0f;
+            applyHit(1);
+        }
+    }
+
+    if (m_exploding || m_hasExploded) {
+        m_speed = 0.0f;
+        return;
+    }
+
     // Let the pilot control the vehicle if one is assigned
     if (m_pilot) {
         m_pilot->update(this, m_tileGrid, deltaTime);
@@ -102,6 +133,7 @@ void Vehicle::update(float deltaTime) {
         if (m_tileGrid) {
             glm::vec3 newPosition = m_position;
             bool collisionOccurred = false;
+            bool blockedThisFrame = false;
             glm::vec3 collisionDirection(0.0f);
 
             if (delta.x != 0.0f) {
@@ -111,7 +143,8 @@ void Vehicle::update(float deltaTime) {
                 if (!tileBlocked && !vehicleBlocked) {
                     newPosition.x = candidate.x;
                 } else {
-                    if (vehicleBlocked && !m_inCollision) {
+                    blockedThisFrame = true;
+                    if (!m_inCollision) {
                         collisionOccurred = true;
                         collisionDirection += glm::vec3(delta.x > 0 ? 1.0f : -1.0f, 0.0f, 0.0f);
                     }
@@ -128,7 +161,8 @@ void Vehicle::update(float deltaTime) {
                 if (!tileBlocked && !vehicleBlocked) {
                     newPosition.y = candidate.y;
                 } else {
-                    if (vehicleBlocked && !m_inCollision) {
+                    blockedThisFrame = true;
+                    if (!m_inCollision) {
                         collisionOccurred = true;
                         collisionDirection += glm::vec3(0.0f, delta.y > 0 ? 1.0f : -1.0f, 0.0f);
                     }
@@ -137,14 +171,13 @@ void Vehicle::update(float deltaTime) {
             }
 
             // Apply damage if collision occurred (only once per collision)
-            if (collisionOccurred && glm::length(collisionDirection) > 0.0f) {
+            if (collisionOccurred && glm::length(collisionDirection) > 0.0f && m_collisionDamageCooldown <= 0.0f) {
                 glm::vec3 collisionPoint = m_position + glm::normalize(collisionDirection) * glm::length(glm::vec2(m_size.x, m_size.y)) * 0.5f;
                 applyDamageFromCollision(collisionPoint);
-                m_inCollision = true;
-            } else if (!wouldCollideWithOther(newPosition)) {
-                // Clear collision state when no longer colliding
-                m_inCollision = false;
+                m_collisionDamageCooldown = 0.4f;
             }
+
+            m_inCollision = blockedThisFrame;
 
             setPosition(newPosition);
         } else {
@@ -155,8 +188,9 @@ void Vehicle::update(float deltaTime) {
                 m_inCollision = false;
             } else {
                 // Collision occurred - apply damage based on movement direction (only once)
-                if (!m_inCollision) {
+                if (!m_inCollision && m_collisionDamageCooldown <= 0.0f) {
                     applyDamageFromCollision(newPosition);
+                    m_collisionDamageCooldown = 0.4f;
                     m_inCollision = true;
                 }
                 m_speed = 0.0f;
@@ -170,6 +204,9 @@ void Vehicle::setPilot(std::unique_ptr<Pilot> pilot) {
 }
 
 void Vehicle::clearPilot() {
+    if (m_pilot) {
+        m_pilot->onRelease(this);
+    }
     m_pilot.reset();
 }
 
@@ -185,8 +222,17 @@ void Vehicle::render(Renderer* renderer) {
     if (!m_active || !renderer) return;
 
     if (m_texture) {
-        // Use GPU-accelerated damage rendering if we have damage
-        if (m_damage.hasAnyDamage() && m_deltaTexture) {
+        if (m_exploding) {
+            float progress = std::min(1.0f, m_explosionTimer / 1.2f);
+            renderer->renderExplosionSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size,
+                                            m_rotation.z, glm::vec3(1.0f), progress);
+        } else if (m_burning) {
+            renderer->renderFireSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size,
+                                       m_rotation.z, glm::vec3(1.0f), getFireIntensity(), m_effectTime);
+        } else if (m_hasExploded) {
+            renderer->renderSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size,
+                                   m_rotation.z, glm::vec3(1.0f));
+        } else if (m_damage.hasAnyDamage() && m_deltaTexture) {
             renderer->renderDamagedSprite(*m_texture, m_deltaTexture.get(),
                                           glm::vec2(m_position.x, m_position.y), m_size,
                                           m_rotation.z, glm::vec3(1.0f),
@@ -414,6 +460,8 @@ void Vehicle::applyDamage(CollisionDirection direction) {
     if (direction == CollisionDirection::None) {
         return;
     }
+
+    applyHit(1);
     
     // Just set the damage flags - GPU shader handles the visual effect
     switch (direction) {
@@ -445,6 +493,22 @@ void Vehicle::applyDamageFromCollision(const glm::vec3& collisionPoint) {
 
 void Vehicle::resetDamage() {
     m_damage.reset();
+}
+
+void Vehicle::applyHit(int amount) {
+    if (amount <= 0 || m_exploding || m_hasExploded) {
+        return;
+    }
+
+    m_health = std::max(0, m_health - amount);
+
+    if (!m_burning && m_health > 0 && getHealthFraction() <= 0.4f) {
+        startBurning();
+    }
+
+    if (m_health <= 0) {
+        triggerExplosion();
+    }
 }
 
 CollisionDirection Vehicle::determineCollisionDirection(const glm::vec3& collisionPoint) const {
@@ -489,6 +553,14 @@ void Vehicle::setVehicleType(const std::string& typeId) {
         m_maxSpeed = def->maxSpeed;
         m_maxSpeedRoad = def->maxSpeed + def->maxSpeedVariance;
         m_acceleration = def->acceleration;
+    m_maxHealth = def->maxHealth;
+    m_health = m_maxHealth;
+    m_burning = false;
+    m_burnTimer = 0.0f;
+    m_exploding = false;
+    m_hasExploded = false;
+    m_explosionTimer = 0.0f;
+    m_effectTime = 0.0f;
         
         // Update delta texture for the new vehicle type
         if (!def->deltaTexturePath.empty()) {
@@ -499,6 +571,58 @@ void Vehicle::setVehicleType(const std::string& typeId) {
         m_maxSpeed = DEFAULT_MAX_SPEED;
         m_maxSpeedRoad = DEFAULT_MAX_SPEED_ROAD;
         m_acceleration = DEFAULT_ACCELERATION;
+        m_maxHealth = 10;
+        m_health = m_maxHealth;
         std::cerr << "Vehicle: Unknown vehicle type '" << typeId << "', using defaults" << std::endl;
     }
+}
+
+float Vehicle::getHealthFraction() const {
+    if (m_maxHealth <= 0) {
+        return 0.0f;
+    }
+    return static_cast<float>(m_health) / static_cast<float>(m_maxHealth);
+}
+
+float Vehicle::getFireIntensity() const {
+    if (!m_burning || m_maxHealth <= 0) {
+        return 0.0f;
+    }
+
+    const float fraction = getHealthFraction();
+    const float normalized = std::clamp((0.4f - fraction) / 0.4f, 0.0f, 1.0f);
+    return 0.25f + normalized * 0.75f;
+}
+
+void Vehicle::startBurning() {
+    m_burning = true;
+    m_burnTimer = 0.0f;
+}
+
+void Vehicle::triggerExplosion() {
+    if (m_exploding || m_hasExploded) {
+        return;
+    }
+
+    m_burning = false;
+    m_exploding = true;
+    m_explosionTimer = 0.0f;
+    m_speed = 0.0f;
+    clearPilot();
+    resetDamage();
+
+    if (m_explodeCallback) {
+        m_explodeCallback(this);
+    }
+}
+
+void Vehicle::setExplodedTextureIfNeeded() {
+    if (!m_explodedTexture) {
+        m_explodedTexture = TextureManager::instance().getTextureFromPath("assets/textures/car-exploded.png");
+    }
+
+    if (m_explodedTexture) {
+        m_texture = m_explodedTexture;
+    }
+    m_deltaTexture.reset();
 }

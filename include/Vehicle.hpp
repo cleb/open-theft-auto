@@ -15,6 +15,7 @@ class Vehicle;
 // Callback invoked when a vehicle is carjacked
 // Parameters: vehicle position, vehicle rotation (degrees), vehicle size
 using CarjackCallback = std::function<void(const glm::vec3&, float, const glm::vec2&)>;
+using VehicleExplodeCallback = std::function<void(Vehicle*)>;
 
 // Damage state for vehicle quadrants
 struct VehicleDamage {
@@ -58,6 +59,17 @@ private:
     VehicleDamage m_damage;
     bool m_inCollision = false;  // Tracks if currently in collision state
     std::string m_vehicleTypeId = "sedan";  // Type ID of this vehicle (from VehicleConfig)
+    int m_maxHealth = 10;
+    int m_health = 10;
+    bool m_burning = false;
+    float m_burnTimer = 0.0f;
+    float m_effectTime = 0.0f;
+    bool m_exploding = false;
+    bool m_hasExploded = false;
+    float m_explosionTimer = 0.0f;
+    float m_collisionDamageCooldown = 0.0f;
+    VehicleExplodeCallback m_explodeCallback;
+    std::shared_ptr<Texture> m_explodedTexture;
 
 public:
     Vehicle();
@@ -91,6 +103,8 @@ public:
     void setCarjackCallback(CarjackCallback callback) { m_carjackCallback = std::move(callback); }
     void triggerCarjack();
     bool hasCarjackCallback() const { return m_carjackCallback != nullptr; }
+
+    void setExplodeCallback(VehicleExplodeCallback callback) { m_explodeCallback = std::move(callback); }
     
     // Speed access for pilots
     float getSpeed() const { return m_speed; }
@@ -117,6 +131,13 @@ public:
     void applyDamageFromCollision(const glm::vec3& collisionPoint);
     const VehicleDamage& getDamage() const { return m_damage; }
     void resetDamage();
+
+    void applyHit(int amount = 1);
+    int getHealth() const { return m_health; }
+    int getMaxHealth() const { return m_maxHealth; }
+    bool isBurning() const { return m_burning; }
+    bool isExploding() const { return m_exploding; }
+    bool isWrecked() const { return m_hasExploded; }
     
     // Collision state management (prevents repeated damage application)
     void setInCollision(bool inCollision) { m_inCollision = inCollision; }
@@ -129,4 +150,9 @@ private:
     bool canMoveTo(const glm::vec3& from, const glm::vec3& to) const;
     bool wouldCollideWithOther(const glm::vec3& newPosition) const;
     CollisionDirection determineCollisionDirection(const glm::vec3& collisionPoint) const;
+    float getHealthFraction() const;
+    float getFireIntensity() const;
+    void startBurning();
+    void triggerExplosion();
+    void setExplodedTextureIfNeeded();
 };

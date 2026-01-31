@@ -9,6 +9,7 @@
             "size": [1.5, 3.0],
             "texture": "assets/textures/sedan.png",
             "deltaTexture": "assets/textures/sedan-deltas.png",
+            "maxHealth": 10,
             "drivabilityImpact": 1.0
         },
         {
@@ -20,6 +21,7 @@
             "size": [1.6, 2.4],
             "texture": "assets/textures/pickup.png",
             "deltaTexture": "assets/textures/pickup-deltas.png",
+            "maxHealth": 15,
             "drivabilityImpact": 0.5
         }
     ]

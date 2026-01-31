@@ -73,4 +73,6 @@ private:
     void rebuildPickupsFromSpawns();
     void handlePickupCollection();
     void firePistolShot();
+    void handleVehicleExploded(Vehicle* vehicle);
+    void restartLevel();
 };

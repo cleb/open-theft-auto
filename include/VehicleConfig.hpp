@@ -15,6 +15,7 @@ struct VehicleTypeDefinition {
     glm::vec2 size = glm::vec2(1.5f, 3.0f);
     std::string texturePath;
     std::string deltaTexturePath;
+    int maxHealth = 10;
     
     // How much the vehicle is affected by low-drivability surfaces
     // 0.0 = completely immune to surface conditions (always full speed)

@@ -114,6 +114,7 @@ bool ProjectileManager::checkVehicleHit(const glm::vec2& projPos, float projRadi
         const float radius = projRadius + vehRadius;
         if ((diff.x * diff.x + diff.y * diff.y) <= radius * radius) {
             std::cout << "Pistol shot hit vehicle" << std::endl;
+            vehicle->applyHit(1);
             return true;
         }
         return false;

@@ -48,6 +48,9 @@ public:
     
     // Set collision callback for all traffic vehicles
     void setCollisionCallback(ColliderCallback callback);
+
+    // Set explode callback for all traffic vehicles
+    void setVehicleExplodeCallback(VehicleExplodeCallback callback);
     
     // Set pedestrian manager for carjack callbacks
     void setPedestrianManager(PedestrianManager* pedestrianManager) { m_pedestrianManager = pedestrianManager; }
@@ -70,6 +73,7 @@ private:
     std::vector<std::unique_ptr<Vehicle>> m_trafficVehicles;
     std::vector<RoadSpawnPoint> m_roadSpawnPoints;
     ColliderCallback m_collisionCallback;
+    VehicleExplodeCallback m_vehicleExplodeCallback;
     
     // Configuration
     int m_maxTrafficVehicles;

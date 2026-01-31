@@ -61,6 +61,16 @@ void TrafficManager::setCollisionCallback(ColliderCallback callback) {
     }
 }
 
+void TrafficManager::setVehicleExplodeCallback(VehicleExplodeCallback callback) {
+    m_vehicleExplodeCallback = std::move(callback);
+
+    for (auto& vehicle : m_trafficVehicles) {
+        if (vehicle) {
+            vehicle->setExplodeCallback(m_vehicleExplodeCallback);
+        }
+    }
+}
+
 void TrafficManager::buildRoadSpawnPoints() {
     m_roadSpawnPoints.clear();
     
@@ -246,6 +256,10 @@ void TrafficManager::spawnVehicle() {
     // Set collision callback
     if (m_collisionCallback) {
         vehicle->setCollisionCallback(m_collisionCallback);
+    }
+
+    if (m_vehicleExplodeCallback) {
+        vehicle->setExplodeCallback(m_vehicleExplodeCallback);
     }
     
     // Set carjack callback to spawn a pedestrian when vehicle is taken

@@ -72,6 +72,10 @@ bool VehicleConfig::loadFromFile(const std::string& filepath) {
             if (vt.contains("deltaTexture") && vt["deltaTexture"].is_string()) {
                 def.deltaTexturePath = vt["deltaTexture"].get<std::string>();
             }
+
+            if (vt.contains("maxHealth") && vt["maxHealth"].is_number_integer()) {
+                def.maxHealth = vt["maxHealth"].get<int>();
+            }
             
             // Parse drivability impact (how much surface conditions affect this vehicle)
             if (vt.contains("drivabilityImpact") && vt["drivabilityImpact"].is_number()) {
