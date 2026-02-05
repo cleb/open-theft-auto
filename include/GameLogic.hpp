@@ -8,6 +8,7 @@
 
 class InputManager;
 class TrafficManager;
+class PoliceChaseManager;
 
 class GameLogic {
 private:
@@ -17,6 +18,7 @@ private:
     std::vector<std::unique_ptr<Vehicle>>* m_vehicles;
     InputManager* m_inputManager;
     TrafficManager* m_trafficManager;
+    PoliceChaseManager* m_policeChaseManager;
 
 public:
     GameLogic();
@@ -26,6 +28,7 @@ public:
     void setVehicles(std::vector<std::unique_ptr<Vehicle>>* vehicles);
     void setInputManager(InputManager* inputManager) { m_inputManager = inputManager; }
     void setTrafficManager(TrafficManager* trafficManager) { m_trafficManager = trafficManager; }
+    void setPoliceChaseManager(PoliceChaseManager* policeChaseManager) { m_policeChaseManager = policeChaseManager; }
     
     void processInput(InputManager* input, float deltaTime);
     void update(float deltaTime);

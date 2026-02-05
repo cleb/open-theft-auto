@@ -162,6 +162,22 @@ void PoliceChaseManager::render(Renderer* renderer) {
     }
 }
 
+std::unique_ptr<Vehicle> PoliceChaseManager::claimPoliceVehicle(Vehicle* vehicle) {
+    if (!vehicle) {
+        return nullptr;
+    }
+
+    for (auto it = m_policeVehicles.begin(); it != m_policeVehicles.end(); ++it) {
+        if (it->get() == vehicle) {
+            std::unique_ptr<Vehicle> claimed = std::move(*it);
+            m_policeVehicles.erase(it);
+            return claimed;
+        }
+    }
+
+    return nullptr;
+}
+
 void PoliceChaseManager::updatePoliceVehicles(float deltaTime) {
     // Update all police vehicles
     for (auto& vehicle : m_policeVehicles) {

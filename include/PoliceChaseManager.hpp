@@ -50,6 +50,7 @@ public:
     
     // Get police vehicles (for collision detection)
     const std::vector<std::unique_ptr<Vehicle>>& getPoliceVehicles() const { return m_policeVehicles; }
+    std::unique_ptr<Vehicle> claimPoliceVehicle(Vehicle* vehicle);
     std::vector<Pedestrian*> getShootableOfficers() const;
     
     // Configuration
