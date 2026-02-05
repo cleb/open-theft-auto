@@ -123,6 +123,11 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     createTestScene();
 
     m_projectileManager.initialize();
+    m_projectileManager.setPedestrianHitCallback([this]() {
+        if (m_policeChaseManager) {
+            m_policeChaseManager->onPedestrianKilled();
+        }
+    });
     
     return true;
 }
@@ -636,6 +641,11 @@ void Scene::handleVehicleExploded(Vehicle* vehicle) {
         return;
     }
 
+    const bool explosionAttributedToGunfire = vehicle->wasShotByPlayer();
+    if (explosionAttributedToGunfire && m_policeChaseManager) {
+        m_policeChaseManager->onPlayerCausedVehicleExplosion();
+    }
+
     // Apply explosion damage to nearby vehicles
     const glm::vec3 explosionPos = vehicle->getPosition();
     const float tileSize = m_tileGrid ? m_tileGrid->getTileSize() : 3.0f;
@@ -655,6 +665,9 @@ void Scene::handleVehicleExploded(Vehicle* vehicle) {
             const float factor = 1.0f - (dist / explosionRadius);
             const int damage = static_cast<int>(std::ceil(maxDamage * factor));
             if (damage > 0) {
+                if (explosionAttributedToGunfire) {
+                    target->markShotByPlayer();
+                }
                 target->applyHit(damage);
             }
         }

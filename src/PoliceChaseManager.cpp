@@ -72,6 +72,16 @@ void PoliceChaseManager::onPedestrianKilled() {
     checkChaseCondition();
 }
 
+void PoliceChaseManager::onPlayerCausedVehicleExplosion() {
+    if (!m_enabled) return;
+    if (m_chaseActive) return;
+    if (!m_policeVehicles.empty()) return;
+
+    m_chaseActive = true;
+    std::cout << "WANTED! Police chase initiated after player-caused vehicle explosion!" << std::endl;
+    spawnPoliceVehicle();
+}
+
 int PoliceChaseManager::getRecentKillCount() const {
     int count = 0;
     float cutoffTime = m_currentTime - m_killWindowSeconds;

@@ -563,14 +563,15 @@ void Vehicle::setVehicleType(const std::string& typeId) {
         m_maxSpeed = def->maxSpeed;
         m_maxSpeedRoad = def->maxSpeed + def->maxSpeedVariance;
         m_acceleration = def->acceleration;
-    m_maxHealth = def->maxHealth;
-    m_health = m_maxHealth;
-    m_burning = false;
-    m_burnTimer = 0.0f;
-    m_exploding = false;
-    m_hasExploded = false;
-    m_explosionTimer = 0.0f;
-    m_effectTime = 0.0f;
+        m_maxHealth = def->maxHealth;
+        m_health = m_maxHealth;
+        m_burning = false;
+        m_burnTimer = 0.0f;
+        m_exploding = false;
+        m_hasExploded = false;
+        m_explosionTimer = 0.0f;
+        m_effectTime = 0.0f;
+        m_wasShotByPlayer = false;
         
         // Update delta texture for the new vehicle type
         if (!def->deltaTexturePath.empty()) {
@@ -583,6 +584,7 @@ void Vehicle::setVehicleType(const std::string& typeId) {
         m_acceleration = DEFAULT_ACCELERATION;
         m_maxHealth = 10;
         m_health = m_maxHealth;
+        m_wasShotByPlayer = false;
         std::cerr << "Vehicle: Unknown vehicle type '" << typeId << "', using defaults" << std::endl;
     }
 }

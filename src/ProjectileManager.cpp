@@ -75,7 +75,7 @@ void ProjectileManager::updateProjectile(Projectile& projectile, float deltaTime
 }
 
 bool ProjectileManager::checkPedestrianHit(const glm::vec2& projPos, float projRadius,
-                                           PedestrianManager* pedestrians) const {
+                                           PedestrianManager* pedestrians) {
     if (!pedestrians) {
         return false;
     }
@@ -92,6 +92,9 @@ bool ProjectileManager::checkPedestrianHit(const glm::vec2& projPos, float projR
         const float radius = projRadius + pedRadius;
         if ((diff.x * diff.x + diff.y * diff.y) <= radius * radius) {
             pedestrian->kill();
+            if (m_pedestrianHitCallback) {
+                m_pedestrianHitCallback();
+            }
             return true;
         }
     }
@@ -101,7 +104,7 @@ bool ProjectileManager::checkPedestrianHit(const glm::vec2& projPos, float projR
 
 bool ProjectileManager::checkVehicleHit(const glm::vec2& projPos, float projRadius,
                                         const std::vector<std::unique_ptr<Vehicle>>* playerVehicles,
-                                        TrafficManager* trafficManager) const {
+                                        TrafficManager* trafficManager) {
     auto testVehicle = [&](Vehicle* vehicle) {
         if (!vehicle || !vehicle->isActive()) {
             return false;
@@ -114,6 +117,7 @@ bool ProjectileManager::checkVehicleHit(const glm::vec2& projPos, float projRadi
         const float radius = projRadius + vehRadius;
         if ((diff.x * diff.x + diff.y * diff.y) <= radius * radius) {
             std::cout << "Pistol shot hit vehicle" << std::endl;
+            vehicle->markShotByPlayer();
             vehicle->applyHit(1);
             return true;
         }

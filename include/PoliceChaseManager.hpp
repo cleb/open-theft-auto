@@ -36,6 +36,9 @@ public:
     // Called when a pedestrian is killed by the player
     void onPedestrianKilled();
     
+    // Called when the player causes a vehicle explosion via gunfire
+    void onPlayerCausedVehicleExplosion();
+    
     // Set callbacks
     void setPlayerPositionCallback(PlayerPositionCallback callback) { m_playerPositionCallback = std::move(callback); }
     void setCollisionCallback(ColliderCallback callback);

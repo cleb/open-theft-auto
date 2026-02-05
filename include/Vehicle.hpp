@@ -68,6 +68,7 @@ private:
     bool m_hasExploded = false;
     float m_explosionTimer = 0.0f;
     float m_collisionDamageCooldown = 0.0f;
+    bool m_wasShotByPlayer = false;
     VehicleExplodeCallback m_explodeCallback;
     std::shared_ptr<Texture> m_explodedTexture;
 
@@ -133,6 +134,8 @@ public:
     void resetDamage();
 
     void applyHit(int amount = 1);
+    void markShotByPlayer() { m_wasShotByPlayer = true; }
+    bool wasShotByPlayer() const { return m_wasShotByPlayer; }
     int getHealth() const { return m_health; }
     int getMaxHealth() const { return m_maxHealth; }
     bool isBurning() const { return m_burning; }
