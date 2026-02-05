@@ -24,11 +24,12 @@ void ProjectileManager::initialize() {
 }
 
 void ProjectileManager::spawnProjectile(const glm::vec3& origin, const glm::vec2& direction,
-                                        float speed, float maxRange) {
+                                        float speed, float maxRange, ProjectileOwner owner) {
     Projectile projectile;
     projectile.position = origin;
     projectile.velocity = direction * speed;
     projectile.life = maxRange / speed;
+    projectile.owner = owner;
     m_projectiles.push_back(projectile);
 }
 
@@ -64,25 +65,29 @@ void ProjectileManager::updateProjectile(Projectile& projectile, float deltaTime
 
     const glm::vec2 projPos(projectile.position.x, projectile.position.y);
 
-    if (checkPedestrianHit(projPos, kProjectileRadius, pedestrians)) {
+    if (checkPedestrianHit(projectile, projPos, kProjectileRadius, pedestrians)) {
         projectile.life = 0.0f;
         return;
     }
 
-    if (checkVehicleHit(projPos, kProjectileRadius, playerVehicles, trafficManager)) {
+    if (projectile.owner == ProjectileOwner::Player) {
+        if (checkVehicleHit(projPos, kProjectileRadius, playerVehicles, trafficManager)) {
+            projectile.life = 0.0f;
+        }
+    } else if (checkEnemyHit(projPos, kProjectileRadius)) {
         projectile.life = 0.0f;
     }
 }
 
-bool ProjectileManager::checkPedestrianHit(const glm::vec2& projPos, float projRadius,
+bool ProjectileManager::checkPedestrianHit(const Projectile& projectile, const glm::vec2& projPos, float projRadius,
                                            PedestrianManager* pedestrians) {
-    if (!pedestrians) {
+    if (projectile.owner != ProjectileOwner::Player) {
         return false;
     }
 
-    for (const auto& pedestrian : pedestrians->getPedestrians()) {
+    auto testPedestrian = [&](Pedestrian* pedestrian) {
         if (!pedestrian || !pedestrian->isActive() || pedestrian->isDead()) {
-            continue;
+            return false;
         }
         const glm::vec3 pedPos3 = pedestrian->getPosition();
         const glm::vec2 pedPos(pedPos3.x, pedPos3.y);
@@ -97,9 +102,33 @@ bool ProjectileManager::checkPedestrianHit(const glm::vec2& projPos, float projR
             }
             return true;
         }
+        return false;
+    };
+
+    if (pedestrians) {
+        for (const auto& pedestrian : pedestrians->getPedestrians()) {
+            if (testPedestrian(pedestrian.get())) {
+                return true;
+            }
+        }
+    }
+
+    if (m_extraPedestrianTargetsCallback) {
+        for (Pedestrian* pedestrian : m_extraPedestrianTargetsCallback()) {
+            if (testPedestrian(pedestrian)) {
+                return true;
+            }
+        }
     }
 
     return false;
+}
+
+bool ProjectileManager::checkEnemyHit(const glm::vec2& projPos, float projRadius) {
+    if (!m_enemyHitCallback) {
+        return false;
+    }
+    return m_enemyHitCallback(projPos, projRadius);
 }
 
 bool ProjectileManager::checkVehicleHit(const glm::vec2& projPos, float projRadius,

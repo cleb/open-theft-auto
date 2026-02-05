@@ -100,6 +100,12 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
         }
         return glm::vec3(0.0f);
     });
+    m_policeChaseManager->setOfficerShootCallback([this](const glm::vec3& origin, const glm::vec2& direction) {
+        constexpr float kOfficerProjectileSpeed = 30.0f;
+        constexpr float kOfficerProjectileRange = 22.0f;
+        m_projectileManager.spawnProjectile(origin, direction, kOfficerProjectileSpeed, kOfficerProjectileRange,
+                                            ProjectileManager::ProjectileOwner::Police);
+    });
     
     // Set up pedestrian kill callback to notify police chase manager
     m_pedestrianManager->setPedestrianKillCallback([this](Vehicle* killerVehicle) {
@@ -127,6 +133,49 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
         if (m_policeChaseManager) {
             m_policeChaseManager->onPedestrianKilled();
         }
+    });
+    m_projectileManager.setExtraPedestrianTargetsCallback([this]() -> std::vector<Pedestrian*> {
+        if (!m_policeChaseManager) {
+            return {};
+        }
+        return m_policeChaseManager->getShootableOfficers();
+    });
+    m_projectileManager.setEnemyHitCallback([this](const glm::vec2& projPos, float projRadius) -> bool {
+        if (m_gameLogic && m_gameLogic->isPlayerInVehicle()) {
+            Vehicle* activeVehicle = m_gameLogic->getActiveVehicle();
+            if (!activeVehicle || !activeVehicle->isActive() || activeVehicle->isExploding() || activeVehicle->isWrecked()) {
+                return false;
+            }
+
+            const glm::vec3 vehPos3 = activeVehicle->getPosition();
+            const glm::vec2 vehPos(vehPos3.x, vehPos3.y);
+            const glm::vec2 diff = vehPos - projPos;
+            const glm::vec2 vehSize = activeVehicle->getSpriteSize();
+            const float vehRadius = std::max(vehSize.x, vehSize.y) * 0.5f;
+            const float radius = projRadius + vehRadius;
+            if ((diff.x * diff.x + diff.y * diff.y) <= radius * radius) {
+                activeVehicle->applyHit(1);
+                return true;
+            }
+            return false;
+        }
+
+        if (!m_player || !m_player->isActive()) {
+            return false;
+        }
+
+        const glm::vec3 playerPos3 = m_player->getPosition();
+        const glm::vec2 playerPos(playerPos3.x, playerPos3.y);
+        const glm::vec2 diff = playerPos - projPos;
+        const glm::vec2 playerSize = m_player->getColliderSize();
+        const float playerRadius = std::max(playerSize.x, playerSize.y) * 0.35f;
+        const float radius = projRadius + playerRadius;
+        if ((diff.x * diff.x + diff.y * diff.y) <= radius * radius) {
+            restartLevel();
+            return true;
+        }
+
+        return false;
     });
     
     return true;

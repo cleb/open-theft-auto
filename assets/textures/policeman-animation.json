@@ -1,0 +1,29 @@
+{
+  "texture": "policeman-animation.png",
+  "frameWidth": 512,
+  "frameHeight": 512,
+  "animations": {
+    "walk": {
+      "frames": [
+        { "x": 0, "y": 0 },
+        { "x": 512, "y": 0 },
+        { "x": 1024, "y": 0 },
+        { "x": 1536, "y": 0 },
+        { "x": 2048, "y": 0 },
+        { "x": 2560, "y": 0 },
+        { "x": 3072, "y": 0 },
+        { "x": 3584, "y": 0 }
+      ],
+      "frameDuration": 0.1,
+      "loop": true
+    },
+    "death": {
+      "frames": [
+        { "x": 4096, "y": 0 },
+        { "x": 4608, "y": 0 }
+      ],
+      "frameDuration": 0.15,
+      "loop": false
+    }
+  }
+}

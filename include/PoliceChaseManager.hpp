@@ -5,6 +5,8 @@
 #include "Camera.hpp"
 #include "ViewBounds.hpp"
 #include "TrafficManager.hpp"
+#include "Pedestrian.hpp"
+#include "SpriteAnimation.hpp"
 #include <vector>
 #include <memory>
 #include <glm/glm.hpp>
@@ -19,6 +21,8 @@ class Player;
 using PlayerPositionCallback = std::function<glm::vec3()>;
 // Callback to get all colliders
 using ColliderCallback = std::function<std::vector<const class Collider*>()>;
+// Callback for police officer weapon fire
+using OfficerShootCallback = std::function<void(const glm::vec3&, const glm::vec2&)>;
 
 class PoliceChaseManager {
 public:
@@ -42,9 +46,11 @@ public:
     // Set callbacks
     void setPlayerPositionCallback(PlayerPositionCallback callback) { m_playerPositionCallback = std::move(callback); }
     void setCollisionCallback(ColliderCallback callback);
+    void setOfficerShootCallback(OfficerShootCallback callback) { m_officerShootCallback = std::move(callback); }
     
     // Get police vehicles (for collision detection)
     const std::vector<std::unique_ptr<Vehicle>>& getPoliceVehicles() const { return m_policeVehicles; }
+    std::vector<Pedestrian*> getShootableOfficers() const;
     
     // Configuration
     void setKillThreshold(int threshold) { m_killThreshold = threshold; }
@@ -65,6 +71,13 @@ private:
     std::vector<std::unique_ptr<Vehicle>> m_policeVehicles;
     ColliderCallback m_collisionCallback;
     PlayerPositionCallback m_playerPositionCallback;
+    OfficerShootCallback m_officerShootCallback;
+
+    // On-foot police officer state (one officer for now)
+    std::unique_ptr<SpriteAnimation> m_policeOfficerAnimation;
+    std::unique_ptr<Pedestrian> m_onFootOfficer;
+    Vehicle* m_officerVehicle = nullptr;
+    float m_officerShootCooldown = 0.0f;
     
     // Kill tracking: timestamps of recent pedestrian kills
     std::deque<float> m_killTimestamps;
@@ -86,11 +99,22 @@ private:
     
     // Temp storage for spawn rotation (set by findValidSpawnPoint)
     float m_lastSpawnRotation = 0.0f;
+    float m_officerDeployDistance = 8.0f;
+    float m_officerReturnDistance = 18.0f;
+    float m_officerFireDistance = 14.0f;
+    float m_officerSpeed = 3.8f;
     
     // Helper methods
     void checkChaseCondition();
     void spawnPoliceVehicle();
+    void assignPolicePilot(Vehicle* vehicle);
     void updatePoliceVehicles(float deltaTime);
+    void updateOfficer(float deltaTime);
+    void maybeDeployOfficer(Vehicle* vehicle, const glm::vec3& playerPos);
+    void updateOfficerCombat(float deltaTime, const glm::vec3& playerPos);
+    void tryOfficerReenterVehicle(float deltaTime, const glm::vec3& playerPos);
+    void checkOfficerVehicleCollision();
+    void clearOfficer(bool keepCorpse);
     void cleanupOldKills();
     glm::vec3 findValidSpawnPoint();
     bool isTooCloseToOtherVehicles(const glm::vec3& position) const;
