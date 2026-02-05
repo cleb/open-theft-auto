@@ -3,6 +3,7 @@
 #include "AutoPilot.hpp"
 #include <glm/glm.hpp>
 #include <functional>
+#include <vector>
 
 class Vehicle;
 class TileGrid;
@@ -28,26 +29,34 @@ public:
     
 private:
     PlayerPositionCallback m_playerPositionCallback;
-    
-    // Lane change state
-    mutable bool m_pendingLaneChange = false;
-    mutable glm::vec3 m_laneChangeTargetPos{0.0f};
-    
-    // Override heading if current direction doesn't lead to player
-    bool shouldOverrideHeading(Vehicle* vehicle, TileGrid* tileGrid, float& newHeading) const;
-    
-    // Get available headings for a road direction
-    std::vector<float> getHeadingsForRoadDirection(CarDirection roadDir) const;
-    
-    // Get the best heading from available road directions to reach target
-    float getBestHeadingForTarget(float currentHeading, const glm::vec3& pos, const glm::vec3& targetPos, CarDirection roadDir) const;
-    
-    // Returns true if heading roughly points towards target position
-    bool isHeadingTowardsTarget(float heading, const glm::vec3& fromPos, const glm::vec3& targetPos) const;
-    
-    // Try to steer around an obstacle instead of stopping
-    bool trySteerAroundObstacle(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime);
-    
-    // Helper
+
+    enum class RouteMode {
+        StrictLane,
+        Flexible
+    };
+
+    struct SearchResult {
+        std::vector<glm::ivec3> path;
+        float totalCost = 0.0f;
+        bool reachedGoal = false;
+    };
+
+    std::vector<glm::ivec3> m_cachedPath;
+    glm::ivec3 m_cachedGoal{-1, -1, -1};
+    float m_repathCooldown = 0.0f;
+    float m_detourTimer = 0.0f;
+
+    glm::ivec3 worldToDriveGrid(const TileGrid* tileGrid, const glm::vec3& worldPos) const;
+    glm::vec3 gridToDriveWorld(const TileGrid* tileGrid, const glm::ivec3& gridPos, float z) const;
+    bool isRoadTile(const TileGrid* tileGrid, const glm::ivec3& gridPos) const;
+    bool isMoveAllowedByDirection(CarDirection dir, const glm::ivec2& step) const;
+    SearchResult findPath(const TileGrid* tileGrid, const glm::ivec3& start, const glm::ivec3& goal, RouteMode mode) const;
+    float computeMoveCost(const TileGrid* tileGrid, const glm::ivec3& from, const glm::ivec3& to,
+                          const glm::ivec3& goal, RouteMode mode) const;
+    float heuristicCost(const glm::ivec3& from, const glm::ivec3& goal) const;
+    bool wouldCollideAt(const Vehicle* vehicle, const glm::vec3& newPos, float heading) const;
+    bool canMoveTo(const TileGrid* tileGrid, const glm::vec3& fromPos, const glm::vec3& toPos) const;
+    float chooseDetourHeading(const Vehicle* vehicle, const TileGrid* tileGrid, const glm::vec3& pos,
+                              float desiredHeading, float travelDistance, bool& foundDetour) const;
     float angleDifference(float from, float to) const;
 };
