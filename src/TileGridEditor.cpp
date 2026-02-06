@@ -34,6 +34,7 @@
 namespace {
 constexpr const char* kWallLabels[4] = {"North", "South", "East", "West"};
 constexpr const char* kDefaultVehicleTexture = "assets/textures/sedan.png";
+constexpr std::size_t kMaxUndoSteps = 64;
 float normalizeDegrees(float value) {
     if (!std::isfinite(value)) {
         return 0.0f;
@@ -225,6 +226,7 @@ void TileGridEditor::initialize(TileGrid* grid, LevelData* levelData) {
     rebuildAliasList();
     refreshUiStateFromTile();
     m_selectedPrefabIndex = -1;
+    clearUndoHistory();
     syncPendingGridSizeFromGrid();
     m_gridResizeError.clear();
     m_isTileDragPainting = false;
@@ -323,6 +325,7 @@ void TileGridEditor::processInput(InputManager* input, float deltaTime) {
     }
 
     if (!captureKeyboard) {
+        handleUndoHotkey(input);
         handleBrushHotkeys(input);
         handleWallHotkeys(input);
         handlePrefabHotkeys(input);
@@ -1003,6 +1006,125 @@ void TileGridEditor::syncPendingGridSizeFromGrid() {
     }
 }
 
+bool TileGridEditor::pushUndoState() {
+    if (!m_grid) {
+        return false;
+    }
+
+    EditorSnapshot snapshot;
+    snapshot.gridSize = m_grid->getGridSize();
+    snapshot.cursor = m_cursor;
+    if (m_levelData) {
+        snapshot.levelData = *m_levelData;
+    }
+
+    const std::size_t tileCount = static_cast<std::size_t>(snapshot.gridSize.x)
+        * static_cast<std::size_t>(snapshot.gridSize.y)
+        * static_cast<std::size_t>(snapshot.gridSize.z);
+    snapshot.tiles.reserve(tileCount);
+
+    for (int z = 0; z < snapshot.gridSize.z; ++z) {
+        for (int y = 0; y < snapshot.gridSize.y; ++y) {
+            for (int x = 0; x < snapshot.gridSize.x; ++x) {
+                auto copy = std::make_unique<Tile>(glm::ivec3(x, y, z), m_grid->getTileSize());
+                if (const Tile* tile = m_grid->getTile(x, y, z)) {
+                    copy->copyFrom(*tile);
+                }
+                snapshot.tiles.push_back(std::move(copy));
+            }
+        }
+    }
+
+    if (m_undoStack.size() >= kMaxUndoSteps) {
+        m_undoStack.erase(m_undoStack.begin());
+    }
+    m_undoStack.push_back(std::move(snapshot));
+    return true;
+}
+
+void TileGridEditor::clearUndoHistory() {
+    m_undoStack.clear();
+}
+
+bool TileGridEditor::restoreSnapshot(const EditorSnapshot& snapshot) {
+    if (!m_grid) {
+        return false;
+    }
+
+    if (snapshot.gridSize.x <= 0 || snapshot.gridSize.y <= 0 || snapshot.gridSize.z <= 0) {
+        return false;
+    }
+
+    if (m_grid->getGridSize() != snapshot.gridSize) {
+        if (!m_grid->resize(snapshot.gridSize)) {
+            return false;
+        }
+    }
+
+    const std::size_t expectedCount = static_cast<std::size_t>(snapshot.gridSize.x)
+        * static_cast<std::size_t>(snapshot.gridSize.y)
+        * static_cast<std::size_t>(snapshot.gridSize.z);
+    if (snapshot.tiles.size() != expectedCount) {
+        return false;
+    }
+
+    std::size_t idx = 0;
+    for (int z = 0; z < snapshot.gridSize.z; ++z) {
+        for (int y = 0; y < snapshot.gridSize.y; ++y) {
+            for (int x = 0; x < snapshot.gridSize.x; ++x) {
+                Tile* tile = m_grid->getTile(x, y, z);
+                const auto& source = snapshot.tiles[idx++];
+                if (!tile || !source) {
+                    continue;
+                }
+                tile->copyFrom(*source);
+            }
+        }
+    }
+
+    if (m_levelData) {
+        *m_levelData = snapshot.levelData;
+    }
+
+    m_cursor = snapshot.cursor;
+    clampCursor();
+    syncPendingGridSizeFromGrid();
+
+    m_selectedTiles.erase(
+        std::remove_if(m_selectedTiles.begin(), m_selectedTiles.end(),
+            [&](const glm::ivec3& pos) { return !m_grid->isValidPosition(pos); }),
+        m_selectedTiles.end());
+    m_moveMode = false;
+    m_moveOffset = glm::ivec3(0);
+    m_isSelecting = false;
+    m_isTileDragPainting = false;
+
+    announceCursor();
+    refreshUiStateFromTile();
+    refreshCursorColor();
+
+    if (m_levelChangedCallback) {
+        m_levelChangedCallback();
+    }
+
+    return true;
+}
+
+void TileGridEditor::undoLastEdit() {
+    if (m_undoStack.empty()) {
+        std::cout << "Nothing to undo" << std::endl;
+        return;
+    }
+
+    EditorSnapshot snapshot = std::move(m_undoStack.back());
+    m_undoStack.pop_back();
+    if (restoreSnapshot(snapshot)) {
+        std::cout << "Undo applied" << std::endl;
+    } else {
+        std::cout << "Undo failed: could not restore snapshot" << std::endl;
+    }
+}
+
 void TileGridEditor::announceCursor() {
     if (!m_grid) {
         return;
@@ -1130,6 +1252,7 @@ void TileGridEditor::printHelp() const {
               << "  Shift+Drag (mouse): select area of tiles\n"
               << "  Ctrl+Click (mouse): toggle individual tile selection\n"
               << "  Ctrl+A: select all\n"
+              << "  Ctrl+Z: undo last edit\n"
               << "  M: move selected tiles\n"
               << "  Escape: clear selection / cancel move / deselect prefab\n"
               << "  Ctrl+1-9: apply prefab\n"
@@ -1304,6 +1427,7 @@ void TileGridEditor::drawGridControls() {
     ImGui::BeginDisabled(!pendingValid || m_pendingGridSize == currentSize);
     if (ImGui::Button("Apply Grid Size")) {
         if (pendingValid) {
+            const bool pushedUndo = pushUndoState();
             if (m_grid->resize(m_pendingGridSize)) {
                 syncPendingGridSizeFromGrid();
                 clampCursor();
@@ -1317,6 +1441,9 @@ void TileGridEditor::drawGridControls() {
                     m_levelChangedCallback();
                 }
             } else {
+                if (pushedUndo && !m_undoStack.empty()) {
+                    m_undoStack.pop_back();
+                }
                 m_gridResizeError = "Failed to resize grid.";
             }
         }
@@ -1558,6 +1685,8 @@ void TileGridEditor::applyTopSurfaceFromUi() {
         return;
     }
 
+    pushUndoState();
+
     if (!m_uiTileState.topSolid) {
         tile->setTopSurface(false, "", CarDirection::None);
         tile->setCarDirection(CarDirection::None);
@@ -1579,6 +1708,8 @@ void TileGridEditor::applySpawnWeightsFromUi() {
         return;
     }
 
+    pushUndoState();
+
     const auto& config = VehicleConfig::getInstance();
     const auto& definitions = config.getAllDefinitions();
     
@@ -1593,6 +1724,7 @@ void TileGridEditor::applyDrivabilityFromUi() {
         return;
     }
 
+    pushUndoState();
     tile->setDrivability(m_uiTileState.drivability);
 }
 
@@ -1601,6 +1733,8 @@ void TileGridEditor::applyWallFromUi(int wallIndex, WallDirection direction) {
     if (!tile) {
         return;
     }
+
+    pushUndoState();
 
     if (m_uiTileState.wallWalkable[wallIndex]) {
         tile->setWall(direction, true);
@@ -1632,6 +1766,7 @@ void TileGridEditor::applyVehicleBrush() {
             return spawn.gridPosition == m_cursor;
         });
         if (it != spawns.end()) {
+            pushUndoState();
             spawns.erase(it);
             std::cout << "Removed vehicle at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
         } else {
@@ -1677,6 +1812,7 @@ void TileGridEditor::applyVehicleBrush() {
     auto existing = std::find_if(spawns.begin(), spawns.end(), [&](const VehicleSpawnDefinition& entry) {
         return entry.gridPosition == spawn.gridPosition;
     });
+    pushUndoState();
     if (existing != spawns.end()) {
         *existing = spawn;
     } else {
@@ -1700,6 +1836,7 @@ void TileGridEditor::removeVehicleAtCursor() {
         return spawn.gridPosition == m_cursor;
     });
     if (it != spawns.end()) {
+        pushUndoState();
         spawns.erase(it);
         std::cout << "Removed vehicle at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
         announceCursor();
@@ -1716,6 +1853,8 @@ void TileGridEditor::clearTileAtCursor() {
     if (!tile) {
         return;
     }
+
+    pushUndoState();
 
     // Clear the top surface
     tile->setTopSurface(false, "", CarDirection::None);
@@ -1872,21 +2011,25 @@ void TileGridEditor::applyBrush() {
 
     switch (m_brush) {
         case BrushType::Grass:
+            pushUndoState();
             tile->setTopSurface(true, "assets/textures/grass.png", CarDirection::None);
             tile->setCarDirection(CarDirection::None);
             tile->setSidewalkDirection(SidewalkDirection::None);
             break;
         case BrushType::Road:
+            pushUndoState();
             tile->setTopSurface(true, "assets/textures/road.png", m_roadDirection);
             tile->setCarDirection(m_roadDirection);
             tile->setSidewalkDirection(SidewalkDirection::None);
             break;
         case BrushType::Sidewalk:
+            pushUndoState();
             tile->setTopSurface(true, "assets/textures/sidewalk.jpeg", CarDirection::None);
             tile->setCarDirection(CarDirection::None);
             tile->setSidewalkDirection(m_sidewalkDirection);
             break;
         case BrushType::Empty:
+            pushUndoState();
             tile->setTopSurface(false, "", CarDirection::None);
             tile->setCarDirection(CarDirection::None);
             tile->setSidewalkDirection(SidewalkDirection::None);
@@ -1934,6 +2077,8 @@ void TileGridEditor::applySelectedTileToRect(const glm::ivec3& start, const glm:
         const WallData& sourceWall = sourceTemplate.getWall(direction);
         target->setWall(direction, sourceWall.walkable, sourceWall.texturePath);
     };
+
+    pushUndoState();
 
     std::size_t paintedTiles = 0;
     for (int y = minY; y <= maxY; ++y) {
@@ -2109,6 +2254,11 @@ void TileGridEditor::applyBucketFill() {
     };
 
     pushIfMatch(m_cursor.x, m_cursor.y);
+    if (stack.empty()) {
+        return;
+    }
+
+    pushUndoState();
     std::size_t filledCount = 0;
 
     while (!stack.empty()) {
@@ -2187,6 +2337,7 @@ void TileGridEditor::applyPrefab(std::size_t index) {
         return;
     }
 
+    pushUndoState();
     tile->copyFrom(*entry.tile);
     m_selectedPrefabIndex = static_cast<int>(index);
 
@@ -2229,6 +2380,7 @@ void TileGridEditor::toggleWall(WallDirection direction) {
     if (newWalkable) {
         texturePath.clear();
     }
+    pushUndoState();
     tile->setWall(direction, newWalkable, texturePath);
     announceCursor();
     refreshUiStateFromTile();
@@ -2301,6 +2453,13 @@ void TileGridEditor::handleBrushHotkeys(InputManager* input) {
     if (input->isKeyPressed(GLFW_KEY_7)) {
         m_brush = BrushType::Pickup;
         announceBrush();
+    }
+}
+
+void TileGridEditor::handleUndoHotkey(InputManager* input) {
+    const bool ctrlDown = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
+    if (ctrlDown && input->isKeyPressed(GLFW_KEY_Z)) {
+        undoLastEdit();
     }
 }
 
@@ -2542,6 +2701,7 @@ void TileGridEditor::drawPlayerSpawnBrushControls() {
         }
         ImGui::SameLine();
         if (ImGui::Button("Clear Spawn")) {
+            pushUndoState();
             m_levelData->playerSpawn.isSet = false;
             std::cout << "Cleared player spawn" << std::endl;
         }
@@ -2613,6 +2773,7 @@ void TileGridEditor::applyPlayerSpawnBrush() {
         return;
     }
 
+    pushUndoState();
     m_levelData->playerSpawn.gridPosition = m_cursor;
     m_levelData->playerSpawn.rotationDegrees = normalizeDegrees(m_uiPlayerSpawnState.rotationDegrees);
     m_levelData->playerSpawn.isSet = true;
@@ -2644,6 +2805,7 @@ void TileGridEditor::applyPickupBrush() {
             return spawn.gridPosition == m_cursor;
         });
         if (it != pickups.end()) {
+            pushUndoState();
             pickups.erase(it);
             std::cout << "Removed pickup at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
         }
@@ -2666,6 +2828,7 @@ void TileGridEditor::applyPickupBrush() {
     auto existing = std::find_if(pickups.begin(), pickups.end(), [&](const PickupSpawnDefinition& entry) {
         return entry.gridPosition == spawn.gridPosition;
     });
+    pushUndoState();
     if (existing != pickups.end()) {
         *existing = spawn;
     } else {
@@ -2870,6 +3033,11 @@ void TileGridEditor::applyMove(const glm::ivec3& offset) {
             tileData.push_back({pos, std::move(copy)});
         }
     }
+    if (tileData.empty()) {
+        return;
+    }
+
+    pushUndoState();
 
     // Clear original tiles
     for (const auto& pos : m_selectedTiles) {
@@ -3058,6 +3226,9 @@ void TileGridEditor::drawSelectionControls() {
     }
 
     if (ImGui::Button("Apply to Selection")) {
+        if (!m_selectedTiles.empty() && (applyTopSurface || applyWalls)) {
+            pushUndoState();
+        }
         for (const auto& pos : m_selectedTiles) {
             Tile* tile = m_grid->getTile(pos);
             if (!tile) continue;
@@ -3264,6 +3435,7 @@ bool TileGridEditor::newLevel(const glm::ivec3& gridSize, float tileSize) {
     m_prefabs.clear();
     m_selectedPrefabIndex = -1;
     m_prefabAutoNameCounter = 0;
+    clearUndoHistory();
     std::snprintf(m_newPrefabName.data(), m_newPrefabName.size(), "Prefab %d", m_prefabAutoNameCounter);
 
     // Reinitialize editor state
@@ -3306,6 +3478,7 @@ bool TileGridEditor::loadLevel(const std::string& path) {
     m_prefabs.clear();
     m_selectedPrefabIndex = -1;
     m_prefabAutoNameCounter = 0;
+    clearUndoHistory();
     std::snprintf(m_newPrefabName.data(), m_newPrefabName.size(), "Prefab %d", m_prefabAutoNameCounter);
 
     // Reinitialize editor state
@@ -3414,7 +3587,7 @@ void TileGridEditor::drawFileManagementControls() {
     }
 
     // Show hotkey hints
-    ImGui::TextDisabled("Ctrl+N: New | Ctrl+O: Open | Ctrl+S: Save | Ctrl+Shift+S: Save As");
+    ImGui::TextDisabled("Ctrl+N: New | Ctrl+O: Open | Ctrl+S: Save | Ctrl+Shift+S: Save As | Ctrl+Z: Undo");
 }
 
 void TileGridEditor::drawNewLevelDialog() {

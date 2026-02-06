@@ -113,6 +113,13 @@ private:
         std::unique_ptr<Tile> tile;
     };
 
+    struct EditorSnapshot {
+        glm::ivec3 gridSize{0};
+        glm::ivec3 cursor{0};
+        std::vector<std::unique_ptr<Tile>> tiles;
+        LevelData levelData;
+    };
+
     TileGrid* m_grid;
     LevelData* m_levelData;
     Window* m_window;
@@ -161,6 +168,7 @@ private:
     std::array<char, PrefabNameBufferSize> m_newPrefabName{};
     int m_selectedPrefabIndex;
     int m_prefabAutoNameCounter;
+    std::vector<EditorSnapshot> m_undoStack;
     glm::ivec3 m_pendingGridSize;
     std::string m_gridResizeError;
     UiPlayerSpawnState m_uiPlayerSpawnState;
@@ -222,6 +230,10 @@ private:
     void applyPickupBrush();
     void syncPendingGridSizeFromGrid();
     void applySelectedTileToRect(const glm::ivec3& start, const glm::ivec3& end);
+    bool pushUndoState();
+    void clearUndoHistory();
+    bool restoreSnapshot(const EditorSnapshot& snapshot);
+    void undoLastEdit();
 
     void applyBrush();
     void applyBucketFill();
@@ -235,6 +247,7 @@ private:
     void handleBrushHotkeys(InputManager* input);
     void handleWallHotkeys(InputManager* input);
     void handlePrefabHotkeys(InputManager* input);
+    void handleUndoHotkey(InputManager* input);
     void handleSaveHotkey(InputManager* input);
     void handleSelectionHotkeys(InputManager* input);
 
