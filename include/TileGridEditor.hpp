@@ -145,6 +145,9 @@ private:
     glm::ivec3 m_hoverTile;
     glm::vec3 m_hoverColor;
     int m_hoverLayerOffset;
+    bool m_isTileDragPainting;
+    glm::ivec3 m_tileDragStart;
+    glm::ivec3 m_tileDragEnd;
     
     // Edge scrolling
     float m_edgeScrollSpeed;
@@ -218,6 +221,7 @@ private:
     void applyPlayerSpawnBrush();
     void applyPickupBrush();
     void syncPendingGridSizeFromGrid();
+    void applySelectedTileToRect(const glm::ivec3& start, const glm::ivec3& end);
 
     void applyBrush();
     void applyBucketFill();
@@ -252,6 +256,7 @@ private:
     void startMove();
     void applyMove(const glm::ivec3& offset);
     void renderSelection(Renderer* renderer);
+    void renderTileDragPreview(Renderer* renderer);
     void drawSelectionControls();
     bool getTileAtScreenPosition(double mouseX, double mouseY, glm::ivec3& outTilePos) const;
 };

@@ -185,9 +185,14 @@ TileGridEditor::TileGridEditor()
     , m_hoverTile(0)
     , m_hoverColor(1.0f, 1.0f, 0.3f)
     , m_hoverLayerOffset(0)
+    , m_isTileDragPainting(false)
+    , m_tileDragStart(0)
+    , m_tileDragEnd(0)
     , m_edgeScrollSpeed(15.0f)
     , m_edgeScrollMargin(50.0f)
     , m_helpPrinted(false)
+    , m_selectedPrefabIndex(-1)
+    , m_prefabAutoNameCounter(0)
     , m_pendingGridSize(0)
     , m_gridResizeError()
     , m_uiPlayerSpawnState()
@@ -222,6 +227,7 @@ void TileGridEditor::initialize(TileGrid* grid, LevelData* levelData) {
     m_selectedPrefabIndex = -1;
     syncPendingGridSizeFromGrid();
     m_gridResizeError.clear();
+    m_isTileDragPainting = false;
 }
 
 void TileGridEditor::setLevelPath(const std::string& path) {
@@ -263,6 +269,8 @@ void TileGridEditor::setEnabled(bool enabled) {
             printHelp();
             m_helpPrinted = true;
         }
+    } else {
+        m_isTileDragPainting = false;
     }
 }
 
@@ -459,27 +467,38 @@ void TileGridEditor::processInput(InputManager* input, float deltaTime) {
     const bool shiftDown = input->isKeyDown(GLFW_KEY_LEFT_SHIFT) || input->isKeyDown(GLFW_KEY_RIGHT_SHIFT);
     const bool ctrlDown = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
     const bool applySpace = !captureKeyboard && input->isKeyPressed(GLFW_KEY_SPACE);
-    
-    // Left click without modifiers: if a prefab is selected, apply it; otherwise navigate to tile
-    const bool plainClick = !captureMouse && input->isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT) 
-                            && !m_isSelecting && !shiftDown && !ctrlDown;
-    if (plainClick && m_hasHoverTile) {
+    const bool plainMouseInput = !captureMouse && !m_isSelecting && !shiftDown && !ctrlDown;
+
+    if (plainMouseInput && input->isMouseButtonPressed(GLFW_MOUSE_BUTTON_RIGHT) && m_hasHoverTile) {
+        m_cursor = m_hoverTile;
+        clampCursor();
+        announceCursor();
+        refreshUiStateFromTile();
+    }
+
+    if (m_isTileDragPainting) {
+        if (input->isMouseButtonDown(GLFW_MOUSE_BUTTON_LEFT)) {
+            if (!captureMouse && m_hasHoverTile) {
+                m_tileDragEnd = m_hoverTile;
+            }
+        } else {
+            applySelectedTileToRect(m_tileDragStart, m_tileDragEnd);
+            m_isTileDragPainting = false;
+        }
+    } else if (plainMouseInput && input->isMouseButtonPressed(GLFW_MOUSE_BUTTON_LEFT) && m_hasHoverTile) {
         if (m_selectedPrefabIndex >= 0 && m_selectedPrefabIndex < static_cast<int>(m_prefabs.size())) {
-            // Prefab selected: navigate and apply
             m_cursor = m_hoverTile;
             clampCursor();
             announceCursor();
             refreshUiStateFromTile();
             applyPrefab(static_cast<std::size_t>(m_selectedPrefabIndex));
         } else {
-            // No prefab selected: just navigate to the tile (like keyboard navigation)
-            m_cursor = m_hoverTile;
-            clampCursor();
-            announceCursor();
-            refreshUiStateFromTile();
+            m_tileDragStart = m_hoverTile;
+            m_tileDragEnd = m_hoverTile;
+            m_isTileDragPainting = true;
         }
     }
-    
+
     // Space always applies the current brush at the cursor position
     if (applySpace) {
         if (shiftDown) {
@@ -578,6 +597,7 @@ void TileGridEditor::render(Renderer* renderer) {
 
     // Render selection boxes
     renderSelection(renderer);
+    renderTileDragPreview(renderer);
 
     // Render hover tile with cursor mesh (more visible)
     if (m_hasHoverTile && m_cursorMesh && !isSelected(m_hoverTile)) {
@@ -1104,7 +1124,9 @@ void TileGridEditor::printHelp() const {
               << "  I/J/K/L: toggle wall (north/west/south/east)\n"
               << "  Space: apply brush at cursor\n"
               << "  Shift+Space: bucket fill brush or selected prefab on current layer\n"
-              << "  Left Click: navigate to tile (or apply prefab if selected)\n"
+              << "  Right Click: select source tile under mouse\n"
+              << "  Left Click/Drag: apply source tile to hovered tile area\n"
+              << "  Left Click (prefab selected): apply prefab\n"
               << "  Shift+Drag (mouse): select area of tiles\n"
               << "  Ctrl+Click (mouse): toggle individual tile selection\n"
               << "  Ctrl+A: select all\n"
@@ -1214,9 +1236,9 @@ void TileGridEditor::drawPrefabControls() {
         if (ImGui::SmallButton("Deselect")) {
             m_selectedPrefabIndex = -1;
         }
-        ImGui::TextDisabled("Click tile to apply prefab, or deselect to navigate");
+        ImGui::TextDisabled("Left click tile to apply prefab");
     } else {
-        ImGui::TextDisabled("No prefab selected (click navigates to tile)");
+        ImGui::TextDisabled("No prefab selected (right click picks source, left drag paints area)");
     }
 
     ImVec2 listSize = ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 6.0f);
@@ -1882,6 +1904,72 @@ void TileGridEditor::applyBrush() {
 
     announceCursor();
     refreshUiStateFromTile();
+}
+
+void TileGridEditor::applySelectedTileToRect(const glm::ivec3& start, const glm::ivec3& end) {
+    if (!m_grid) {
+        return;
+    }
+
+    Tile* sourceTile = m_grid->getTile(m_cursor);
+    if (!sourceTile) {
+        return;
+    }
+
+    const glm::ivec3 gridSize = m_grid->getGridSize();
+    if (gridSize.x <= 0 || gridSize.y <= 0 || gridSize.z <= 0) {
+        return;
+    }
+
+    const int minX = std::clamp(std::min(start.x, end.x), 0, gridSize.x - 1);
+    const int maxX = std::clamp(std::max(start.x, end.x), 0, gridSize.x - 1);
+    const int minY = std::clamp(std::min(start.y, end.y), 0, gridSize.y - 1);
+    const int maxY = std::clamp(std::max(start.y, end.y), 0, gridSize.y - 1);
+    const int layerZ = std::clamp(start.z, 0, gridSize.z - 1);
+
+    Tile sourceTemplate(glm::ivec3(0), m_grid->getTileSize());
+    sourceTemplate.copyFrom(*sourceTile);
+
+    auto applyWallFromTemplate = [&](Tile* target, WallDirection direction) {
+        const WallData& sourceWall = sourceTemplate.getWall(direction);
+        target->setWall(direction, sourceWall.walkable, sourceWall.texturePath);
+    };
+
+    std::size_t paintedTiles = 0;
+    for (int y = minY; y <= maxY; ++y) {
+        for (int x = minX; x <= maxX; ++x) {
+            Tile* target = m_grid->getTile(x, y, layerZ);
+            if (!target) {
+                continue;
+            }
+
+            target->copyFrom(sourceTemplate);
+
+            // Keep interior walls open; only paint perimeter walls from the source tile.
+            for (int i = 0; i < 4; ++i) {
+                target->setWall(static_cast<WallDirection>(i), true, "");
+            }
+
+            if (x == minX) {
+                applyWallFromTemplate(target, WallDirection::West);
+            }
+            if (x == maxX) {
+                applyWallFromTemplate(target, WallDirection::East);
+            }
+            if (y == minY) {
+                applyWallFromTemplate(target, WallDirection::South);
+            }
+            if (y == maxY) {
+                applyWallFromTemplate(target, WallDirection::North);
+            }
+
+            ++paintedTiles;
+        }
+    }
+
+    if (paintedTiles > 0) {
+        std::cout << "Applied tile stamp to " << paintedTiles << " tiles on z=" << layerZ << std::endl;
+    }
 }
 
 void TileGridEditor::applyBucketFill() {
@@ -2850,6 +2938,47 @@ void TileGridEditor::renderSelection(Renderer* renderer) {
         }
         glm::mat4 model = glm::translate(glm::mat4(1.0f), worldPos + glm::vec3(0.0f, 0.0f, offset));
         renderer->renderMesh(*m_selectionMesh, model, "model", color);
+    }
+}
+
+void TileGridEditor::renderTileDragPreview(Renderer* renderer) {
+    if (!m_grid || !renderer || !m_isTileDragPainting || !m_selectionMesh || !m_cursorMesh) {
+        return;
+    }
+
+    const glm::ivec3 gridSize = m_grid->getGridSize();
+    if (gridSize.x <= 0 || gridSize.y <= 0 || gridSize.z <= 0) {
+        return;
+    }
+
+    const int minX = std::clamp(std::min(m_tileDragStart.x, m_tileDragEnd.x), 0, gridSize.x - 1);
+    const int maxX = std::clamp(std::max(m_tileDragStart.x, m_tileDragEnd.x), 0, gridSize.x - 1);
+    const int minY = std::clamp(std::min(m_tileDragStart.y, m_tileDragEnd.y), 0, gridSize.y - 1);
+    const int maxY = std::clamp(std::max(m_tileDragStart.y, m_tileDragEnd.y), 0, gridSize.y - 1);
+    const int layerZ = std::clamp(m_tileDragStart.z, 0, gridSize.z - 1);
+
+    const float tileSize = m_grid->getTileSize();
+    const float fillOffset = tileSize * 0.05f;
+    const float borderOffset = tileSize * 0.09f;
+    const glm::vec3 fillColor(0.35f, 0.85f, 0.35f);
+    const glm::vec3 borderColor(1.0f, 0.75f, 0.2f);
+
+    for (int y = minY; y <= maxY; ++y) {
+        for (int x = minX; x <= maxX; ++x) {
+            const glm::ivec3 pos(x, y, layerZ);
+            if (!m_grid->isValidPosition(pos)) {
+                continue;
+            }
+
+            const glm::vec3 worldPos = m_grid->gridToWorld(pos);
+            glm::mat4 fillModel = glm::translate(glm::mat4(1.0f), worldPos + glm::vec3(0.0f, 0.0f, fillOffset));
+            renderer->renderMesh(*m_selectionMesh, fillModel, "model", fillColor);
+
+            if (x == minX || x == maxX || y == minY || y == maxY) {
+                glm::mat4 borderModel = glm::translate(glm::mat4(1.0f), worldPos + glm::vec3(0.0f, 0.0f, borderOffset));
+                renderer->renderMesh(*m_cursorMesh, borderModel, "model", borderColor);
+            }
+        }
     }
 }
 
