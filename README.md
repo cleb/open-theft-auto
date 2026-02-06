@@ -105,6 +105,7 @@ mingw32-make -j4
 
 - **WASD / Arrow Keys**: Move tile cursor
 - **Q / E**: Change layer
+- **Ctrl + Mouse Wheel**: Zoom camera in/out
 - **1 / 2 / 3**: Select grass, road, or empty brush
 - **R**: Cycle road direction when road brush active
 - **I / J / K / L**: Toggle south / east / north / west walls

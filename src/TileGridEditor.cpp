@@ -295,6 +295,7 @@ void TileGridEditor::processInput(InputManager* input, float deltaTime) {
     ImGuiIO& io = ImGui::GetIO();
     const bool captureKeyboard = io.WantCaptureKeyboard;
     const bool captureMouse = io.WantCaptureMouse;
+    const bool ctrlDown = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
 
     // Edge scrolling - move camera when mouse is near window edges (but inside window)
     if (!captureMouse && m_window && m_renderer && input->isCursorInWindow()) {
@@ -441,10 +442,23 @@ void TileGridEditor::processInput(InputManager* input, float deltaTime) {
             m_hoverTile.z = std::clamp(m_hoverTile.z + m_hoverLayerOffset, 0, gridSize.z - 1);
         }
         
-        // Handle scroll wheel to change hover layer offset
+        // Handle scroll wheel for zoom (Ctrl+Wheel) or hover layer offset (Wheel)
         double scrollY = input->getScrollDeltaY();
         if (scrollY != 0.0) {
-            if (m_grid) {
+            if (ctrlDown && m_renderer) {
+                if (Camera* camera = m_renderer->getCamera()) {
+                    constexpr float kZoomStep = 1.5f;
+                    constexpr float kMinCameraHeight = 4.0f;
+                    constexpr float kMaxCameraHeight = 40.0f;
+                    glm::vec3 cameraPos = camera->getPosition();
+                    cameraPos.z = std::clamp(
+                        cameraPos.z - static_cast<float>(scrollY) * kZoomStep,
+                        kMinCameraHeight,
+                        kMaxCameraHeight
+                    );
+                    camera->setPosition(cameraPos);
+                }
+            } else if (m_grid) {
                 const glm::ivec3& gridSize = m_grid->getGridSize();
                 if (scrollY > 0) {
                     m_hoverLayerOffset = std::min(m_hoverLayerOffset + 1, gridSize.z - 1);
@@ -469,7 +483,6 @@ void TileGridEditor::processInput(InputManager* input, float deltaTime) {
     }
 
     const bool shiftDown = input->isKeyDown(GLFW_KEY_LEFT_SHIFT) || input->isKeyDown(GLFW_KEY_RIGHT_SHIFT);
-    const bool ctrlDown = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
     const bool applySpace = !captureKeyboard && input->isKeyPressed(GLFW_KEY_SPACE);
     const bool plainMouseInput = !captureMouse && !m_isSelecting && !shiftDown && !ctrlDown;
 
@@ -1263,6 +1276,7 @@ void TileGridEditor::printHelp() const {
               << "  Arrow keys / WASD: move cursor\n"
               << "  Q / E: change layer\n"
               << "  Scroll wheel: change hover layer offset\n"
+              << "  Ctrl+Scroll wheel: zoom camera\n"
               << "  Mouse near edge: scroll camera\n"
               << "  1: grass brush\n"
               << "  2: road brush\n"
