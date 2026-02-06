@@ -63,6 +63,20 @@ bool Tile::isWallWalkable(WallDirection dir) const {
     return m_walls[static_cast<int>(dir)].walkable;
 }
 
+bool Tile::hasRenderableGeometry() const {
+    if (m_topSurface.solid) {
+        return true;
+    }
+
+    for (int i = 0; i < 4; ++i) {
+        if (!m_walls[i].walkable) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void Tile::setTopSurface(bool solid, const std::string& texturePath, CarDirection carDir) {
     m_topSurface.solid = solid;
     m_topSurface.texturePath = texturePath;

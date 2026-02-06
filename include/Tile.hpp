@@ -147,6 +147,7 @@ public:
     void setSidewalkDirection(SidewalkDirection dir);
     const TopSurfaceData& getTopSurface() const { return m_topSurface; }
     bool isTopSolid() const { return m_topSurface.solid; }
+    bool hasRenderableGeometry() const;
     CarDirection getCarDirection() const { return m_topSurface.carDirection; }
     SidewalkDirection getSidewalkDirection() const { return m_topSurface.sidewalkDirection; }
     bool isSidewalk() const { return m_topSurface.sidewalkDirection != SidewalkDirection::None; }

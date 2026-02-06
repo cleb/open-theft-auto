@@ -12,6 +12,7 @@
 #include "VehicleConfig.hpp"
 #include "Window.hpp"
 #include "Camera.hpp"
+#include "ViewBounds.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -525,73 +526,102 @@ void TileGridEditor::render(Renderer* renderer) {
         const glm::ivec3 gridSize = m_grid->getGridSize();
         const float tileSize = m_grid->getTileSize();
         const float heightOffset = tileSize * 0.03f;
+        int minX = 0;
+        int maxX = gridSize.x - 1;
+        int minY = 0;
+        int maxY = gridSize.y - 1;
 
-        for (int z = 0; z < gridSize.z; ++z) {
-            for (int y = 0; y < gridSize.y; ++y) {
-                for (int x = 0; x < gridSize.x; ++x) {
-                    Tile* tile = m_grid->getTile(x, y, z);
-                    if (!tile) {
-                        continue;
-                    }
+        if (Camera* camera = renderer->getCamera()) {
+            constexpr int kTilePadding = 2;
+            const ViewBounds bounds = ViewBounds::calculate(camera, renderer->getFovRadians(), renderer->getAspectRatio());
+            const float halfTile = tileSize * 0.5f;
 
-                    const TopSurfaceData& top = tile->getTopSurface();
-                    if (top.carDirection == CarDirection::None) {
-                        continue;
-                    }
+            minX = std::max(
+                0,
+                static_cast<int>(std::floor((bounds.minX + halfTile) / tileSize)) - kTilePadding
+            );
+            maxX = std::min(
+                gridSize.x - 1,
+                static_cast<int>(std::floor((bounds.maxX + halfTile) / tileSize)) + kTilePadding
+            );
+            minY = std::max(
+                0,
+                static_cast<int>(std::floor((bounds.minY + halfTile) / tileSize)) - kTilePadding
+            );
+            maxY = std::min(
+                gridSize.y - 1,
+                static_cast<int>(std::floor((bounds.maxY + halfTile) / tileSize)) + kTilePadding
+            );
+        }
 
-                    glm::vec3 base = m_grid->gridToWorld(glm::ivec3(x, y, z));
-                    base.z += tileSize + heightOffset;
+        if (minX <= maxX && minY <= maxY) {
+            for (int z = 0; z < gridSize.z; ++z) {
+                for (int y = minY; y <= maxY; ++y) {
+                    for (int x = minX; x <= maxX; ++x) {
+                        Tile* tile = m_grid->getTile(x, y, z);
+                        if (!tile) {
+                            continue;
+                        }
 
-                    auto renderArrow = [&](float rotation) {
-                        glm::mat4 model = glm::translate(glm::mat4(1.0f), base);
-                        model = glm::rotate(model, rotation, glm::vec3(0.0f, 0.0f, 1.0f));
-                        renderer->renderMesh(*m_arrowMesh, model, "model", m_arrowColor);
-                    };
+                        const TopSurfaceData& top = tile->getTopSurface();
+                        if (top.carDirection == CarDirection::None) {
+                            continue;
+                        }
 
-                    switch (top.carDirection) {
-                        case CarDirection::North:
-                            renderArrow(0.0f);
-                            break;
-                        case CarDirection::South:
-                            renderArrow(glm::pi<float>());
-                            break;
-                        case CarDirection::East:
-                            renderArrow(-glm::half_pi<float>());
-                            break;
-                        case CarDirection::West:
-                            renderArrow(glm::half_pi<float>());
-                            break;
-                        case CarDirection::SouthNorth:
-                            renderArrow(0.0f);
-                            renderArrow(glm::pi<float>());
-                            break;
-                        case CarDirection::WestEast:
-                            renderArrow(glm::half_pi<float>());
-                            renderArrow(-glm::half_pi<float>());
-                            break;
-                        case CarDirection::NorthEast:
-                            renderArrow(-glm::quarter_pi<float>());
-                            break;
-                        case CarDirection::NorthWest:
-                            renderArrow(glm::quarter_pi<float>());
-                            break;
-                        case CarDirection::SouthEast:
-                            renderArrow(-glm::pi<float>() + glm::quarter_pi<float>());
-                            break;
-                        case CarDirection::SouthWest:
-                            renderArrow(glm::pi<float>() - glm::quarter_pi<float>());
-                            break;
-                        case CarDirection::NorthEastSouthWest:
-                            renderArrow(-glm::quarter_pi<float>());
-                            renderArrow(glm::pi<float>() - glm::quarter_pi<float>());
-                            break;
-                        case CarDirection::NorthWestSouthEast:
-                            renderArrow(glm::quarter_pi<float>());
-                            renderArrow(-glm::pi<float>() + glm::quarter_pi<float>());
-                            break;
-                        case CarDirection::None:
-                        default:
-                            break;
+                        glm::vec3 base = m_grid->gridToWorld(glm::ivec3(x, y, z));
+                        base.z += tileSize + heightOffset;
+
+                        auto renderArrow = [&](float rotation) {
+                            glm::mat4 model = glm::translate(glm::mat4(1.0f), base);
+                            model = glm::rotate(model, rotation, glm::vec3(0.0f, 0.0f, 1.0f));
+                            renderer->renderMesh(*m_arrowMesh, model, "model", m_arrowColor);
+                        };
+
+                        switch (top.carDirection) {
+                            case CarDirection::North:
+                                renderArrow(0.0f);
+                                break;
+                            case CarDirection::South:
+                                renderArrow(glm::pi<float>());
+                                break;
+                            case CarDirection::East:
+                                renderArrow(-glm::half_pi<float>());
+                                break;
+                            case CarDirection::West:
+                                renderArrow(glm::half_pi<float>());
+                                break;
+                            case CarDirection::SouthNorth:
+                                renderArrow(0.0f);
+                                renderArrow(glm::pi<float>());
+                                break;
+                            case CarDirection::WestEast:
+                                renderArrow(glm::half_pi<float>());
+                                renderArrow(-glm::half_pi<float>());
+                                break;
+                            case CarDirection::NorthEast:
+                                renderArrow(-glm::quarter_pi<float>());
+                                break;
+                            case CarDirection::NorthWest:
+                                renderArrow(glm::quarter_pi<float>());
+                                break;
+                            case CarDirection::SouthEast:
+                                renderArrow(-glm::pi<float>() + glm::quarter_pi<float>());
+                                break;
+                            case CarDirection::SouthWest:
+                                renderArrow(glm::pi<float>() - glm::quarter_pi<float>());
+                                break;
+                            case CarDirection::NorthEastSouthWest:
+                                renderArrow(-glm::quarter_pi<float>());
+                                renderArrow(glm::pi<float>() - glm::quarter_pi<float>());
+                                break;
+                            case CarDirection::NorthWestSouthEast:
+                                renderArrow(glm::quarter_pi<float>());
+                                renderArrow(-glm::pi<float>() + glm::quarter_pi<float>());
+                                break;
+                            case CarDirection::None:
+                            default:
+                                break;
+                        }
                     }
                 }
             }
@@ -3262,12 +3292,6 @@ bool TileGridEditor::getTileAtScreenPosition(double mouseX, double mouseY, glm::
     const glm::ivec3& gridSize = m_grid->getGridSize();
     const float tileSize = m_grid->getTileSize();
 
-    // Debug output (only log occasionally to avoid spam)
-    static int debugCounter = 0;
-    if (++debugCounter % 60 == 0) {
-        std::cout << "Checking mouse position: (" << mouseX << ", " << mouseY << ")" << std::endl;
-    }
-
     // Check layers from top to bottom to find the first valid tile
     // Also track the bottom layer position in case we don't find any solid tiles
     glm::ivec3 bottomLayerPos(-1);
@@ -3310,10 +3334,6 @@ bool TileGridEditor::getTileAtScreenPosition(double mouseX, double mouseY, glm::
         // Check if tile has solid top surface
         if (tile->isTopSolid()) {
             outTilePos = gridPos;
-            if (debugCounter % 60 == 0) {
-                std::cout << "  Found tile at (" << gridPos.x << ", " << gridPos.y << ", " << gridPos.z 
-                          << ") with solid top" << std::endl;
-            }
             return true;
         }
         
@@ -3321,10 +3341,6 @@ bool TileGridEditor::getTileAtScreenPosition(double mouseX, double mouseY, glm::
         for (int i = 0; i < 4; ++i) {
             if (!tile->getWall(static_cast<WallDirection>(i)).walkable) {
                 outTilePos = gridPos;
-                if (debugCounter % 60 == 0) {
-                    std::cout << "  Found tile at (" << gridPos.x << ", " << gridPos.y << ", " << gridPos.z 
-                              << ") with walls" << std::endl;
-                }
                 return true;
             }
         }
@@ -3334,10 +3350,6 @@ bool TileGridEditor::getTileAtScreenPosition(double mouseX, double mouseY, glm::
     // This allows selecting empty tiles at the ground level in the editor
     if (foundBottomLayerPos) {
         outTilePos = bottomLayerPos;
-        if (debugCounter % 60 == 0) {
-            std::cout << "  Falling back to bottom layer tile at (" << bottomLayerPos.x << ", " 
-                      << bottomLayerPos.y << ", " << bottomLayerPos.z << ")" << std::endl;
-        }
         return true;
     }
 

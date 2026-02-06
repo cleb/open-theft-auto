@@ -2,7 +2,11 @@
 #include <iostream>
 #include <GL/glew.h>
 
-Renderer::Renderer() : m_spriteVAO(0), m_spriteVBO(0) {
+Renderer::Renderer()
+    : m_fovRadians(1.57f)
+    , m_aspectRatio(16.0f / 9.0f)
+    , m_spriteVAO(0)
+    , m_spriteVBO(0) {
 }
 
 Renderer::~Renderer() {
@@ -22,8 +26,8 @@ bool Renderer::initialize(int windowWidth, int windowHeight) {
     glViewport(0, 0, windowWidth, windowHeight);
     
     // Initialize projection matrix (orthographic for 2.5D)
-    float aspectRatio = static_cast<float>(windowWidth) / static_cast<float>(windowHeight);
-    m_projectionMatrix = glm::perspective(1.57f, aspectRatio, 0.1f, 64.0f);
+    m_aspectRatio = static_cast<float>(windowWidth) / static_cast<float>(windowHeight);
+    m_projectionMatrix = glm::perspective(m_fovRadians, m_aspectRatio, 0.1f, 64.0f);
     
     // Initialize camera
     m_camera = std::make_unique<Camera>();
@@ -404,8 +408,8 @@ void Renderer::onWindowResize(int width, int height) {
     glViewport(0, 0, width, height);
 
     // Update projection matrix (use perspective to match initialize)
-    float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
-    m_projectionMatrix = glm::perspective(1.57f, aspectRatio, 0.1f, 64.0f);
+    m_aspectRatio = static_cast<float>(width) / static_cast<float>(height);
+    m_projectionMatrix = glm::perspective(m_fovRadians, m_aspectRatio, 0.1f, 64.0f);
 }
 
 bool Renderer::screenToWorldPosition(double mouseX, double mouseY, int windowWidth, int windowHeight,

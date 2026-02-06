@@ -18,6 +18,8 @@ private:
     
     glm::mat4 m_projectionMatrix;
     glm::mat4 m_viewMatrix;
+    float m_fovRadians;
+    float m_aspectRatio;
     
     // Sprite rendering
     GLuint m_spriteVAO;
@@ -79,6 +81,8 @@ public:
     
     // Camera
     Camera* getCamera() const { return m_camera.get(); }
+    float getFovRadians() const { return m_fovRadians; }
+    float getAspectRatio() const { return m_aspectRatio; }
 
     void onWindowResize(int width, int height);
     

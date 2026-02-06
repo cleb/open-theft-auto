@@ -1,6 +1,8 @@
 #include "TileGrid.hpp"
 #include "TextureManager.hpp"
 #include "Renderer.hpp"
+#include "ViewBounds.hpp"
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 
@@ -130,10 +132,52 @@ void TileGrid::reset() {
 
 void TileGrid::render(Renderer* renderer) {
     if (!renderer) return;
-    
-    for (auto& tile : m_tiles) {
-        if (tile) {
-            tile->render(renderer);
+
+    int minX = 0;
+    int maxX = m_gridSize.x - 1;
+    int minY = 0;
+    int maxY = m_gridSize.y - 1;
+
+    if (Camera* camera = renderer->getCamera()) {
+        constexpr int kTilePadding = 2;
+        const ViewBounds bounds = ViewBounds::calculate(camera, renderer->getFovRadians(), renderer->getAspectRatio());
+        const float halfTile = m_tileSize * 0.5f;
+
+        minX = std::max(
+            0,
+            static_cast<int>(std::floor((bounds.minX + halfTile) / m_tileSize)) - kTilePadding
+        );
+        maxX = std::min(
+            m_gridSize.x - 1,
+            static_cast<int>(std::floor((bounds.maxX + halfTile) / m_tileSize)) + kTilePadding
+        );
+        minY = std::max(
+            0,
+            static_cast<int>(std::floor((bounds.minY + halfTile) / m_tileSize)) - kTilePadding
+        );
+        maxY = std::min(
+            m_gridSize.y - 1,
+            static_cast<int>(std::floor((bounds.maxY + halfTile) / m_tileSize)) + kTilePadding
+        );
+    }
+
+    if (minX > maxX || minY > maxY) {
+        return;
+    }
+
+    const int rowStride = m_gridSize.x;
+    const int layerStride = m_gridSize.x * m_gridSize.y;
+    for (int z = 0; z < m_gridSize.z; ++z) {
+        const int layerBase = z * layerStride;
+        for (int y = minY; y <= maxY; ++y) {
+            int index = layerBase + y * rowStride + minX;
+            for (int x = minX; x <= maxX; ++x, ++index) {
+                Tile* tile = m_tiles[index].get();
+                if (!tile || !tile->hasRenderableGeometry()) {
+                    continue;
+                }
+                tile->render(renderer);
+            }
         }
     }
 }
