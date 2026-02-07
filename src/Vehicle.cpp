@@ -116,8 +116,11 @@ void Vehicle::update(float deltaTime) {
     }
     
     // Apply friction so the car gradually coasts to a stop
+    // Use frame-rate independent damping: damping^(dt * 60) so behavior is
+    // consistent regardless of frame rate (calibrated for 60 fps baseline).
     bool hasUserPilot = m_pilot != nullptr; // TODO: could check pilot type
-    const float damping = hasUserPilot ? 0.985f : 0.95f;
+    const float baseDamping = hasUserPilot ? 0.985f : 0.95f;
+    const float damping = std::pow(baseDamping, deltaTime * 60.0f);
     m_speed *= damping;
     if (std::abs(m_speed) < 0.01f) {
         m_speed = 0.0f;
@@ -201,6 +204,9 @@ void Vehicle::update(float deltaTime) {
 
 void Vehicle::setPilot(std::unique_ptr<Pilot> pilot) {
     m_pilot = std::move(pilot);
+    if (m_pilot) {
+        m_pilot->onAssign(this);
+    }
 }
 
 void Vehicle::clearPilot() {

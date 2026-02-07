@@ -76,18 +76,20 @@ void GameLogic::processInput(InputManager* input, float deltaTime) {
         leaveVehicle();
     }
 
-    // Send input to current controllable object
-    if (input->isKeyDown(GLFW_KEY_W) || input->isKeyDown(GLFW_KEY_UP)) {
-        m_currentControllable->moveForward(deltaTime);
-    }
-    if (input->isKeyDown(GLFW_KEY_S) || input->isKeyDown(GLFW_KEY_DOWN)) {
-        m_currentControllable->moveBackward(deltaTime);
-    }
-    if (input->isKeyDown(GLFW_KEY_A) || input->isKeyDown(GLFW_KEY_LEFT)) {
-        m_currentControllable->turnLeft(deltaTime);
-    }
-    if (input->isKeyDown(GLFW_KEY_D) || input->isKeyDown(GLFW_KEY_RIGHT)) {
-        m_currentControllable->turnRight(deltaTime);
+    // Vehicle movement is handled by UserPilot, only process input for on-foot player
+    if (!isPlayerInVehicle()) {
+        if (input->isKeyDown(GLFW_KEY_W) || input->isKeyDown(GLFW_KEY_UP)) {
+            m_currentControllable->moveForward(deltaTime);
+        }
+        if (input->isKeyDown(GLFW_KEY_S) || input->isKeyDown(GLFW_KEY_DOWN)) {
+            m_currentControllable->moveBackward(deltaTime);
+        }
+        if (input->isKeyDown(GLFW_KEY_A) || input->isKeyDown(GLFW_KEY_LEFT)) {
+            m_currentControllable->turnLeft(deltaTime);
+        }
+        if (input->isKeyDown(GLFW_KEY_D) || input->isKeyDown(GLFW_KEY_RIGHT)) {
+            m_currentControllable->turnRight(deltaTime);
+        }
     }
 }
 
