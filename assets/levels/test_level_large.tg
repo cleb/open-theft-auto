@@ -8,10 +8,10 @@ texture roof assets/textures/roof.png
 texture sidewalk assets/textures/sidewalk.jpeg
 texture wall assets/textures/wall.png
 texture wall01 assets/textures/wall01.png
-vehicle 2 7 0 rotation=0.00 type=sedan texture=assets/textures/sedan.png size=1.50x3.00
-vehicle 13 7 0 rotation=180.00 type=sedan texture=assets/textures/sedan.png size=1.50x3.00
+vehicle 2 7 0 rotation=90.00 type=sedan texture=assets/textures/sedan.png size=1.50x3.00
+vehicle 13 7 0 rotation=270.00 type=sedan texture=assets/textures/sedan.png size=1.50x3.00
 pickup 7 3 0 type=pistol
-player 5 4 0 rotation=90.00
+player 5 4 0 rotation=0.00
 tile 0 0 0 top=solid:grass drivability=0.30 east=solid:wall01
 tile 1 0 0 top=solid:grass drivability=0.30
 tile 2 0 0 top=solid:grass drivability=0.30
@@ -298,9 +298,9 @@ tile 26 1 0 top=solid:grass drivability=0.30
 tile 27 1 0 top=solid:grass drivability=0.30
 tile 28 1 0 top=solid:grass drivability=0.30
 tile 29 1 0 top=solid:sidewalk sidewalk=north_south
-tile 30 1 0 top=solid:grass drivability=0.30
-tile 31 1 0 top=solid:grass drivability=0.30
-tile 32 1 0 top=solid:grass drivability=0.30
+tile 30 1 0 top=solid:road car=north
+tile 31 1 0 top=solid:road car=south
+tile 32 1 0 top=solid:sidewalk sidewalk=north_south
 tile 33 1 0 top=solid:grass drivability=0.30
 tile 34 1 0 top=solid:grass drivability=0.30
 tile 35 1 0 top=solid:grass drivability=0.30
@@ -554,9 +554,9 @@ tile 26 2 0 top=solid:grass drivability=0.30
 tile 27 2 0 top=solid:grass drivability=0.30
 tile 28 2 0 top=solid:grass drivability=0.30
 tile 29 2 0 top=solid:sidewalk sidewalk=north_south
-tile 30 2 0 top=solid:grass drivability=0.30
-tile 31 2 0 top=solid:grass drivability=0.30
-tile 32 2 0 top=solid:grass drivability=0.30
+tile 30 2 0 top=solid:road car=north
+tile 31 2 0 top=solid:road car=south
+tile 32 2 0 top=solid:sidewalk sidewalk=north_south
 tile 33 2 0 top=solid:grass drivability=0.30
 tile 34 2 0 top=solid:grass drivability=0.30
 tile 35 2 0 top=solid:grass drivability=0.30
@@ -810,9 +810,9 @@ tile 26 3 0 top=solid:grass drivability=0.30
 tile 27 3 0 top=solid:grass drivability=0.30
 tile 28 3 0 top=solid:grass drivability=0.30
 tile 29 3 0 top=solid:sidewalk sidewalk=north_south
-tile 30 3 0 top=solid:grass drivability=0.30
-tile 31 3 0 top=solid:grass drivability=0.30
-tile 32 3 0 top=solid:grass drivability=0.30
+tile 30 3 0 top=solid:road car=north
+tile 31 3 0 top=solid:road car=south
+tile 32 3 0 top=solid:sidewalk sidewalk=north_south
 tile 33 3 0 top=solid:grass drivability=0.30
 tile 34 3 0 top=solid:grass drivability=0.30
 tile 35 3 0 top=solid:grass drivability=0.30
@@ -1066,9 +1066,9 @@ tile 26 4 0 top=solid:grass drivability=0.30
 tile 27 4 0 top=solid:grass drivability=0.30
 tile 28 4 0 top=solid:grass drivability=0.30
 tile 29 4 0 top=solid:sidewalk sidewalk=north_south
-tile 30 4 0 top=solid:grass drivability=0.30
-tile 31 4 0 top=solid:grass drivability=0.30
-tile 32 4 0 top=solid:grass drivability=0.30
+tile 30 4 0 top=solid:road car=north
+tile 31 4 0 top=solid:road car=south
+tile 32 4 0 top=solid:sidewalk sidewalk=north_south
 tile 33 4 0 top=solid:grass drivability=0.30
 tile 34 4 0 top=solid:grass drivability=0.30
 tile 35 4 0 top=solid:grass drivability=0.30
@@ -1322,9 +1322,9 @@ tile 26 5 0 top=solid:grass drivability=0.30
 tile 27 5 0 top=solid:grass drivability=0.30
 tile 28 5 0 top=solid:grass drivability=0.30
 tile 29 5 0 top=solid:sidewalk sidewalk=north_south
-tile 30 5 0 top=solid:grass drivability=0.30
-tile 31 5 0 top=solid:grass drivability=0.30
-tile 32 5 0 top=solid:grass drivability=0.30
+tile 30 5 0 top=solid:road car=north
+tile 31 5 0 top=solid:road car=south
+tile 32 5 0 top=solid:sidewalk sidewalk=north_south
 tile 33 5 0 top=solid:grass drivability=0.30
 tile 34 5 0 top=solid:grass drivability=0.30
 tile 35 5 0 top=solid:grass drivability=0.30
@@ -1578,8 +1578,8 @@ tile 26 6 0 top=solid:sidewalk sidewalk=east_west
 tile 27 6 0 top=solid:sidewalk sidewalk=east_west
 tile 28 6 0 top=solid:sidewalk sidewalk=east_west
 tile 29 6 0 top=solid:sidewalk sidewalk=east_west
-tile 30 6 0 top=solid:sidewalk sidewalk=east_west
-tile 31 6 0 top=solid:sidewalk sidewalk=east_west
+tile 30 6 0 top=solid:road car=north
+tile 31 6 0 top=solid:road car=south
 tile 32 6 0 top=solid:sidewalk sidewalk=east_west
 tile 33 6 0 top=solid:sidewalk sidewalk=east_west
 tile 34 6 0 top=solid:sidewalk sidewalk=east_west
@@ -1834,8 +1834,8 @@ tile 26 7 0 top=solid:road car=east
 tile 27 7 0 top=solid:road car=east
 tile 28 7 0 top=solid:road car=east
 tile 29 7 0 top=solid:road car=east
-tile 30 7 0 top=solid:road car=east
-tile 31 7 0 top=solid:road car=east
+tile 30 7 0 top=solid:road
+tile 31 7 0 top=solid:road
 tile 32 7 0 top=solid:road car=east
 tile 33 7 0 top=solid:road car=east
 tile 34 7 0 top=solid:road car=east
@@ -2090,8 +2090,8 @@ tile 26 8 0 top=solid:road car=west
 tile 27 8 0 top=solid:road car=west
 tile 28 8 0 top=solid:road car=west
 tile 29 8 0 top=solid:road car=west
-tile 30 8 0 top=solid:road car=west
-tile 31 8 0 top=solid:road car=west
+tile 30 8 0 top=solid:road
+tile 31 8 0 top=solid:road
 tile 32 8 0 top=solid:road car=west
 tile 33 8 0 top=solid:road car=west
 tile 34 8 0 top=solid:road car=west
@@ -2346,8 +2346,8 @@ tile 26 9 0 top=solid:sidewalk sidewalk=east_west
 tile 27 9 0 top=solid:sidewalk sidewalk=east_west
 tile 28 9 0 top=solid:sidewalk sidewalk=east_west
 tile 29 9 0 top=solid:sidewalk sidewalk=east_west
-tile 30 9 0 top=solid:sidewalk sidewalk=east_west
-tile 31 9 0 top=solid:sidewalk sidewalk=east_west
+tile 30 9 0 top=solid:road car=north
+tile 31 9 0 top=solid:road car=south
 tile 32 9 0 top=solid:sidewalk sidewalk=east_west
 tile 33 9 0 top=solid:sidewalk sidewalk=east_west
 tile 34 9 0 top=solid:sidewalk sidewalk=east_west
@@ -2601,10 +2601,10 @@ tile 25 10 0 top=solid:grass drivability=0.30
 tile 26 10 0 top=solid:grass drivability=0.30
 tile 27 10 0 top=solid:grass drivability=0.30
 tile 28 10 0 top=solid:grass drivability=0.30
-tile 29 10 0 top=solid:grass drivability=0.30
-tile 30 10 0 top=solid:grass drivability=0.30
-tile 31 10 0 top=solid:grass drivability=0.30
-tile 32 10 0 top=solid:grass drivability=0.30
+tile 29 10 0 top=solid:sidewalk sidewalk=north_south
+tile 30 10 0 top=solid:road car=north
+tile 31 10 0 top=solid:road car=south
+tile 32 10 0 top=solid:sidewalk sidewalk=north_south
 tile 33 10 0 top=solid:grass drivability=0.30
 tile 34 10 0 top=solid:grass drivability=0.30
 tile 35 10 0 top=solid:grass drivability=0.30
@@ -2857,10 +2857,10 @@ tile 25 11 0 top=solid:grass drivability=0.30
 tile 26 11 0 top=solid:grass drivability=0.30
 tile 27 11 0 top=solid:grass drivability=0.30
 tile 28 11 0 top=solid:grass drivability=0.30
-tile 29 11 0 top=solid:grass drivability=0.30
-tile 30 11 0 top=solid:grass drivability=0.30
-tile 31 11 0 top=solid:grass drivability=0.30
-tile 32 11 0 top=solid:grass drivability=0.30
+tile 29 11 0 top=solid:sidewalk sidewalk=north_south
+tile 30 11 0 top=solid:road car=north
+tile 31 11 0 top=solid:road car=south
+tile 32 11 0 top=solid:sidewalk sidewalk=north_south
 tile 33 11 0 top=solid:grass drivability=0.30
 tile 34 11 0 top=solid:grass drivability=0.30
 tile 35 11 0 top=solid:grass drivability=0.30
@@ -3113,10 +3113,10 @@ tile 25 12 0 top=solid:grass drivability=0.30
 tile 26 12 0 top=solid:grass drivability=0.30
 tile 27 12 0 top=solid:grass drivability=0.30
 tile 28 12 0 top=solid:grass drivability=0.30
-tile 29 12 0 top=solid:grass drivability=0.30
-tile 30 12 0 top=solid:grass drivability=0.30
-tile 31 12 0 top=solid:grass drivability=0.30
-tile 32 12 0 top=solid:grass drivability=0.30
+tile 29 12 0 top=solid:sidewalk sidewalk=north_south
+tile 30 12 0 top=solid:road car=north
+tile 31 12 0 top=solid:road car=south
+tile 32 12 0 top=solid:sidewalk sidewalk=north_south
 tile 33 12 0 top=solid:grass drivability=0.30
 tile 34 12 0 top=solid:grass drivability=0.30
 tile 35 12 0 top=solid:grass drivability=0.30
@@ -3369,10 +3369,10 @@ tile 25 13 0 top=solid:grass drivability=0.30
 tile 26 13 0 top=solid:grass drivability=0.30
 tile 27 13 0 top=solid:grass drivability=0.30
 tile 28 13 0 top=solid:grass drivability=0.30
-tile 29 13 0 top=solid:grass drivability=0.30
-tile 30 13 0 top=solid:grass drivability=0.30
-tile 31 13 0 top=solid:grass drivability=0.30
-tile 32 13 0 top=solid:grass drivability=0.30
+tile 29 13 0 top=solid:sidewalk sidewalk=north_south
+tile 30 13 0 top=solid:road car=north
+tile 31 13 0 top=solid:road car=south
+tile 32 13 0 top=solid:sidewalk sidewalk=north_south
 tile 33 13 0 top=solid:grass drivability=0.30
 tile 34 13 0 top=solid:grass drivability=0.30
 tile 35 13 0 top=solid:grass drivability=0.30
@@ -3625,10 +3625,10 @@ tile 25 14 0 top=solid:grass drivability=0.30
 tile 26 14 0 top=solid:grass drivability=0.30
 tile 27 14 0 top=solid:grass drivability=0.30
 tile 28 14 0 top=solid:grass drivability=0.30
-tile 29 14 0 top=solid:grass drivability=0.30
-tile 30 14 0 top=solid:grass drivability=0.30
-tile 31 14 0 top=solid:grass drivability=0.30
-tile 32 14 0 top=solid:grass drivability=0.30
+tile 29 14 0 top=solid:sidewalk sidewalk=north_south
+tile 30 14 0 top=solid:road car=north
+tile 31 14 0 top=solid:road car=south
+tile 32 14 0 top=solid:sidewalk sidewalk=north_south
 tile 33 14 0 top=solid:grass drivability=0.30
 tile 34 14 0 top=solid:grass drivability=0.30
 tile 35 14 0 top=solid:grass drivability=0.30
@@ -3881,10 +3881,10 @@ tile 25 15 0 top=solid:grass drivability=0.30
 tile 26 15 0 top=solid:grass drivability=0.30
 tile 27 15 0 top=solid:grass drivability=0.30
 tile 28 15 0 top=solid:grass drivability=0.30
-tile 29 15 0 top=solid:grass drivability=0.30
-tile 30 15 0 top=solid:grass drivability=0.30
-tile 31 15 0 top=solid:grass drivability=0.30
-tile 32 15 0 top=solid:grass drivability=0.30
+tile 29 15 0 top=solid:sidewalk sidewalk=north_south
+tile 30 15 0 top=solid:road car=north
+tile 31 15 0 top=solid:road car=south
+tile 32 15 0 top=solid:sidewalk sidewalk=north_south
 tile 33 15 0 top=solid:grass drivability=0.30
 tile 34 15 0 top=solid:grass drivability=0.30
 tile 35 15 0 top=solid:grass drivability=0.30
@@ -4137,10 +4137,10 @@ tile 25 16 0 top=solid:grass drivability=0.30
 tile 26 16 0 top=solid:grass drivability=0.30
 tile 27 16 0 top=solid:grass drivability=0.30
 tile 28 16 0 top=solid:grass drivability=0.30
-tile 29 16 0 top=solid:grass drivability=0.30
-tile 30 16 0 top=solid:grass drivability=0.30
-tile 31 16 0 top=solid:grass drivability=0.30
-tile 32 16 0 top=solid:grass drivability=0.30
+tile 29 16 0 top=solid:sidewalk sidewalk=north_south
+tile 30 16 0 top=solid:road car=north
+tile 31 16 0 top=solid:road car=south
+tile 32 16 0 top=solid:sidewalk sidewalk=north_south
 tile 33 16 0 top=solid:grass drivability=0.30
 tile 34 16 0 top=solid:grass drivability=0.30
 tile 35 16 0 top=solid:grass drivability=0.30
@@ -4393,10 +4393,10 @@ tile 25 17 0 top=solid:grass drivability=0.30
 tile 26 17 0 top=solid:grass drivability=0.30
 tile 27 17 0 top=solid:grass drivability=0.30
 tile 28 17 0 top=solid:grass drivability=0.30
-tile 29 17 0 top=solid:grass drivability=0.30
-tile 30 17 0 top=solid:grass drivability=0.30
-tile 31 17 0 top=solid:grass drivability=0.30
-tile 32 17 0 top=solid:grass drivability=0.30
+tile 29 17 0 top=solid:sidewalk sidewalk=north_south
+tile 30 17 0 top=solid:road car=north
+tile 31 17 0 top=solid:road car=south
+tile 32 17 0 top=solid:sidewalk sidewalk=north_south
 tile 33 17 0 top=solid:grass drivability=0.30
 tile 34 17 0 top=solid:grass drivability=0.30
 tile 35 17 0 top=solid:grass drivability=0.30
@@ -4649,10 +4649,10 @@ tile 25 18 0 top=solid:grass drivability=0.30
 tile 26 18 0 top=solid:grass drivability=0.30
 tile 27 18 0 top=solid:grass drivability=0.30
 tile 28 18 0 top=solid:grass drivability=0.30
-tile 29 18 0 top=solid:grass drivability=0.30
-tile 30 18 0 top=solid:grass drivability=0.30
-tile 31 18 0 top=solid:grass drivability=0.30
-tile 32 18 0 top=solid:grass drivability=0.30
+tile 29 18 0 top=solid:sidewalk sidewalk=north_south
+tile 30 18 0 top=solid:road car=north
+tile 31 18 0 top=solid:road car=south
+tile 32 18 0 top=solid:sidewalk sidewalk=north_south
 tile 33 18 0 top=solid:grass drivability=0.30
 tile 34 18 0 top=solid:grass drivability=0.30
 tile 35 18 0 top=solid:grass drivability=0.30
@@ -4905,10 +4905,10 @@ tile 25 19 0 top=solid:grass drivability=0.30
 tile 26 19 0 top=solid:grass drivability=0.30
 tile 27 19 0 top=solid:grass drivability=0.30
 tile 28 19 0 top=solid:grass drivability=0.30
-tile 29 19 0 top=solid:grass drivability=0.30
-tile 30 19 0 top=solid:grass drivability=0.30
-tile 31 19 0 top=solid:grass drivability=0.30
-tile 32 19 0 top=solid:grass drivability=0.30
+tile 29 19 0 top=solid:sidewalk sidewalk=north_south
+tile 30 19 0 top=solid:road car=north
+tile 31 19 0 top=solid:road car=south
+tile 32 19 0 top=solid:sidewalk sidewalk=north_south
 tile 33 19 0 top=solid:grass drivability=0.30
 tile 34 19 0 top=solid:grass drivability=0.30
 tile 35 19 0 top=solid:grass drivability=0.30
@@ -5161,10 +5161,10 @@ tile 25 20 0 top=solid:grass drivability=0.30
 tile 26 20 0 top=solid:grass drivability=0.30
 tile 27 20 0 top=solid:grass drivability=0.30
 tile 28 20 0 top=solid:grass drivability=0.30
-tile 29 20 0 top=solid:grass drivability=0.30
-tile 30 20 0 top=solid:grass drivability=0.30
-tile 31 20 0 top=solid:grass drivability=0.30
-tile 32 20 0 top=solid:grass drivability=0.30
+tile 29 20 0 top=solid:sidewalk sidewalk=north_south
+tile 30 20 0 top=solid:road car=north
+tile 31 20 0 top=solid:road car=south
+tile 32 20 0 top=solid:sidewalk sidewalk=north_south
 tile 33 20 0 top=solid:grass drivability=0.30
 tile 34 20 0 top=solid:grass drivability=0.30
 tile 35 20 0 top=solid:grass drivability=0.30
@@ -5417,10 +5417,10 @@ tile 25 21 0 top=solid:grass drivability=0.30
 tile 26 21 0 top=solid:grass drivability=0.30
 tile 27 21 0 top=solid:grass drivability=0.30
 tile 28 21 0 top=solid:grass drivability=0.30
-tile 29 21 0 top=solid:grass drivability=0.30
-tile 30 21 0 top=solid:grass drivability=0.30
-tile 31 21 0 top=solid:grass drivability=0.30
-tile 32 21 0 top=solid:grass drivability=0.30
+tile 29 21 0 top=solid:sidewalk sidewalk=north_south
+tile 30 21 0 top=solid:road car=north
+tile 31 21 0 top=solid:road car=south
+tile 32 21 0 top=solid:sidewalk sidewalk=north_south
 tile 33 21 0 top=solid:grass drivability=0.30
 tile 34 21 0 top=solid:grass drivability=0.30
 tile 35 21 0 top=solid:grass drivability=0.30
@@ -5673,10 +5673,10 @@ tile 25 22 0 top=solid:grass drivability=0.30
 tile 26 22 0 top=solid:grass drivability=0.30
 tile 27 22 0 top=solid:grass drivability=0.30
 tile 28 22 0 top=solid:grass drivability=0.30
-tile 29 22 0 top=solid:grass drivability=0.30
-tile 30 22 0 top=solid:grass drivability=0.30
-tile 31 22 0 top=solid:grass drivability=0.30
-tile 32 22 0 top=solid:grass drivability=0.30
+tile 29 22 0 top=solid:sidewalk sidewalk=north_south
+tile 30 22 0 top=solid:road car=north
+tile 31 22 0 top=solid:road car=south
+tile 32 22 0 top=solid:sidewalk sidewalk=north_south
 tile 33 22 0 top=solid:grass drivability=0.30
 tile 34 22 0 top=solid:grass drivability=0.30
 tile 35 22 0 top=solid:grass drivability=0.30
@@ -5929,10 +5929,10 @@ tile 25 23 0 top=solid:grass drivability=0.30
 tile 26 23 0 top=solid:grass drivability=0.30
 tile 27 23 0 top=solid:grass drivability=0.30
 tile 28 23 0 top=solid:grass drivability=0.30
-tile 29 23 0 top=solid:grass drivability=0.30
-tile 30 23 0 top=solid:grass drivability=0.30
-tile 31 23 0 top=solid:grass drivability=0.30
-tile 32 23 0 top=solid:grass drivability=0.30
+tile 29 23 0 top=solid:sidewalk sidewalk=north_south
+tile 30 23 0 top=solid:road car=north
+tile 31 23 0 top=solid:road car=south
+tile 32 23 0 top=solid:sidewalk sidewalk=north_south
 tile 33 23 0 top=solid:grass drivability=0.30
 tile 34 23 0 top=solid:grass drivability=0.30
 tile 35 23 0 top=solid:grass drivability=0.30
@@ -6185,10 +6185,10 @@ tile 25 24 0 top=solid:grass drivability=0.30
 tile 26 24 0 top=solid:grass drivability=0.30
 tile 27 24 0 top=solid:grass drivability=0.30
 tile 28 24 0 top=solid:grass drivability=0.30
-tile 29 24 0 top=solid:grass drivability=0.30
-tile 30 24 0 top=solid:grass drivability=0.30
-tile 31 24 0 top=solid:grass drivability=0.30
-tile 32 24 0 top=solid:grass drivability=0.30
+tile 29 24 0 top=solid:sidewalk sidewalk=north_south
+tile 30 24 0 top=solid:road car=north
+tile 31 24 0 top=solid:road car=south
+tile 32 24 0 top=solid:sidewalk sidewalk=north_south
 tile 33 24 0 top=solid:grass drivability=0.30
 tile 34 24 0 top=solid:grass drivability=0.30
 tile 35 24 0 top=solid:grass drivability=0.30
@@ -6441,10 +6441,10 @@ tile 25 25 0 top=solid:grass drivability=0.30
 tile 26 25 0 top=solid:grass drivability=0.30
 tile 27 25 0 top=solid:grass drivability=0.30
 tile 28 25 0 top=solid:grass drivability=0.30
-tile 29 25 0 top=solid:grass drivability=0.30
-tile 30 25 0 top=solid:grass drivability=0.30
-tile 31 25 0 top=solid:grass drivability=0.30
-tile 32 25 0 top=solid:grass drivability=0.30
+tile 29 25 0 top=solid:sidewalk sidewalk=north_south
+tile 30 25 0 top=solid:road car=north
+tile 31 25 0 top=solid:road car=south
+tile 32 25 0 top=solid:sidewalk sidewalk=north_south
 tile 33 25 0 top=solid:grass drivability=0.30
 tile 34 25 0 top=solid:grass drivability=0.30
 tile 35 25 0 top=solid:grass drivability=0.30
@@ -6697,10 +6697,10 @@ tile 25 26 0 top=solid:grass drivability=0.30
 tile 26 26 0 top=solid:grass drivability=0.30
 tile 27 26 0 top=solid:grass drivability=0.30
 tile 28 26 0 top=solid:grass drivability=0.30
-tile 29 26 0 top=solid:grass drivability=0.30
-tile 30 26 0 top=solid:grass drivability=0.30
-tile 31 26 0 top=solid:grass drivability=0.30
-tile 32 26 0 top=solid:grass drivability=0.30
+tile 29 26 0 top=solid:sidewalk sidewalk=north_south
+tile 30 26 0 top=solid:road car=north
+tile 31 26 0 top=solid:road car=south
+tile 32 26 0 top=solid:sidewalk sidewalk=north_south
 tile 33 26 0 top=solid:grass drivability=0.30
 tile 34 26 0 top=solid:grass drivability=0.30
 tile 35 26 0 top=solid:grass drivability=0.30
@@ -6953,10 +6953,10 @@ tile 25 27 0 top=solid:grass drivability=0.30
 tile 26 27 0 top=solid:grass drivability=0.30
 tile 27 27 0 top=solid:grass drivability=0.30
 tile 28 27 0 top=solid:grass drivability=0.30
-tile 29 27 0 top=solid:grass drivability=0.30
-tile 30 27 0 top=solid:grass drivability=0.30
-tile 31 27 0 top=solid:grass drivability=0.30
-tile 32 27 0 top=solid:grass drivability=0.30
+tile 29 27 0 top=solid:sidewalk sidewalk=north_south
+tile 30 27 0 top=solid:road car=north
+tile 31 27 0 top=solid:road car=south
+tile 32 27 0 top=solid:sidewalk sidewalk=north_south
 tile 33 27 0 top=solid:grass drivability=0.30
 tile 34 27 0 top=solid:grass drivability=0.30
 tile 35 27 0 top=solid:grass drivability=0.30
@@ -7209,10 +7209,10 @@ tile 25 28 0 top=solid:grass drivability=0.30
 tile 26 28 0 top=solid:grass drivability=0.30
 tile 27 28 0 top=solid:grass drivability=0.30
 tile 28 28 0 top=solid:grass drivability=0.30
-tile 29 28 0 top=solid:grass drivability=0.30
-tile 30 28 0 top=solid:grass drivability=0.30
-tile 31 28 0 top=solid:grass drivability=0.30
-tile 32 28 0 top=solid:grass drivability=0.30
+tile 29 28 0 top=solid:sidewalk sidewalk=north_south
+tile 30 28 0 top=solid:road car=north
+tile 31 28 0 top=solid:road car=south
+tile 32 28 0 top=solid:sidewalk sidewalk=north_south
 tile 33 28 0 top=solid:grass drivability=0.30
 tile 34 28 0 top=solid:grass drivability=0.30
 tile 35 28 0 top=solid:grass drivability=0.30
@@ -7465,10 +7465,10 @@ tile 25 29 0 top=solid:grass drivability=0.30
 tile 26 29 0 top=solid:grass drivability=0.30
 tile 27 29 0 top=solid:grass drivability=0.30
 tile 28 29 0 top=solid:grass drivability=0.30
-tile 29 29 0 top=solid:grass drivability=0.30
-tile 30 29 0 top=solid:grass drivability=0.30
-tile 31 29 0 top=solid:grass drivability=0.30
-tile 32 29 0 top=solid:grass drivability=0.30
+tile 29 29 0 top=solid:sidewalk sidewalk=north_south
+tile 30 29 0 top=solid:road car=north
+tile 31 29 0 top=solid:road car=south
+tile 32 29 0 top=solid:sidewalk sidewalk=north_south
 tile 33 29 0 top=solid:grass drivability=0.30
 tile 34 29 0 top=solid:grass drivability=0.30
 tile 35 29 0 top=solid:grass drivability=0.30
@@ -7721,10 +7721,10 @@ tile 25 30 0 top=solid:grass drivability=0.30
 tile 26 30 0 top=solid:grass drivability=0.30
 tile 27 30 0 top=solid:grass drivability=0.30
 tile 28 30 0 top=solid:grass drivability=0.30
-tile 29 30 0 top=solid:grass drivability=0.30
-tile 30 30 0 top=solid:grass drivability=0.30
-tile 31 30 0 top=solid:grass drivability=0.30
-tile 32 30 0 top=solid:grass drivability=0.30
+tile 29 30 0 top=solid:sidewalk sidewalk=north_south
+tile 30 30 0 top=solid:road car=north
+tile 31 30 0 top=solid:road car=south
+tile 32 30 0 top=solid:sidewalk sidewalk=north_south
 tile 33 30 0 top=solid:grass drivability=0.30
 tile 34 30 0 top=solid:grass drivability=0.30
 tile 35 30 0 top=solid:grass drivability=0.30
@@ -7977,10 +7977,10 @@ tile 25 31 0 top=solid:grass drivability=0.30
 tile 26 31 0 top=solid:grass drivability=0.30
 tile 27 31 0 top=solid:grass drivability=0.30
 tile 28 31 0 top=solid:grass drivability=0.30
-tile 29 31 0 top=solid:grass drivability=0.30
-tile 30 31 0 top=solid:grass drivability=0.30
-tile 31 31 0 top=solid:grass drivability=0.30
-tile 32 31 0 top=solid:grass drivability=0.30
+tile 29 31 0 top=solid:sidewalk sidewalk=north_south
+tile 30 31 0 top=solid:road car=north
+tile 31 31 0 top=solid:road car=south
+tile 32 31 0 top=solid:sidewalk sidewalk=north_south
 tile 33 31 0 top=solid:grass drivability=0.30
 tile 34 31 0 top=solid:grass drivability=0.30
 tile 35 31 0 top=solid:grass drivability=0.30
@@ -8233,10 +8233,10 @@ tile 25 32 0 top=solid:grass drivability=0.30
 tile 26 32 0 top=solid:grass drivability=0.30
 tile 27 32 0 top=solid:grass drivability=0.30
 tile 28 32 0 top=solid:grass drivability=0.30
-tile 29 32 0 top=solid:grass drivability=0.30
-tile 30 32 0 top=solid:grass drivability=0.30
-tile 31 32 0 top=solid:grass drivability=0.30
-tile 32 32 0 top=solid:grass drivability=0.30
+tile 29 32 0 top=solid:sidewalk sidewalk=north_south
+tile 30 32 0 top=solid:road car=north
+tile 31 32 0 top=solid:road car=south
+tile 32 32 0 top=solid:sidewalk sidewalk=north_south
 tile 33 32 0 top=solid:grass drivability=0.30
 tile 34 32 0 top=solid:grass drivability=0.30
 tile 35 32 0 top=solid:grass drivability=0.30
@@ -8489,10 +8489,10 @@ tile 25 33 0 top=solid:grass drivability=0.30
 tile 26 33 0 top=solid:grass drivability=0.30
 tile 27 33 0 top=solid:grass drivability=0.30
 tile 28 33 0 top=solid:grass drivability=0.30
-tile 29 33 0 top=solid:grass drivability=0.30
-tile 30 33 0 top=solid:grass drivability=0.30
-tile 31 33 0 top=solid:grass drivability=0.30
-tile 32 33 0 top=solid:grass drivability=0.30
+tile 29 33 0 top=solid:sidewalk sidewalk=north_south
+tile 30 33 0 top=solid:road car=north
+tile 31 33 0 top=solid:road car=south
+tile 32 33 0 top=solid:sidewalk sidewalk=north_south
 tile 33 33 0 top=solid:grass drivability=0.30
 tile 34 33 0 top=solid:grass drivability=0.30
 tile 35 33 0 top=solid:grass drivability=0.30
@@ -8745,10 +8745,10 @@ tile 25 34 0 top=solid:grass drivability=0.30
 tile 26 34 0 top=solid:grass drivability=0.30
 tile 27 34 0 top=solid:grass drivability=0.30
 tile 28 34 0 top=solid:grass drivability=0.30
-tile 29 34 0 top=solid:grass drivability=0.30
-tile 30 34 0 top=solid:grass drivability=0.30
-tile 31 34 0 top=solid:grass drivability=0.30
-tile 32 34 0 top=solid:grass drivability=0.30
+tile 29 34 0 top=solid:sidewalk sidewalk=north_south
+tile 30 34 0 top=solid:road car=north
+tile 31 34 0 top=solid:road car=south
+tile 32 34 0 top=solid:sidewalk sidewalk=north_south
 tile 33 34 0 top=solid:grass drivability=0.30
 tile 34 34 0 top=solid:grass drivability=0.30
 tile 35 34 0 top=solid:grass drivability=0.30
@@ -9001,10 +9001,10 @@ tile 25 35 0 top=solid:grass drivability=0.30
 tile 26 35 0 top=solid:grass drivability=0.30
 tile 27 35 0 top=solid:grass drivability=0.30
 tile 28 35 0 top=solid:grass drivability=0.30
-tile 29 35 0 top=solid:grass drivability=0.30
-tile 30 35 0 top=solid:grass drivability=0.30
-tile 31 35 0 top=solid:grass drivability=0.30
-tile 32 35 0 top=solid:grass drivability=0.30
+tile 29 35 0 top=solid:sidewalk sidewalk=north_south
+tile 30 35 0 top=solid:road car=north
+tile 31 35 0 top=solid:road car=south
+tile 32 35 0 top=solid:sidewalk sidewalk=north_south
 tile 33 35 0 top=solid:grass drivability=0.30
 tile 34 35 0 top=solid:grass drivability=0.30
 tile 35 35 0 top=solid:grass drivability=0.30
@@ -65613,21 +65613,21 @@ tile 15 13 1 top=solid:wall east=solid:wall west=solid:wall
 tile 0 14 1 east=solid:wall01
 tile 15 14 1 top=solid:wall east=solid:wall west=solid:wall
 tile 0 15 1 east=solid:wall01
-tile 1 15 1 top=solid:roof south=solid:wall01
-tile 2 15 1 top=solid:roof south=solid:wall01
-tile 3 15 1 top=solid:roof south=solid:wall01
-tile 4 15 1 top=solid:roof south=solid:wall01
-tile 5 15 1 top=solid:roof south=solid:wall01
-tile 6 15 1 top=solid:roof south=solid:wall01
-tile 7 15 1 top=solid:roof south=solid:wall01
-tile 8 15 1 top=solid:roof south=solid:wall01
-tile 9 15 1 top=solid:roof south=solid:wall01
-tile 10 15 1 top=solid:roof south=solid:wall01
-tile 11 15 1 top=solid:roof south=solid:wall01
-tile 12 15 1 top=solid:roof south=solid:wall01
-tile 13 15 1 top=solid:roof south=solid:wall01
-tile 14 15 1 top=solid:roof south=solid:wall01
-tile 15 15 1 top=solid:roof east=solid:wall
+tile 1 15 1 top=solid:roof north=solid:wall01 south=solid:wall01
+tile 2 15 1 top=solid:roof north=solid:wall01 south=solid:wall01
+tile 3 15 1 top=solid:roof north=solid:wall01 south=solid:wall01
+tile 4 15 1 top=solid:roof north=solid:wall01 south=solid:wall01
+tile 5 15 1 top=solid:roof north=solid:wall01 south=solid:wall01
+tile 6 15 1 top=solid:roof north=solid:wall01 south=solid:wall01
+tile 7 15 1 top=solid:roof north=solid:wall01 south=solid:wall01
+tile 8 15 1 top=solid:roof north=solid:wall01 south=solid:wall01
+tile 9 15 1 top=solid:roof north=solid:wall01 south=solid:wall01
+tile 10 15 1 top=solid:roof north=solid:wall01 south=solid:wall01
+tile 11 15 1 top=solid:roof north=solid:wall01 south=solid:wall01
+tile 12 15 1 top=solid:roof north=solid:wall01 south=solid:wall01
+tile 13 15 1 top=solid:roof north=solid:wall01 south=solid:wall01
+tile 14 15 1 top=solid:roof north=solid:wall01 south=solid:wall01
+tile 15 15 1 top=solid:roof north=solid:wall01 east=solid:wall
 tile 0 0 2 top=solid:roof east=solid:wall01
 tile 0 1 2 top=solid:roof east=solid:wall01
 tile 0 2 2 top=solid:roof east=solid:wall01
