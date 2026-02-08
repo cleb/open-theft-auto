@@ -810,6 +810,14 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
                         continue;
                     }
                     spawn.type = parsedType;
+                } else if (lowerKey == "ammo") {
+                    int ammo = 0;
+                    if (!parseIntStrict(entry.second, ammo)) {
+                        logger.error("Invalid pickup ammo value: " + entry.second);
+                        parseOk = false;
+                        continue;
+                    }
+                    spawn.ammo = std::max(0, ammo);
                 } else {
                     logger.warning("Unknown pickup property: " + entry.first);
                 }
@@ -958,6 +966,7 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
     for (const auto& pickup : data.pickups) {
         output << "pickup " << pickup.gridPosition.x << ' ' << pickup.gridPosition.y << ' ' << pickup.gridPosition.z;
         output << " type=" << pickupTypeToString(pickup.type);
+        output << " ammo=" << pickup.ammo;
         output << std::endl;
     }
 

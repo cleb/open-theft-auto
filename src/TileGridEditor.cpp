@@ -1930,6 +1930,7 @@ void TileGridEditor::refreshUiStateFromTile() {
         } else {
             m_uiPickupState.pickupTypeIndex = 0;
         }
+        m_uiPickupState.ammoCount = pickup->ammo;
     }
 
     Tile* tile = currentTile();
@@ -2735,6 +2736,11 @@ void TileGridEditor::drawPickupBrushControls() {
             ImGui::TextDisabled("No pickup types available");
         }
 
+        if (ImGui::InputInt("Ammo", &m_uiPickupState.ammoCount)) {
+            m_uiPickupState.ammoCount = std::max(0, m_uiPickupState.ammoCount);
+            announceBrush();
+        }
+
         const char* applyLabel = m_uiPickupState.cursorHasPickup ? "Update Pickup" : "Place Pickup";
         if (ImGui::Button(applyLabel)) {
             applyPickupBrush();
@@ -2823,6 +2829,7 @@ void TileGridEditor::applyPickupBrush() {
         const int index = std::clamp(m_uiPickupState.pickupTypeIndex, 0, static_cast<int>(types.size()) - 1);
         spawn.type = types[static_cast<std::size_t>(index)];
     }
+    spawn.ammo = std::max(0, m_uiPickupState.ammoCount);
 
     auto& pickups = m_levelData->pickups;
     auto existing = std::find_if(pickups.begin(), pickups.end(), [&](const PickupSpawnDefinition& entry) {

@@ -101,6 +101,7 @@ private:
         bool cursorHasPickup = false;
         bool removeMode = false;
         int pickupTypeIndex = 0;
+        int ammoCount = 10;
     };
 
     struct AliasEntry {
