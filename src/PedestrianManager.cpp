@@ -209,6 +209,9 @@ void PedestrianManager::spawnPedestrian() {
     pedestrian->setTileGrid(m_tileGrid);
     pedestrian->setActive(true);
     
+    // Set vehicle blocking callback so pedestrians avoid vehicles
+    setupVehicleBlockCheck(pedestrian.get());
+    
     // Randomize speed slightly
     std::uniform_real_distribution<float> speedDist(1.5f, 2.5f);
     pedestrian->setSpeed(speedDist(m_rng));
@@ -235,6 +238,46 @@ void PedestrianManager::updatePedestrians(float deltaTime) {
     }
 }
 
+bool PedestrianManager::isPositionBlockedByVehicle(const glm::vec3& position, float pedRadius) const {
+    if (!m_vehicleCallback) return false;
+    
+    auto vehicles = m_vehicleCallback();
+    
+    for (Vehicle* vehicle : vehicles) {
+        if (!vehicle || !vehicle->isActive()) continue;
+        
+        glm::vec3 vehPos = vehicle->getPosition();
+        glm::vec2 vehSize = vehicle->getSpriteSize();
+        float vehRotation = vehicle->getRotation().z;
+        
+        glm::vec2 forward = Heading::forwardFromHeadingDeg(vehRotation);
+        glm::vec2 right(forward.y, -forward.x);
+        
+        float halfWidth = vehSize.x * 0.5f;
+        float halfLength = vehSize.y * 0.5f;
+        
+        // Transform position to vehicle's local space
+        glm::vec2 toP(position.x - vehPos.x, position.y - vehPos.y);
+        float localX = glm::dot(toP, right);
+        float localY = glm::dot(toP, forward);
+        
+        if (std::abs(localX) < halfWidth + pedRadius && 
+            std::abs(localY) < halfLength + pedRadius) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+void PedestrianManager::setupVehicleBlockCheck(Pedestrian* pedestrian) {
+    pedestrian->setVehicleBlockCheck(
+        [this](const glm::vec3& position, float pedRadius) -> bool {
+            return isPositionBlockedByVehicle(position, pedRadius);
+        }
+    );
+}
+
 void PedestrianManager::checkVehicleCollisions() {
     if (!m_vehicleCallback) return;
     
@@ -248,6 +291,11 @@ void PedestrianManager::checkVehicleCollisions() {
         
         for (Vehicle* vehicle : vehicles) {
             if (!vehicle || !vehicle->isActive()) continue;
+            
+            // Only kill pedestrians if the vehicle is actually moving
+            // (don't kill pedestrians that walk into a stationary car)
+            float vehicleSpeed = std::abs(vehicle->getSpeed());
+            if (vehicleSpeed < 0.5f) continue;
             
             // Simple AABB collision for pedestrian vs vehicle's oriented bounding box
             glm::vec3 vehPos = vehicle->getPosition();
@@ -298,6 +346,9 @@ void PedestrianManager::spawnCarjackedPedestrian(const glm::vec3& position, floa
     pedestrian->setTileGrid(m_tileGrid);
     pedestrian->setActive(true);
     pedestrian->setSpeed(2.0f);
+    
+    // Set vehicle blocking callback so pedestrians avoid vehicles
+    setupVehicleBlockCheck(pedestrian.get());
     
     // Start the carjack exit animation
     pedestrian->startCarjackExit();

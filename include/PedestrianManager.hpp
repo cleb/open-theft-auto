@@ -111,4 +111,8 @@ private:
     float getRotationFromDirection(SidewalkDirection dir);
     // Check if position is too close to existing pedestrians
     bool isTooCloseToOthers(const glm::vec3& position) const;
+    // Check if a position is blocked by any vehicle (for pedestrian avoidance)
+    bool isPositionBlockedByVehicle(const glm::vec3& position, float pedRadius) const;
+    // Set the vehicle block check callback on a pedestrian
+    void setupVehicleBlockCheck(Pedestrian* pedestrian);
 };

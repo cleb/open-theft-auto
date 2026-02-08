@@ -50,6 +50,12 @@ void Pedestrian::setSpeed(float speed) {
     }
 }
 
+bool Pedestrian::isBlockedByVehicle(const glm::vec3& position) const {
+    if (!m_vehicleBlockCheck) return false;
+    float pedRadius = std::max(m_size.x, m_size.y) * 0.3f;
+    return m_vehicleBlockCheck(position, pedRadius);
+}
+
 void Pedestrian::setWalkingDirection(SidewalkDirection dir, bool avoidReverse) {
     m_walkingDirection = dir;
     
@@ -172,6 +178,12 @@ void Pedestrian::updateMovement(float deltaTime) {
     
     // Check if we can move (wall collision)
     if (m_tileGrid->canOccupy(m_position, newPosition)) {
+        // Check if a vehicle is blocking the way
+        if (isBlockedByVehicle(newPosition)) {
+            // Vehicle in the way - turn around
+            m_rotation.z = Heading::wrapDegrees360(m_rotation.z + 180.0f);
+            return;
+        }
         m_position = newPosition;
     } else {
         // Hit a wall - turn around
@@ -370,6 +382,10 @@ void Pedestrian::updatePanic(float deltaTime) {
         if (!m_tileGrid->canOccupy(m_position, newPosition)) {
             continue;
         }
+        // Skip directions blocked by a vehicle
+        if (isBlockedByVehicle(newPosition)) {
+            continue;
+        }
 
         const float score = glm::dot(candidate, away);
         if (score > bestScore) {
@@ -380,7 +396,7 @@ void Pedestrian::updatePanic(float deltaTime) {
 
     glm::vec3 delta(bestDir.x * m_speed * deltaTime, bestDir.y * m_speed * deltaTime, 0.0f);
     glm::vec3 newPosition = m_position + delta;
-    if (m_tileGrid->canOccupy(m_position, newPosition)) {
+    if (m_tileGrid->canOccupy(m_position, newPosition) && !isBlockedByVehicle(newPosition)) {
         m_position = newPosition;
     }
 
@@ -520,6 +536,14 @@ void Pedestrian::updateSeekingSidewalk(float deltaTime) {
     
     // Check if we can move there
     if (m_tileGrid->canOccupy(m_position, newPosition)) {
+        // Check if a vehicle is blocking the way
+        if (isBlockedByVehicle(newPosition)) {
+            findNearestSidewalk();
+            if (!m_hasTargetSidewalk) {
+                m_state = PedestrianState::Walking;
+            }
+            return;
+        }
         m_position = newPosition;
     } else {
         // Can't move due to wall - try to find an alternate path or give up
@@ -576,6 +600,12 @@ void Pedestrian::updateCenteringSidewalk(float deltaTime) {
     
     // Check if we can move there
     if (m_tileGrid->canOccupy(m_position, newPosition)) {
+        if (isBlockedByVehicle(newPosition)) {
+            // Vehicle blocking path to center, just start walking
+            m_state = PedestrianState::Walking;
+            setWalkingDirection(m_pendingSidewalkDir, true);
+            return;
+        }
         m_position = newPosition;
     } else {
         // Can't move to center, just start walking

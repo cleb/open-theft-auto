@@ -4,10 +4,14 @@
 #include "SpriteAnimation.hpp"
 #include "Tile.hpp"
 #include <memory>
+#include <functional>
 #include <glm/glm.hpp>
 
 class TileGrid;
 class Renderer;
+
+// Callback that returns true if the given position is blocked by a vehicle
+using VehicleBlockCheck = std::function<bool(const glm::vec3& position, float pedRadius)>;
 
 // Pedestrian behavior state
 enum class PedestrianState {
@@ -34,6 +38,10 @@ public:
     void setTileGrid(TileGrid* tileGrid) { m_tileGrid = tileGrid; }
     void setSpeed(float speed);
     float getSpeed() const { return m_speed; }
+    
+    // Vehicle blocking callback - pedestrians can't walk through vehicles
+    void setVehicleBlockCheck(VehicleBlockCheck callback) { m_vehicleBlockCheck = std::move(callback); }
+    bool isBlockedByVehicle(const glm::vec3& position) const;
     
     // Set the walking direction based on sidewalk direction
     // If avoidReverse is true, prefer directions that don't turn back (used when arriving at sidewalk)
@@ -82,6 +90,9 @@ private:
     SidewalkDirection m_pendingSidewalkDir; // Direction to use after centering
     glm::vec3 m_panicSource;
     float m_panicDuration;
+    
+    // Vehicle blocking callback
+    VehicleBlockCheck m_vehicleBlockCheck;
     
     void updateMovement(float deltaTime);
     void updateDeathAnimation(float deltaTime);
