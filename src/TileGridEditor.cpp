@@ -682,6 +682,10 @@ void TileGridEditor::render(Renderer* renderer) {
 }
 
 void TileGridEditor::drawGui() {
+    if (!m_enabled) {
+        return;
+    }
+
     if (!ImGui::Begin("Map Editor")) {
         ImGui::End();
         return;
@@ -700,13 +704,6 @@ void TileGridEditor::drawGui() {
     }
 
     ImGui::Text("Mode: %s", m_enabled ? "Edit" : "Gameplay");
-
-    if (!m_enabled) {
-        ImGui::Separator();
-        ImGui::TextUnformatted("Press F1 to enter edit mode.");
-        ImGui::End();
-        return;
-    }
 
     ImGui::Separator();
     ImGui::Text("Cursor: (%d, %d, %d)", m_cursor.x, m_cursor.y, m_cursor.z);
