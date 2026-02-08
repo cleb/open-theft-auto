@@ -329,6 +329,12 @@ float TrafficManager::getRotationFromDirection(CarDirection dir, std::mt19937& r
         case CarDirection::WestEast: return coin(rng) ? 0.0f : 180.0f;
         case CarDirection::NorthEastSouthWest: return coin(rng) ? 45.0f : 225.0f;
         case CarDirection::NorthWestSouthEast: return coin(rng) ? 135.0f : 315.0f;
+        case CarDirection::OptionalNorthEast: return 45.0f;
+        case CarDirection::OptionalNorthWest: return 135.0f;
+        case CarDirection::OptionalSouthEast: return 315.0f;
+        case CarDirection::OptionalSouthWest: return 225.0f;
+        case CarDirection::OptionalNorthEastSouthWest: return coin(rng) ? 45.0f : 225.0f;
+        case CarDirection::OptionalNorthWestSouthEast: return coin(rng) ? 135.0f : 315.0f;
         default: return 0.0f;
     }
 }

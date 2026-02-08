@@ -31,7 +31,15 @@ enum class CarDirection {
     SouthWest,
     // Bidirectional diagonals
     NorthEastSouthWest,
-    NorthWestSouthEast
+    NorthWestSouthEast,
+    // Optional turn directions: vehicles randomly treat as curve or go straight
+    OptionalNorthEast,
+    OptionalNorthWest,
+    OptionalSouthEast,
+    OptionalSouthWest,
+    // Bidirectional optional turns
+    OptionalNorthEastSouthWest,
+    OptionalNorthWestSouthEast
 };
 
 // Sidewalk directions - always bidirectional for pedestrian traffic

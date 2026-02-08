@@ -3,6 +3,7 @@
 #include "Pilot.hpp"
 #include "Tile.hpp"
 #include <glm/glm.hpp>
+#include <random>
 
 // AI-controlled vehicle pilot with curve following
 class AutoPilot : public Pilot {
@@ -47,6 +48,12 @@ private:
     float m_lookaheadDistance = 8.0f;  // How far ahead to check for obstacles
     float m_minStoppingDistance = 1.5f;  // Minimum distance to maintain from obstacles
     
+    // Random engine for optional turn decisions
+    std::mt19937 m_rng{std::random_device{}()};
+    // Tracks whether an optional-turn tile was resolved to curve for the current tile
+    bool m_optionalTurnIsCurve = false;
+    glm::ivec3 m_optionalTurnTilePos{-1, -1, -1};  // Which tile the decision was made for
+    
 protected:
     // Helper methods available to subclasses
     float normalizeAngle(float angle) const;
@@ -56,6 +63,10 @@ private:
     float checkForObstaclesAhead(Vehicle* vehicle, float heading) const;
     void updateSpeedForObstacles(Vehicle* vehicle, float heading, float deltaTime);
     bool isCurveTile(CarDirection dir) const;
+    bool isOptionalTurnTile(CarDirection dir) const;
+    CarDirection resolveOptionalTurn(CarDirection dir, const glm::ivec3& gridPos, float currentAngle);
+    CarDirection optionalTurnToCurve(CarDirection dir) const;
+    CarDirection optionalTurnToStraight(CarDirection dir, float currentAngle) const;
     glm::vec2 getCornerOffset(CarDirection tileDir, float tileSize, float currentAngle) const;
     void updateOnCurve(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime, const glm::ivec3& gridPos, CarDirection tileDir);
     void updateOnStraight(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime, const glm::ivec3& gridPos, CarDirection tileDir);

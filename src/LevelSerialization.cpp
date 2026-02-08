@@ -206,6 +206,30 @@ bool parseCarDirectionValue(const std::string& value, CarDirection& out, const L
         out = CarDirection::NorthWestSouthEast;
         return true;
     }
+    if (lower == "optionalnortheast" || lower == "optional_northeast" || lower == "optional_ne" || lower == "one") {
+        out = CarDirection::OptionalNorthEast;
+        return true;
+    }
+    if (lower == "optionalnorthwest" || lower == "optional_northwest" || lower == "optional_nw" || lower == "onw") {
+        out = CarDirection::OptionalNorthWest;
+        return true;
+    }
+    if (lower == "optionalsoutheast" || lower == "optional_southeast" || lower == "optional_se" || lower == "ose") {
+        out = CarDirection::OptionalSouthEast;
+        return true;
+    }
+    if (lower == "optionalsouthwest" || lower == "optional_southwest" || lower == "optional_sw" || lower == "osw") {
+        out = CarDirection::OptionalSouthWest;
+        return true;
+    }
+    if (lower == "optionalnortheastsouthwest" || lower == "optional_northeast_southwest" || lower == "optional_nesw" || lower == "onesw") {
+        out = CarDirection::OptionalNorthEastSouthWest;
+        return true;
+    }
+    if (lower == "optionalnorthwestsoutheast" || lower == "optional_northwest_southeast" || lower == "optional_nwse" || lower == "onwse") {
+        out = CarDirection::OptionalNorthWestSouthEast;
+        return true;
+    }
 
     logger.error("Unknown car direction: " + value);
     return false;
@@ -985,6 +1009,12 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
             case CarDirection::SouthWest: return "south_west";
             case CarDirection::NorthEastSouthWest: return "northeast_southwest";
             case CarDirection::NorthWestSouthEast: return "northwest_southeast";
+            case CarDirection::OptionalNorthEast: return "optional_northeast";
+            case CarDirection::OptionalNorthWest: return "optional_northwest";
+            case CarDirection::OptionalSouthEast: return "optional_southeast";
+            case CarDirection::OptionalSouthWest: return "optional_southwest";
+            case CarDirection::OptionalNorthEastSouthWest: return "optional_northeast_southwest";
+            case CarDirection::OptionalNorthWestSouthEast: return "optional_northwest_southeast";
             case CarDirection::None:
             default: return "none";
         }

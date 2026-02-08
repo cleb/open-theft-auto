@@ -25,6 +25,77 @@ bool AutoPilot::isCurveTile(CarDirection dir) const {
            dir == CarDirection::SouthEast || dir == CarDirection::SouthWest;
 }
 
+bool AutoPilot::isOptionalTurnTile(CarDirection dir) const {
+    return dir == CarDirection::OptionalNorthEast || dir == CarDirection::OptionalNorthWest ||
+           dir == CarDirection::OptionalSouthEast || dir == CarDirection::OptionalSouthWest ||
+           dir == CarDirection::OptionalNorthEastSouthWest || dir == CarDirection::OptionalNorthWestSouthEast;
+}
+
+CarDirection AutoPilot::optionalTurnToCurve(CarDirection dir) const {
+    switch (dir) {
+        case CarDirection::OptionalNorthEast: return CarDirection::NorthEast;
+        case CarDirection::OptionalNorthWest: return CarDirection::NorthWest;
+        case CarDirection::OptionalSouthEast: return CarDirection::SouthEast;
+        case CarDirection::OptionalSouthWest: return CarDirection::SouthWest;
+        case CarDirection::OptionalNorthEastSouthWest: return CarDirection::NorthEastSouthWest;
+        case CarDirection::OptionalNorthWestSouthEast: return CarDirection::NorthWestSouthEast;
+        default: return dir;
+    }
+}
+
+CarDirection AutoPilot::optionalTurnToStraight(CarDirection dir, float currentAngle) const {
+    // Determine which straight direction the vehicle is currently closest to
+    float angle = normalizeAngle(currentAngle);
+
+    // For each optional turn, figure out which two cardinal directions
+    // the curve connects and pick the one the vehicle is currently heading.
+    auto pickClosest = [&](float a1, CarDirection d1, float a2, CarDirection d2) -> CarDirection {
+        float diff1 = std::fabs(Heading::shortestAngleDeltaDeg(angle, a1));
+        float diff2 = std::fabs(Heading::shortestAngleDeltaDeg(angle, a2));
+        return diff1 < diff2 ? d1 : d2;
+    };
+
+    switch (dir) {
+        case CarDirection::OptionalNorthEast:
+            // Connects North (90) and East (0) – keep whichever the vehicle is heading
+            return pickClosest(90.0f, CarDirection::North, 0.0f, CarDirection::East);
+        case CarDirection::OptionalNorthWest:
+            return pickClosest(90.0f, CarDirection::North, 180.0f, CarDirection::West);
+        case CarDirection::OptionalSouthEast:
+            return pickClosest(270.0f, CarDirection::South, 0.0f, CarDirection::East);
+        case CarDirection::OptionalSouthWest:
+            return pickClosest(270.0f, CarDirection::South, 180.0f, CarDirection::West);
+        case CarDirection::OptionalNorthEastSouthWest:
+            return pickClosest(90.0f, CarDirection::SouthNorth, 0.0f, CarDirection::WestEast);
+        case CarDirection::OptionalNorthWestSouthEast:
+            return pickClosest(90.0f, CarDirection::SouthNorth, 180.0f, CarDirection::WestEast);
+        default:
+            return dir;
+    }
+}
+
+CarDirection AutoPilot::resolveOptionalTurn(CarDirection dir, const glm::ivec3& gridPos, float currentAngle) {
+    // If we already resolved this tile, return the cached decision
+    if (m_optionalTurnTilePos == gridPos) {
+        if (m_optionalTurnIsCurve) {
+            return optionalTurnToCurve(dir);
+        } else {
+            return optionalTurnToStraight(dir, currentAngle);
+        }
+    }
+    
+    // New tile – make a random decision: 50% curve, 50% straight
+    std::uniform_int_distribution<int> coin(0, 1);
+    m_optionalTurnIsCurve = coin(m_rng) == 0;
+    m_optionalTurnTilePos = gridPos;
+    
+    if (m_optionalTurnIsCurve) {
+        return optionalTurnToCurve(dir);
+    } else {
+        return optionalTurnToStraight(dir, currentAngle);
+    }
+}
+
 float AutoPilot::normalizeAngle(float angle) const {
     while (angle < 0.0f) angle += 360.0f;
     while (angle >= 360.0f) angle -= 360.0f;
@@ -124,6 +195,16 @@ void AutoPilot::update(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime) {
     }
     
     CarDirection tileDir = tile->getCarDirection();
+    
+    // Resolve optional turn tiles to either curve or straight
+    if (isOptionalTurnTile(tileDir)) {
+        tileDir = resolveOptionalTurn(tileDir, gridPos, currentHeading);
+    } else {
+        // Clear the optional turn tracking when on a non-optional tile
+        if (m_optionalTurnTilePos != glm::ivec3(-1, -1, -1)) {
+            m_optionalTurnTilePos = glm::ivec3(-1, -1, -1);
+        }
+    }
     
     if (isCurveTile(tileDir)) {
         updateOnCurve(vehicle, tileGrid, deltaTime, gridPos, tileDir);

@@ -94,15 +94,21 @@ bool PolicePilot::isMoveAllowedByDirection(CarDirection dir, const glm::ivec2& s
         case CarDirection::SouthNorth:
             return step == glm::ivec2(0, 1) || step == glm::ivec2(0, -1);
         case CarDirection::NorthEast:
+        case CarDirection::OptionalNorthEast:
             return step == glm::ivec2(1, 0) || step == glm::ivec2(0, 1);
         case CarDirection::NorthWest:
+        case CarDirection::OptionalNorthWest:
             return step == glm::ivec2(-1, 0) || step == glm::ivec2(0, 1);
         case CarDirection::SouthEast:
+        case CarDirection::OptionalSouthEast:
             return step == glm::ivec2(1, 0) || step == glm::ivec2(0, -1);
         case CarDirection::SouthWest:
+        case CarDirection::OptionalSouthWest:
             return step == glm::ivec2(-1, 0) || step == glm::ivec2(0, -1);
         case CarDirection::NorthEastSouthWest:
         case CarDirection::NorthWestSouthEast:
+        case CarDirection::OptionalNorthEastSouthWest:
+        case CarDirection::OptionalNorthWestSouthEast:
             return true;
         default:
             return false;

@@ -36,6 +36,11 @@ Each wall has:
   - `North`, `South`, `East`, `West`: One-way traffic
   - `SouthNorth`: Bidirectional S-N traffic
   - `WestEast`: Bidirectional W-E traffic
+  - Diagonal: `NorthEast`, `NorthWest`, `SouthEast`, `SouthWest`
+  - Bidirectional diagonal: `NorthEastSouthWest`, `NorthWestSouthEast`
+  - Optional turns: `OptionalNorthEast`, `OptionalNorthWest`, `OptionalSouthEast`, `OptionalSouthWest`
+    - Vehicles randomly treat these as a curve (same as the non-optional diagonal) or ignore them and continue straight ahead.
+  - Bidirectional optional turns: `OptionalNorthEastSouthWest`, `OptionalNorthWestSouthEast`
 
 **Key Methods:**
 ```cpp
