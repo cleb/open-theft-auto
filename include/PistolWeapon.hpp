@@ -12,6 +12,7 @@ public:
     void recordFire() override;
     const char* getDisplayName() const override;
     int getAmmo() const override;
+    void addAmmo(int amount) override;
 
 private:
     float m_shotCooldown;

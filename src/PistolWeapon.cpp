@@ -32,3 +32,10 @@ const char* PistolWeapon::getDisplayName() const {
 int PistolWeapon::getAmmo() const {
     return m_ammo;
 }
+
+void PistolWeapon::addAmmo(int amount) {
+    if (amount <= 0) {
+        return;
+    }
+    m_ammo += amount;
+}

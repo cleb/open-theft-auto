@@ -9,4 +9,5 @@ public:
     virtual void recordFire() = 0;
     virtual const char* getDisplayName() const = 0;
     virtual int getAmmo() const = 0;
+    virtual void addAmmo(int amount) = 0;
 };

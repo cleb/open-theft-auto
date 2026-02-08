@@ -39,6 +39,7 @@ public:
     void setTileGrid(TileGrid* tileGrid) { m_tileGrid = tileGrid; }
 
     bool hasWeapon() const { return m_weapon != nullptr; }
+    Weapon* getWeapon() { return m_weapon.get(); }
     const Weapon* getWeapon() const { return m_weapon.get(); }
     const char* getWeaponDisplayName() const { return m_weapon ? m_weapon->getDisplayName() : "Unarmed"; }
     int getWeaponAmmo() const { return m_weapon ? m_weapon->getAmmo() : 0; }
