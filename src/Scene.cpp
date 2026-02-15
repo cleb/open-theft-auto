@@ -329,12 +329,12 @@ void Scene::drawGui() {
         return;
     }
 
-    const auto* pistol = dynamic_cast<const PistolWeapon*>(m_player->getWeapon());
-    if (!pistol) {
+    const auto equippedType = m_player->getEquippedWeaponType();
+    if (!equippedType) {
         return;
     }
 
-    const auto texture = TextureManager::instance().getTextureFromPath(pickupTexturePath(PickupType::Pistol));
+    const auto texture = TextureManager::instance().getTextureFromPath(pickupTexturePath(*equippedType));
     if (!texture) {
         return;
     }
@@ -345,9 +345,12 @@ void Scene::drawGui() {
         | ImGuiWindowFlags_NoBackground;
     if (ImGui::Begin("WeaponHUD", nullptr, flags)) {
         constexpr float iconSize = 32.0f;
+        const ImVec2 startPos = ImGui::GetCursorPos();
         ImGui::Image(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(texture->getID())),
                      ImVec2(iconSize, iconSize));
-        ImGui::SameLine();
+        ImGui::SameLine(0.0f, 6.0f);
+        const float textOffset = (iconSize - ImGui::GetTextLineHeight()) * 0.5f;
+        ImGui::SetCursorPosY(startPos.y + textOffset);
         ImGui::Text("%d", m_player->getWeaponAmmo());
     }
     ImGui::End();
@@ -631,13 +634,15 @@ void Scene::handlePickupCollection() {
         const float radius = playerRadius + pickup->getRadius();
         const float distanceSq = delta.x * delta.x + delta.y * delta.y;
         if (distanceSq <= radius * radius) {
-            if (pickup->getType() == PickupType::Pistol) {
-                if (auto* pistolWeapon = dynamic_cast<PistolWeapon*>(m_player->getWeapon())) {
-                    pistolWeapon->addAmmo(pickup->getAmmoAmount());
-                } else {
-                    m_player->equipWeapon(std::make_unique<PistolWeapon>(pickup->getAmmoAmount()));
+            const PickupType pickupType = pickup->getType();
+            switch (pickupType) {
+                case PickupType::Pistol: {
+                    if (!m_player->addAmmo(pickupType, pickup->getAmmoAmount())) {
+                        m_player->equipWeapon(pickupType, std::make_unique<PistolWeapon>(pickup->getAmmoAmount()));
+                    }
+                    std::cout << "Picked up pistol (" << pickup->getAmmoAmount() << " ammo)" << std::endl;
+                    break;
                 }
-                std::cout << "Picked up pistol (" << pickup->getAmmoAmount() << " ammo)" << std::endl;
             }
             pickup->startRespawn();
             break;
