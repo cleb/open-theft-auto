@@ -8,10 +8,11 @@ texture roof assets/textures/roof.png
 texture sidewalk assets/textures/sidewalk.jpeg
 texture wall assets/textures/wall.png
 texture wall01 assets/textures/wall01.png
-vehicle 2 7 0 rotation=0.00 type=sedan texture=assets/textures/sedan.png size=1.50x3.00
-vehicle 13 7 0 rotation=180.00 type=sedan texture=assets/textures/sedan.png size=1.50x3.00
-pickup 7 3 0 type=pistol
-player 5 4 0 rotation=90.00
+vehicle 2 7 0 rotation=90.00 type=sedan texture=assets/textures/sedan.png size=1.50x3.00
+vehicle 13 7 0 rotation=270.00 type=sedan texture=assets/textures/sedan.png size=1.50x3.00
+pickup 7 3 0 type=pistol ammo=10
+pickup 20 2 0 type=machine_gun ammo=50
+player 5 4 0 rotation=0.00
 tile 0 0 0 top=solid:grass drivability=0.30 east=solid:wall01
 tile 1 0 0 top=solid:grass drivability=0.30
 tile 2 0 0 top=solid:grass drivability=0.30

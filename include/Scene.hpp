@@ -75,7 +75,7 @@ private:
     void setupCollisionCallbacks();
     void rebuildPickupsFromSpawns();
     void handlePickupCollection();
-    void firePistolShot();
+    void fireWeaponShot();
     void handleVehicleExploded(Vehicle* vehicle);
     void restartLevel();
 };

@@ -4,6 +4,7 @@
 #include "Texture.hpp"
 #include "PedestrianManager.hpp"
 #include "TrafficManager.hpp"
+#include "TileGrid.hpp"
 #include "Vehicle.hpp"
 
 #include <algorithm>
@@ -35,13 +36,14 @@ void ProjectileManager::spawnProjectile(const glm::vec3& origin, const glm::vec2
 
 void ProjectileManager::update(float deltaTime, PedestrianManager* pedestrians,
                                const std::vector<std::unique_ptr<Vehicle>>* playerVehicles,
-                               TrafficManager* trafficManager) {
+                               TrafficManager* trafficManager,
+                               const TileGrid* tileGrid) {
     if (m_projectiles.empty()) {
         return;
     }
 
     for (auto& projectile : m_projectiles) {
-        updateProjectile(projectile, deltaTime, pedestrians, playerVehicles, trafficManager);
+        updateProjectile(projectile, deltaTime, pedestrians, playerVehicles, trafficManager, tileGrid);
     }
 
     m_projectiles.erase(
@@ -54,12 +56,20 @@ void ProjectileManager::update(float deltaTime, PedestrianManager* pedestrians,
 void ProjectileManager::updateProjectile(Projectile& projectile, float deltaTime,
                                          PedestrianManager* pedestrians,
                                          const std::vector<std::unique_ptr<Vehicle>>* playerVehicles,
-                                         TrafficManager* trafficManager) {
+                                         TrafficManager* trafficManager,
+                                         const TileGrid* tileGrid) {
+    const glm::vec3 oldPosition = projectile.position;
     projectile.position.x += projectile.velocity.x * deltaTime;
     projectile.position.y += projectile.velocity.y * deltaTime;
     projectile.life -= deltaTime;
 
     if (projectile.life <= 0.0f) {
+        return;
+    }
+
+    // Check wall collision using the tile grid
+    if (tileGrid && !tileGrid->canOccupy(oldPosition, projectile.position)) {
+        projectile.life = 0.0f;
         return;
     }
 

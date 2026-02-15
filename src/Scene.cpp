@@ -10,6 +10,7 @@
 #include "Window.hpp"
 #include "Heading.hpp"
 #include "PistolWeapon.hpp"
+#include "MachineGunWeapon.hpp"
 #include "PickupTypes.hpp"
 #include "TextureManager.hpp"
 #include <iostream>
@@ -212,7 +213,7 @@ void Scene::update(float deltaTime) {
 
     if (!isEditModeActive()) {
         handlePickupCollection();
-    m_projectileManager.update(deltaTime, m_pedestrianManager.get(), &m_vehicles, m_trafficManager.get());
+    m_projectileManager.update(deltaTime, m_pedestrianManager.get(), &m_vehicles, m_trafficManager.get(), m_tileGrid.get());
         for (auto& pickup : m_pickups) {
             if (pickup) {
                 pickup->update(deltaTime);
@@ -402,11 +403,26 @@ void Scene::processInput(InputManager* input, float deltaTime) {
         m_gameLogic->processInput(input, deltaTime);
     }
 
+    // Weapon switching with +/-
+    if (m_player && (!m_gameLogic || !m_gameLogic->isPlayerInVehicle())) {
+        if (input->isKeyPressed(GLFW_KEY_EQUAL) || input->isKeyPressed(GLFW_KEY_KP_ADD)) {
+            m_player->switchWeaponNext();
+        }
+        if (input->isKeyPressed(GLFW_KEY_MINUS) || input->isKeyPressed(GLFW_KEY_KP_SUBTRACT)) {
+            m_player->switchWeaponPrev();
+        }
+    }
+
     const bool ctrlDown = input->isKeyDown(GLFW_KEY_LEFT_CONTROL) || input->isKeyDown(GLFW_KEY_RIGHT_CONTROL);
-    if (!editActive && !captureKeyboard && ctrlDown && m_player && m_player->canShoot()
+    const bool ctrlPressed = input->isKeyPressed(GLFW_KEY_LEFT_CONTROL) || input->isKeyPressed(GLFW_KEY_RIGHT_CONTROL);
+    if (!editActive && !captureKeyboard && m_player && m_player->canShoot()
         && (!m_gameLogic || !m_gameLogic->isPlayerInVehicle())) {
-        firePistolShot();
-        m_player->recordShot();
+        const Weapon* weapon = m_player->getEquippedWeapon();
+        const bool shouldFire = weapon && weapon->isAutoFire() ? ctrlDown : ctrlPressed;
+        if (shouldFire) {
+            fireWeaponShot();
+            m_player->recordShot();
+        }
     }
 }
 
@@ -646,6 +662,13 @@ void Scene::handlePickupCollection() {
                     std::cout << "Picked up pistol (" << pickup->getAmmoAmount() << " ammo)" << std::endl;
                     break;
                 }
+                case PickupType::MachineGun: {
+                    if (!m_player->addAmmo(pickupType, pickup->getAmmoAmount())) {
+                        m_player->equipWeapon(pickupType, std::make_unique<MachineGunWeapon>(pickup->getAmmoAmount()));
+                    }
+                    std::cout << "Picked up machine gun (" << pickup->getAmmoAmount() << " ammo)" << std::endl;
+                    break;
+                }
             }
             pickup->startRespawn();
             break;
@@ -653,7 +676,7 @@ void Scene::handlePickupCollection() {
     }
 }
 
-void Scene::firePistolShot() {
+void Scene::fireWeaponShot() {
     if (!m_player) {
         return;
     }

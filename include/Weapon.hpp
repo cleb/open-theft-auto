@@ -10,4 +10,8 @@ public:
     virtual const char* getDisplayName() const = 0;
     virtual int getAmmo() const = 0;
     virtual void addAmmo(int amount) = 0;
+
+    // Returns true if the weapon fires continuously while the fire key is held.
+    // When false the player must release and re-press the key for each shot.
+    virtual bool isAutoFire() const { return false; }
 };

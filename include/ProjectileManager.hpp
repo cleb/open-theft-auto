@@ -10,6 +10,7 @@ class Renderer;
 class Texture;
 class PedestrianManager;
 class TrafficManager;
+class TileGrid;
 class Vehicle;
 class Pedestrian;
 
@@ -29,7 +30,8 @@ public:
     void initialize();
     void update(float deltaTime, PedestrianManager* pedestrians,
                 const std::vector<std::unique_ptr<Vehicle>>* playerVehicles,
-                TrafficManager* trafficManager);
+                TrafficManager* trafficManager,
+                const TileGrid* tileGrid = nullptr);
     void render(Renderer* renderer) const;
     void setPedestrianHitCallback(std::function<void()> callback) { m_pedestrianHitCallback = std::move(callback); }
     void setExtraPedestrianTargetsCallback(ExtraPedestrianTargetsCallback callback) {
@@ -58,7 +60,8 @@ private:
     void updateProjectile(Projectile& projectile, float deltaTime,
                           PedestrianManager* pedestrians,
                           const std::vector<std::unique_ptr<Vehicle>>* playerVehicles,
-                          TrafficManager* trafficManager);
+                          TrafficManager* trafficManager,
+                          const TileGrid* tileGrid);
     bool checkPedestrianHit(const Projectile& projectile, const glm::vec2& projPos, float projRadius,
                             PedestrianManager* pedestrians);
     bool checkVehicleHit(const glm::vec2& projPos, float projRadius,

@@ -10,7 +10,8 @@ Player::Player()
     , m_rotationSpeed(90.0f)
     , m_size(1.0f, 1.0f)
     , m_tileGrid(nullptr)
-    , m_isMoving(false) {
+    , m_isMoving(false)
+    , m_equippedSlot(pickupTypeCount()) {
 }
 
 bool Player::initialize() {
@@ -71,7 +72,7 @@ void Player::recordShot() {
 }
 
 bool Player::hasWeapon() const {
-    return m_equippedWeaponType.has_value();
+    return m_equippedSlot < pickupTypeCount() && m_weaponSlots[m_equippedSlot] != nullptr;
 }
 
 bool Player::hasWeapon(PickupType type) const {
@@ -87,17 +88,25 @@ const Weapon* Player::getWeapon(PickupType type) const {
 }
 
 Weapon* Player::getEquippedWeapon() {
-    if (!m_equippedWeaponType) {
+    if (m_equippedSlot >= pickupTypeCount()) {
         return nullptr;
     }
-    return getWeapon(*m_equippedWeaponType);
+    return m_weaponSlots[m_equippedSlot].get();
 }
 
 const Weapon* Player::getEquippedWeapon() const {
-    if (!m_equippedWeaponType) {
+    if (m_equippedSlot >= pickupTypeCount()) {
         return nullptr;
     }
-    return getWeapon(*m_equippedWeaponType);
+    return m_weaponSlots[m_equippedSlot].get();
+}
+
+std::optional<PickupType> Player::getEquippedWeaponType() const {
+    if (m_equippedSlot >= pickupTypeCount()) {
+        return std::nullopt;
+    }
+    const auto& types = getAllPickupTypes();
+    return types[m_equippedSlot];
 }
 
 const char* Player::getWeaponDisplayName() const {
@@ -123,16 +132,41 @@ void Player::equipWeapon(PickupType type, std::unique_ptr<Weapon> weapon) {
     if (!weapon) {
         return;
     }
-    m_weaponSlots[pickupTypeToIndex(type)] = std::move(weapon);
-    m_equippedWeaponType = type;
+    std::size_t idx = pickupTypeToIndex(type);
+    m_weaponSlots[idx] = std::move(weapon);
+    m_equippedSlot = idx;
 }
 
 bool Player::equipWeaponType(PickupType type) {
-    if (!hasWeapon(type)) {
+    std::size_t idx = pickupTypeToIndex(type);
+    if (!m_weaponSlots[idx]) {
         return false;
     }
-    m_equippedWeaponType = type;
+    m_equippedSlot = idx;
     return true;
+}
+
+void Player::switchWeapon(int direction) {
+    constexpr std::size_t count = pickupTypeCount();
+    if (count == 0) return;
+
+    // Start searching from the slot after (or before) the current one
+    std::size_t start = (m_equippedSlot < count) ? m_equippedSlot : 0;
+    for (std::size_t i = 1; i <= count; ++i) {
+        std::size_t idx = (start + static_cast<std::size_t>(direction > 0 ? i : count - i)) % count;
+        if (m_weaponSlots[idx] && idx != m_equippedSlot) {
+            m_equippedSlot = idx;
+            return;
+        }
+    }
+}
+
+void Player::switchWeaponNext() {
+    switchWeapon(1);
+}
+
+void Player::switchWeaponPrev() {
+    switchWeapon(-1);
 }
 
 void Player::render(Renderer* renderer) {
