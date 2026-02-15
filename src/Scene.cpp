@@ -345,11 +345,14 @@ void Scene::drawGui() {
         | ImGuiWindowFlags_NoBackground;
     if (ImGui::Begin("WeaponHUD", nullptr, flags)) {
         constexpr float iconSize = 32.0f;
+        constexpr float textSpacing = 6.0f;
         const ImVec2 startPos = ImGui::GetCursorPos();
         ImGui::Image(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(texture->getID())),
-                     ImVec2(iconSize, iconSize));
-        ImGui::SameLine(0.0f, 6.0f);
-        const float textOffset = (iconSize - ImGui::GetTextLineHeight()) * 0.5f;
+                     ImVec2(iconSize, iconSize),
+                     ImVec2(0.0f, 1.0f),
+                     ImVec2(1.0f, 0.0f));
+        ImGui::SameLine(0.0f, textSpacing);
+        const float textOffset = (iconSize - ImGui::GetFontSize()) * 0.5f;
         ImGui::SetCursorPosY(startPos.y + textOffset);
         ImGui::Text("%d", m_player->getWeaponAmmo());
     }
