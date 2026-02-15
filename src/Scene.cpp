@@ -112,7 +112,7 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
             Vehicle* playerVehicle = m_gameLogic->getActiveVehicle();
             if (playerVehicle == killerVehicle) {
                 if (m_policeChaseManager) {
-                    m_policeChaseManager->onPedestrianKilled();
+                    m_policeChaseManager->onPedestrianRunDown();
                 }
             }
         }
@@ -128,7 +128,7 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     m_projectileManager.initialize();
     m_projectileManager.setPedestrianHitCallback([this]() {
         if (m_policeChaseManager) {
-            m_policeChaseManager->onPedestrianKilled();
+            m_policeChaseManager->onPedestrianKilledByGunfire();
         }
     });
     m_projectileManager.setExtraPedestrianTargetsCallback([this]() -> std::vector<Pedestrian*> {
@@ -675,6 +675,12 @@ void Scene::fireWeaponShot() {
     if (m_pedestrianManager) {
         m_pedestrianManager->notifyGunshot(playerPos);
     }
+    
+    // Notify police chase manager that the player fired a weapon
+    if (m_policeChaseManager) {
+        m_policeChaseManager->onPlayerFiredWeapon();
+    }
+    
     m_projectileManager.spawnProjectile(glm::vec3(origin.x, origin.y, playerPos.z + 0.15f), dir,
                                         kProjectileSpeed, kMaxRange);
 }

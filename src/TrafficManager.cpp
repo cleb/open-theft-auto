@@ -172,13 +172,21 @@ void TrafficManager::spawnVehicle() {
     const auto& definitions = config.getAllDefinitions();
     
     std::string vehicleTypeId = "sedan";  // Default
-    if (tile && !definitions.empty()) {
-        // Calculate total weight
+    
+    // Police vehicles spawn as 1 in every 20 traffic vehicles
+    constexpr int kPoliceSpawnChance = 20;
+    std::uniform_int_distribution<int> policeDist(1, kPoliceSpawnChance);
+    bool spawnPolice = policeDist(m_rng) == 1 && config.getDefinition("police") != nullptr;
+    
+    if (spawnPolice) {
+        vehicleTypeId = "police";
+    } else if (tile && !definitions.empty()) {
+        // Calculate total weight for non-police vehicles
         float totalWeight = 0.0f;
         std::vector<std::pair<std::string, float>> typeWeights;
         
         for (const auto& def : definitions) {
-            // Skip police vehicles - they are only spawned by PoliceChaseManager
+            // Skip police vehicles in the weighted selection - handled above
             if (def.id == "police") continue;
             
             float weight = tile->getVehicleSpawnWeight(def.id);
@@ -249,10 +257,15 @@ void TrafficManager::spawnVehicle() {
         });
     }
     
-    // Assign an AutoPilot
+    // Assign an AutoPilot (police vehicles also start with AutoPilot, patrolling normally)
     vehicle->setPilot(std::make_unique<AutoPilot>());
 
-    vehicle->setOwner(VehicleOwner::Traffic);
+    // Police vehicles are marked as Police-owned so PoliceChaseManager can find and activate them
+    if (vehicleTypeId == "police") {
+        vehicle->setOwner(VehicleOwner::Police);
+    } else {
+        vehicle->setOwner(VehicleOwner::Traffic);
+    }
     if (m_addVehicleCallback) {
         m_addVehicleCallback(std::move(vehicle));
     } else {
@@ -267,6 +280,7 @@ void TrafficManager::despawnOutOfViewVehicles(const ViewBounds& bounds) {
     ViewBounds despawnBounds = bounds.expanded(m_viewMargin * 2.0f);
     
     // Remove traffic vehicles that are too far outside the view
+    // Police vehicles are not despawned by TrafficManager
     auto it = std::remove_if(m_vehicles->begin(), m_vehicles->end(),
         [&despawnBounds](const std::unique_ptr<Vehicle>& vehicle) {
             if (!vehicle) return true;

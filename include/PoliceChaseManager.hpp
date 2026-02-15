@@ -36,8 +36,14 @@ public:
     // Set projection info for accurate view bounds calculation
     void setProjectionInfo(float fovRadians, float aspectRatio);
     
-    // Called when a pedestrian is killed by the player
-    void onPedestrianKilled();
+    // Called when the player fires a weapon (regardless of whether it hits)
+    void onPlayerFiredWeapon();
+    
+    // Called when the player runs down a pedestrian with a vehicle
+    void onPedestrianRunDown();
+    
+    // Called when a pedestrian is killed by player gunfire
+    void onPedestrianKilledByGunfire();
     
     // Called when the player causes a vehicle explosion via gunfire
     void onPlayerCausedVehicleExplosion();
@@ -83,11 +89,11 @@ private:
     
     // Kill tracking: timestamps of recent pedestrian kills
     std::deque<float> m_killTimestamps;
-    float m_currentTime;
+    float m_currentTime = 0.0f;
     
     // Configuration
-    int m_killThreshold;           // Number of kills to trigger chase (default: 3)
-    float m_killWindowSeconds;     // Time window for counting kills (default: 60s)
+    int m_killThreshold = 3;       // Number of kills to trigger chase (default: 3)
+    float m_killWindowSeconds = 60.0f; // Time window for counting kills (default: 60s)
     float m_viewMargin;            // Margin for spawn zone
     bool m_enabled;
     bool m_chaseActive;
@@ -107,17 +113,21 @@ private:
     float m_officerSpeed = 3.8f;
     
     // Helper methods
+    bool isAnyPoliceVehicleOnScreen() const;
+    void triggerChase();
+    void activatePoliceVehicles();
     void checkChaseCondition();
+    void cleanupOldKills();
     void spawnPoliceVehicle();
     void assignPolicePilot(Vehicle* vehicle);
     void updatePoliceVehicles(float deltaTime);
+    void despawnOutOfViewPoliceVehicles();
     void updateOfficer(float deltaTime);
     void maybeDeployOfficer(Vehicle* vehicle, const glm::vec3& playerPos);
     void updateOfficerCombat(float deltaTime, const glm::vec3& playerPos);
     void tryOfficerReenterVehicle(float deltaTime, const glm::vec3& playerPos);
     void checkOfficerVehicleCollision();
     void clearOfficer(bool keepCorpse);
-    void cleanupOldKills();
     glm::vec3 findValidSpawnPoint();
     bool isTooCloseToOtherVehicles(const glm::vec3& position) const;
 };

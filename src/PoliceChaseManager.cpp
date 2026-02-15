@@ -14,9 +14,6 @@ PoliceChaseManager::PoliceChaseManager()
     , m_camera(nullptr)
     , m_player(nullptr)
     , m_trafficManager(nullptr)
-    , m_currentTime(0.0f)
-    , m_killThreshold(3)
-    , m_killWindowSeconds(60.0f)
     , m_viewMargin(10.0f)
     , m_enabled(true)
     , m_chaseActive(false)
@@ -72,16 +69,51 @@ std::vector<Pedestrian*> PoliceChaseManager::getShootableOfficers() const {
     return officers;
 }
 
-void PoliceChaseManager::onPedestrianKilled() {
+void PoliceChaseManager::onPlayerFiredWeapon() {
+    if (!m_enabled) return;
+    if (m_chaseActive) return;
+    
+    if (isAnyPoliceVehicleOnScreen()) {
+        std::cout << "WANTED! Police chase initiated - player fired weapon with police on screen!" << std::endl;
+        triggerChase();
+    }
+}
+
+void PoliceChaseManager::onPedestrianRunDown() {
     if (!m_enabled) return;
     
     // Record the kill timestamp
     m_killTimestamps.push_back(m_currentTime);
     
-    std::cout << "Pedestrian killed! Recent kills: " << getRecentKillCount() 
-              << "/" << m_killThreshold << " (in last " << m_killWindowSeconds << "s)" << std::endl;
+    if (m_chaseActive) return;
     
-    // Check if we should trigger a chase
+    // Immediate trigger if police can see it
+    if (isAnyPoliceVehicleOnScreen()) {
+        std::cout << "WANTED! Police chase initiated - player ran down pedestrian with police on screen!" << std::endl;
+        triggerChase();
+        return;
+    }
+    
+    // Fallback: check kill threshold (3 kills triggers chase even without police on screen)
+    checkChaseCondition();
+}
+
+void PoliceChaseManager::onPedestrianKilledByGunfire() {
+    if (!m_enabled) return;
+    
+    // Record the kill timestamp
+    m_killTimestamps.push_back(m_currentTime);
+    
+    if (m_chaseActive) return;
+    
+    // Immediate trigger if police can see it
+    if (isAnyPoliceVehicleOnScreen()) {
+        std::cout << "WANTED! Police chase initiated - player killed pedestrian with police on screen!" << std::endl;
+        triggerChase();
+        return;
+    }
+    
+    // Fallback: check kill threshold (3 kills triggers chase even without police on screen)
     checkChaseCondition();
 }
 
@@ -89,16 +121,121 @@ void PoliceChaseManager::onPlayerCausedVehicleExplosion() {
     if (!m_enabled) return;
     if (m_chaseActive) return;
     
-    // Check if any police vehicles already exist
-    if (m_vehicles) {
-        for (const auto& v : *m_vehicles) {
-            if (v && v->getOwner() == VehicleOwner::Police) return;
+    std::cout << "WANTED! Police chase initiated after player-caused vehicle explosion!" << std::endl;
+    triggerChase();
+}
+
+bool PoliceChaseManager::isAnyPoliceVehicleOnScreen() const {
+    if (!m_vehicles || !m_camera) return false;
+    
+    ViewBounds bounds = ViewBounds::calculate(m_camera, m_fovRadians, m_aspectRatio);
+    
+    for (const auto& v : *m_vehicles) {
+        if (!v || v->getOwner() != VehicleOwner::Police) continue;
+        if (!v->isActive() || v->isWrecked() || v->isExploding()) continue;
+        
+        if (bounds.contains(v->getPosition())) {
+            return true;
         }
     }
+    
+    return false;
+}
 
+void PoliceChaseManager::triggerChase() {
     m_chaseActive = true;
-    std::cout << "WANTED! Police chase initiated after player-caused vehicle explosion!" << std::endl;
-    spawnPoliceVehicle();
+    
+    // Check if any police vehicles already exist
+    bool hasPoliceVehicles = false;
+    if (m_vehicles) {
+        for (const auto& v : *m_vehicles) {
+            if (v && v->getOwner() == VehicleOwner::Police && 
+                v->isActive() && !v->isWrecked() && !v->isExploding()) {
+                hasPoliceVehicles = true;
+                break;
+            }
+        }
+    }
+    
+    if (hasPoliceVehicles) {
+        // Activate existing police vehicles - switch from AutoPilot to PolicePilot
+        activatePoliceVehicles();
+    } else {
+        // No police vehicles exist at all, spawn one
+        spawnPoliceVehicle();
+    }
+}
+
+void PoliceChaseManager::activatePoliceVehicles() {
+    if (!m_vehicles) return;
+    
+    for (auto& v : *m_vehicles) {
+        if (!v || v->getOwner() != VehicleOwner::Police) continue;
+        if (!v->isActive() || v->isWrecked() || v->isExploding()) continue;
+        
+        // Check if the vehicle already has a PolicePilot (already activated)
+        if (dynamic_cast<PolicePilot*>(v->getPilot()) != nullptr) continue;
+        
+        // Replace AutoPilot with PolicePilot to start chasing
+        assignPolicePilot(v.get());
+        std::cout << "Police vehicle activated for chase at (" 
+                  << v->getPosition().x << ", " << v->getPosition().y << ")" << std::endl;
+    }
+}
+
+void PoliceChaseManager::update(float deltaTime) {
+    if (!m_enabled) return;
+    
+    m_currentTime += deltaTime;
+    
+    // Clean up old kill timestamps
+    cleanupOldKills();
+    
+    // Despawn police vehicles that have drifted too far from view (only when not chasing)
+    if (!m_chaseActive) {
+        despawnOutOfViewPoliceVehicles();
+    }
+    
+    // Update police vehicles
+    updatePoliceVehicles(deltaTime);
+    updateOfficer(deltaTime);
+}
+
+void PoliceChaseManager::render(Renderer* renderer) {
+    if (!renderer) return;
+
+    // Vehicles are rendered by Scene from the shared list.
+    // Only render the on-foot officer here.
+    if (m_onFootOfficer && m_onFootOfficer->isActive()) {
+        m_onFootOfficer->render(renderer);
+    }
+}
+
+void PoliceChaseManager::updatePoliceVehicles(float deltaTime) {
+    if (!m_vehicles) return;
+
+    // Update all police vehicles
+    for (auto& vehicle : *m_vehicles) {
+        if (vehicle && vehicle->isActive() && vehicle->getOwner() == VehicleOwner::Police) {
+            vehicle->update(deltaTime);
+        }
+    }
+}
+
+void PoliceChaseManager::despawnOutOfViewPoliceVehicles() {
+    if (!m_vehicles || !m_camera) return;
+    
+    ViewBounds bounds = ViewBounds::calculate(m_camera, m_fovRadians, m_aspectRatio);
+    ViewBounds despawnBounds = bounds.expanded(m_viewMargin * 2.0f);
+    
+    m_vehicles->erase(
+        std::remove_if(m_vehicles->begin(), m_vehicles->end(),
+            [&despawnBounds](const std::unique_ptr<Vehicle>& vehicle) {
+                if (!vehicle) return true;
+                if (vehicle->getOwner() != VehicleOwner::Police) return false;
+                return !despawnBounds.contains(vehicle->getPosition());
+            }),
+        m_vehicles->end());
 }
 
 int PoliceChaseManager::getRecentKillCount() const {
@@ -123,62 +260,14 @@ void PoliceChaseManager::cleanupOldKills() {
 }
 
 void PoliceChaseManager::checkChaseCondition() {
-    if (m_chaseActive) return;  // Already in a chase
-    
-    // Check if any police vehicles already exist
-    if (m_vehicles) {
-        for (const auto& v : *m_vehicles) {
-            if (v && v->getOwner() == VehicleOwner::Police) return;
-        }
-    }
+    if (m_chaseActive) return;
     
     int recentKills = getRecentKillCount();
     
     if (recentKills >= m_killThreshold) {
-        m_chaseActive = true;
         std::cout << "WANTED! Police chase initiated after " << recentKills << " pedestrian kills!" << std::endl;
-        spawnPoliceVehicle();
+        triggerChase();
     }
-}
-
-void PoliceChaseManager::update(float deltaTime) {
-    if (!m_enabled) return;
-    
-    m_currentTime += deltaTime;
-    
-    // Clean up old kill timestamps
-    cleanupOldKills();
-    
-    // Update police vehicles
-    updatePoliceVehicles(deltaTime);
-    updateOfficer(deltaTime);
-    
-    // Note: We only spawn ONE police vehicle per chase
-    // If the police vehicle is destroyed, the chase continues but no respawn
-}
-
-void PoliceChaseManager::render(Renderer* renderer) {
-    if (!renderer) return;
-
-    // Vehicles are rendered by Scene from the shared list.
-    // Only render the on-foot officer here.
-    if (m_onFootOfficer && m_onFootOfficer->isActive()) {
-        m_onFootOfficer->render(renderer);
-    }
-}
-
-void PoliceChaseManager::updatePoliceVehicles(float deltaTime) {
-    if (!m_vehicles) return;
-
-    // Update all police vehicles
-    for (auto& vehicle : *m_vehicles) {
-        if (vehicle && vehicle->isActive() && vehicle->getOwner() == VehicleOwner::Police) {
-            vehicle->update(deltaTime);
-        }
-    }
-    
-    // Optionally despawn police vehicles that are too far from player
-    // (for now, keep them active to maintain the chase)
 }
 
 glm::vec3 PoliceChaseManager::findValidSpawnPoint() {
