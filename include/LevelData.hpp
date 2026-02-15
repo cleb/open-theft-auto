@@ -28,6 +28,7 @@ struct PlayerSpawnDefinition {
 struct PickupSpawnDefinition {
     glm::ivec3 gridPosition{0, 0, 0};
     PickupType type = PickupType::Pistol;
+    int ammo = 10;
 };
 
 struct LevelData {

@@ -4,7 +4,10 @@
 #include "Collider.hpp"
 #include "SpriteAnimation.hpp"
 #include "Weapon.hpp"
+#include "PickupTypes.hpp"
+#include <array>
 #include <memory>
+#include <optional>
 
 class TileGrid;
 
@@ -20,7 +23,8 @@ private:
     
     // Animation state
     bool m_isMoving;
-    std::unique_ptr<Weapon> m_weapon;
+    std::array<std::unique_ptr<Weapon>, pickupTypeCount()> m_weaponSlots;
+    std::optional<PickupType> m_equippedWeaponType;
     
     void applyMovement(const glm::vec3& delta);
 
@@ -38,8 +42,18 @@ public:
     void turnRight(float deltaTime);
     void setTileGrid(TileGrid* tileGrid) { m_tileGrid = tileGrid; }
 
-    bool hasWeapon() const { return m_weapon != nullptr; }
-    void equipWeapon(std::unique_ptr<Weapon> weapon);
+    bool hasWeapon() const;
+    bool hasWeapon(PickupType type) const;
+    Weapon* getWeapon(PickupType type);
+    const Weapon* getWeapon(PickupType type) const;
+    Weapon* getEquippedWeapon();
+    const Weapon* getEquippedWeapon() const;
+    std::optional<PickupType> getEquippedWeaponType() const { return m_equippedWeaponType; }
+    const char* getWeaponDisplayName() const;
+    int getWeaponAmmo() const;
+    bool addAmmo(PickupType type, int amount);
+    void equipWeapon(PickupType type, std::unique_ptr<Weapon> weapon);
+    bool equipWeaponType(PickupType type);
     bool canShoot() const;
     void recordShot();
     

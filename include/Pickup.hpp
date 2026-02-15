@@ -18,6 +18,10 @@ public:
     void render(Renderer* renderer) override;
 
     PickupType getType() const { return m_type; }
+    void setAmmoAmount(int ammo);
+    int getAmmoAmount() const { return m_ammoAmount; }
+    void setRespawnDelay(float seconds);
+    void startRespawn();
     const glm::vec2& getSize() const { return m_size; }
     float getRadius() const { return std::max(m_size.x, m_size.y) * 0.5f; }
 
@@ -26,4 +30,7 @@ private:
     std::shared_ptr<Texture> m_texture;
     glm::vec2 m_size;
     float m_rotationSpeed;
+    int m_ammoAmount;
+    float m_respawnDelay;
+    float m_respawnTimer;
 };

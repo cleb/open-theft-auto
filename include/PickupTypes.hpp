@@ -1,12 +1,25 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <cstddef>
 #include <string>
 #include <vector>
 
 enum class PickupType {
     Pistol
 };
+
+inline constexpr std::size_t pickupTypeCount() {
+    return 1;
+}
+
+inline constexpr std::size_t pickupTypeToIndex(PickupType type) {
+    switch (type) {
+        case PickupType::Pistol:
+        default:
+            return 0;
+    }
+}
 
 inline const char* pickupTypeToString(PickupType type) {
     switch (type) {

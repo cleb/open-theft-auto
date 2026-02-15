@@ -10,9 +10,12 @@
 #include "Window.hpp"
 #include "Heading.hpp"
 #include "PistolWeapon.hpp"
+#include "PickupTypes.hpp"
+#include "TextureManager.hpp"
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <cstdint>
 #include <glm/glm.hpp>
 #include <glm/geometric.hpp>
 #include <GLFW/glfw3.h>
@@ -211,7 +214,7 @@ void Scene::update(float deltaTime) {
         handlePickupCollection();
     m_projectileManager.update(deltaTime, m_pedestrianManager.get(), &m_vehicles, m_trafficManager.get());
         for (auto& pickup : m_pickups) {
-            if (pickup && pickup->isActive()) {
+            if (pickup) {
                 pickup->update(deltaTime);
             }
         }
@@ -317,6 +320,43 @@ void Scene::drawGui() {
     if (m_tileGridEditor) {
         m_tileGridEditor->drawGui();
     }
+
+    if (isEditModeActive()) {
+        return;
+    }
+
+    if (!m_player || !m_player->hasWeapon()) {
+        return;
+    }
+
+    const auto equippedType = m_player->getEquippedWeaponType();
+    if (!equippedType) {
+        return;
+    }
+
+    const auto texture = TextureManager::instance().getTextureFromPath(pickupTexturePath(*equippedType));
+    if (!texture) {
+        return;
+    }
+
+    ImGui::SetNextWindowPos(ImVec2(12.0f, 12.0f), ImGuiCond_Always);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize
+        | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing
+        | ImGuiWindowFlags_NoBackground;
+    if (ImGui::Begin("WeaponHUD", nullptr, flags)) {
+        constexpr float iconSize = 32.0f;
+        constexpr float textSpacing = 6.0f;
+        const ImVec2 startPos = ImGui::GetCursorPos();
+        ImGui::Image(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(texture->getID())),
+                     ImVec2(iconSize, iconSize),
+                     ImVec2(0.0f, 1.0f),
+                     ImVec2(1.0f, 0.0f));
+        ImGui::SameLine(0.0f, textSpacing);
+        const float textOffset = (iconSize - ImGui::GetFontSize()) * 0.5f;
+        ImGui::SetCursorPosY(startPos.y + textOffset);
+        ImGui::Text("%d", m_player->getWeaponAmmo());
+    }
+    ImGui::End();
 }
 
 void Scene::processInput(InputManager* input, float deltaTime) {
@@ -569,6 +609,7 @@ void Scene::rebuildPickupsFromSpawns() {
         glm::vec3 position = m_tileGrid->gridToWorld(spawn.gridPosition);
         position.z += 0.1f;
         pickup->setPosition(position);
+        pickup->setAmmoAmount(spawn.ammo);
         pickup->setActive(true);
         m_pickups.push_back(std::move(pickup));
     }
@@ -587,26 +628,28 @@ void Scene::handlePickupCollection() {
     const glm::vec2 playerSize = m_player->getColliderSize();
     const float playerRadius = std::max(playerSize.x, playerSize.y) * 0.35f;
 
-    auto it = std::remove_if(m_pickups.begin(), m_pickups.end(), [&](const std::unique_ptr<Pickup>& pickup) {
+    for (auto& pickup : m_pickups) {
         if (!pickup || !pickup->isActive()) {
-            return true;
+            continue;
         }
         const glm::vec3 pickupPos = pickup->getPosition();
         const glm::vec2 delta(pickupPos.x - playerPos.x, pickupPos.y - playerPos.y);
         const float radius = playerRadius + pickup->getRadius();
         const float distanceSq = delta.x * delta.x + delta.y * delta.y;
         if (distanceSq <= radius * radius) {
-            if (pickup->getType() == PickupType::Pistol) {
-                m_player->equipWeapon(std::make_unique<PistolWeapon>());
-                std::cout << "Picked up pistol" << std::endl;
+            const PickupType pickupType = pickup->getType();
+            switch (pickupType) {
+                case PickupType::Pistol: {
+                    if (!m_player->addAmmo(pickupType, pickup->getAmmoAmount())) {
+                        m_player->equipWeapon(pickupType, std::make_unique<PistolWeapon>(pickup->getAmmoAmount()));
+                    }
+                    std::cout << "Picked up pistol (" << pickup->getAmmoAmount() << " ammo)" << std::endl;
+                    break;
+                }
             }
-            return true;
+            pickup->startRespawn();
+            break;
         }
-        return false;
-    });
-
-    if (it != m_pickups.end()) {
-        m_pickups.erase(it, m_pickups.end());
     }
 }
 

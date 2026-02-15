@@ -10,8 +10,7 @@ Player::Player()
     , m_rotationSpeed(90.0f)
     , m_size(1.0f, 1.0f)
     , m_tileGrid(nullptr)
-    , m_isMoving(false)
-    , m_weapon(nullptr) {
+    , m_isMoving(false) {
 }
 
 bool Player::initialize() {
@@ -41,8 +40,8 @@ bool Player::initialize() {
 }
 
 void Player::update(float deltaTime) {
-    if (m_weapon) {
-        m_weapon->update(deltaTime);
+    if (auto* weapon = getEquippedWeapon()) {
+        weapon->update(deltaTime);
     }
 
     // Update animation
@@ -61,17 +60,79 @@ void Player::update(float deltaTime) {
 }
 
 bool Player::canShoot() const {
-    return m_weapon && m_weapon->canFire();
+    const auto* weapon = getEquippedWeapon();
+    return weapon && weapon->canFire();
 }
 
 void Player::recordShot() {
-    if (m_weapon) {
-        m_weapon->recordFire();
+    if (auto* weapon = getEquippedWeapon()) {
+        weapon->recordFire();
     }
 }
 
-void Player::equipWeapon(std::unique_ptr<Weapon> weapon) {
-    m_weapon = std::move(weapon);
+bool Player::hasWeapon() const {
+    return m_equippedWeaponType.has_value();
+}
+
+bool Player::hasWeapon(PickupType type) const {
+    return m_weaponSlots[pickupTypeToIndex(type)] != nullptr;
+}
+
+Weapon* Player::getWeapon(PickupType type) {
+    return m_weaponSlots[pickupTypeToIndex(type)].get();
+}
+
+const Weapon* Player::getWeapon(PickupType type) const {
+    return m_weaponSlots[pickupTypeToIndex(type)].get();
+}
+
+Weapon* Player::getEquippedWeapon() {
+    if (!m_equippedWeaponType) {
+        return nullptr;
+    }
+    return getWeapon(*m_equippedWeaponType);
+}
+
+const Weapon* Player::getEquippedWeapon() const {
+    if (!m_equippedWeaponType) {
+        return nullptr;
+    }
+    return getWeapon(*m_equippedWeaponType);
+}
+
+const char* Player::getWeaponDisplayName() const {
+    const auto* weapon = getEquippedWeapon();
+    return weapon ? weapon->getDisplayName() : "Unarmed";
+}
+
+int Player::getWeaponAmmo() const {
+    const auto* weapon = getEquippedWeapon();
+    return weapon ? weapon->getAmmo() : 0;
+}
+
+bool Player::addAmmo(PickupType type, int amount) {
+    auto* weapon = getWeapon(type);
+    if (!weapon) {
+        return false;
+    }
+    weapon->addAmmo(amount);
+    return true;
+}
+
+void Player::equipWeapon(PickupType type, std::unique_ptr<Weapon> weapon) {
+    if (!weapon) {
+        return;
+    }
+    m_weaponSlots[pickupTypeToIndex(type)] = std::move(weapon);
+    m_equippedWeaponType = type;
+}
+
+bool Player::equipWeaponType(PickupType type) {
+    if (!hasWeapon(type)) {
+        return false;
+    }
+    m_equippedWeaponType = type;
+    return true;
 }
 
 void Player::render(Renderer* renderer) {
