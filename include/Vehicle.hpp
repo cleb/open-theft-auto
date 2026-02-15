@@ -12,6 +12,13 @@ class TileGrid;
 class Pilot;
 class Vehicle;
 
+// Identifies which system owns / manages a vehicle
+enum class VehicleOwner {
+    World,    // Level-placed or player-claimed vehicles
+    Traffic,  // Managed by TrafficManager
+    Police    // Managed by PoliceChaseManager
+};
+
 // Callback invoked when a vehicle is carjacked
 // Parameters: vehicle position, vehicle rotation (degrees), vehicle size
 using CarjackCallback = std::function<void(const glm::vec3&, float, const glm::vec2&)>;
@@ -59,6 +66,7 @@ private:
     VehicleDamage m_damage;
     bool m_inCollision = false;  // Tracks if currently in collision state
     std::string m_vehicleTypeId = "sedan";  // Type ID of this vehicle (from VehicleConfig)
+    VehicleOwner m_owner = VehicleOwner::World;
     int m_maxHealth = 10;
     int m_health = 10;
     bool m_burning = false;
@@ -93,6 +101,10 @@ public:
     // Vehicle type configuration
     void setVehicleType(const std::string& typeId);
     const std::string& getVehicleTypeId() const { return m_vehicleTypeId; }
+
+    // Ownership tag
+    VehicleOwner getOwner() const { return m_owner; }
+    void setOwner(VehicleOwner owner) { m_owner = owner; }
     
     // Pilot management
     void setPilot(std::unique_ptr<Pilot> pilot);

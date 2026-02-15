@@ -8,6 +8,7 @@
 #include "LevelData.hpp"
 #include <vector>
 #include <memory>
+#include <functional>
 #include <glm/glm.hpp>
 #include <random>
 
@@ -28,7 +29,7 @@ public:
     ~TrafficManager() = default;
 
     void initialize(TileGrid* tileGrid, Camera* camera, 
-                   const std::vector<std::unique_ptr<Vehicle>>* playerVehicles);
+                   std::vector<std::unique_ptr<Vehicle>>* vehicles);
     void update(float deltaTime);
     void render(Renderer* renderer);
     void reset();
@@ -46,19 +47,14 @@ public:
     void setEnabled(bool enabled) { m_enabled = enabled; }
     bool isEnabled() const { return m_enabled; }
     
-    // Set collision callback for all traffic vehicles
-    void setCollisionCallback(ColliderCallback callback);
-
-    // Set explode callback for all traffic vehicles
-    void setVehicleExplodeCallback(VehicleExplodeCallback callback);
+    // Callback used to add a newly-spawned vehicle to the shared list.
+    // The callback is expected to set collision/explode callbacks and tileGrid.
+    using AddVehicleCallback = std::function<void(std::unique_ptr<Vehicle>)>;
+    void setAddVehicleCallback(AddVehicleCallback callback) { m_addVehicleCallback = std::move(callback); }
     
     // Set pedestrian manager for carjack callbacks
     void setPedestrianManager(PedestrianManager* pedestrianManager) { m_pedestrianManager = pedestrianManager; }
 
-    // Get traffic vehicles (for collision detection, etc.)
-    const std::vector<std::unique_ptr<Vehicle>>& getTrafficVehicles() const { return m_trafficVehicles; }
-    std::unique_ptr<Vehicle> claimTrafficVehicle(Vehicle* vehicle);
-    
     // Get road spawn points (for police spawning, etc.)
     const std::vector<RoadSpawnPoint>& getRoadSpawnPoints() const { return m_roadSpawnPoints; }
     
@@ -70,13 +66,11 @@ public:
 private:
     TileGrid* m_tileGrid;
     Camera* m_camera;
-    const std::vector<std::unique_ptr<Vehicle>>* m_playerVehicles;
+    std::vector<std::unique_ptr<Vehicle>>* m_vehicles;   // Shared vehicle list (owned by Scene)
     PedestrianManager* m_pedestrianManager;
     
-    std::vector<std::unique_ptr<Vehicle>> m_trafficVehicles;
     std::vector<RoadSpawnPoint> m_roadSpawnPoints;
-    ColliderCallback m_collisionCallback;
-    VehicleExplodeCallback m_vehicleExplodeCallback;
+    AddVehicleCallback m_addVehicleCallback;
     
     // Configuration
     int m_maxTrafficVehicles;

@@ -1,49 +1,18 @@
 #include "GameLogic.hpp"
 #include "InputManager.hpp"
 #include "UserPilot.hpp"
-#include "TrafficManager.hpp"
-#include "PoliceChaseManager.hpp"
 #include "Heading.hpp"
 #include <glm/glm.hpp>
 #include <glm/geometric.hpp>
 #include <GLFW/glfw3.h>
 #include <iostream>
 
-namespace {
-Vehicle* findNearestVehicle(const std::vector<std::unique_ptr<Vehicle>>& vehicles,
-                            const glm::vec2& playerPos,
-                            float radius,
-                            float& nearestDistance) {
-    Vehicle* nearestVehicle = nullptr;
-    nearestDistance = radius;
-
-    for (const auto& vehicle : vehicles) {
-        if (!vehicle || !vehicle->isActive() || vehicle->isWrecked() || vehicle->isExploding()) {
-            continue;
-        }
-
-        const glm::vec3 vehiclePos3 = vehicle->getPosition();
-        const glm::vec2 vehiclePos(vehiclePos3.x, vehiclePos3.y);
-        const float distance = glm::length(vehiclePos - playerPos);
-
-        if (distance <= nearestDistance) {
-            nearestVehicle = vehicle.get();
-            nearestDistance = distance;
-        }
-    }
-
-    return nearestVehicle;
-}
-} // namespace
-
 GameLogic::GameLogic()
     : m_currentControllable(nullptr)
     , m_previousControllable(nullptr)
     , m_player(nullptr)
     , m_vehicles(nullptr)
-    , m_inputManager(nullptr)
-    , m_trafficManager(nullptr)
-    , m_policeChaseManager(nullptr) {
+    , m_inputManager(nullptr) {
 }
 
 void GameLogic::setPlayer(Player* player) {
@@ -111,50 +80,29 @@ bool GameLogic::tryEnterNearestVehicle(float radius) {
         return false;
     }
 
-    float nearestDistance = radius;
     const glm::vec2 playerPos(m_player->getPosition().x, m_player->getPosition().y);
 
-    Vehicle* nearestVehicle = findNearestVehicle(*m_vehicles, playerPos, radius, nearestDistance);
-    bool nearestIsTraffic = false;
-    bool nearestIsPolice = false;
-    
-    if (m_trafficManager) {
-        float nearestTrafficDistance = radius;
-        Vehicle* nearestTrafficVehicle = findNearestVehicle(m_trafficManager->getTrafficVehicles(),
-                                                            playerPos,
-                                                            radius,
-                                                            nearestTrafficDistance);
-        if (nearestTrafficVehicle && nearestTrafficDistance <= nearestDistance) {
-            nearestVehicle = nearestTrafficVehicle;
-            nearestDistance = nearestTrafficDistance;
-            nearestIsTraffic = true;
-        }
-    }
+    // Find the nearest enterable vehicle across the single unified list
+    Vehicle* nearestVehicle = nullptr;
+    float nearestDistance = radius;
 
-    if (m_policeChaseManager) {
-        float nearestPoliceDistance = radius;
-        Vehicle* nearestPoliceVehicle = nullptr;
-        for (const auto& policeVehicle : m_policeChaseManager->getPoliceVehicles()) {
-            if (!policeVehicle || !policeVehicle->isActive() || policeVehicle->isWrecked() ||
-                policeVehicle->isExploding() || policeVehicle->hasPilot()) {
-                continue;
-            }
-
-            const glm::vec3 vehiclePos3 = policeVehicle->getPosition();
-            const glm::vec2 vehiclePos(vehiclePos3.x, vehiclePos3.y);
-            const float distance = glm::length(vehiclePos - playerPos);
-
-            if (distance <= nearestPoliceDistance) {
-                nearestPoliceVehicle = policeVehicle.get();
-                nearestPoliceDistance = distance;
-            }
+    for (const auto& vehicle : *m_vehicles) {
+        if (!vehicle || !vehicle->isActive() || vehicle->isWrecked() || vehicle->isExploding()) {
+            continue;
         }
 
-        if (nearestPoliceVehicle && nearestPoliceDistance <= nearestDistance) {
-            nearestVehicle = nearestPoliceVehicle;
-            nearestDistance = nearestPoliceDistance;
-            nearestIsTraffic = false;
-            nearestIsPolice = true;
+        // Police vehicles can only be entered when they have no pilot
+        if (vehicle->getOwner() == VehicleOwner::Police && vehicle->hasPilot()) {
+            continue;
+        }
+
+        const glm::vec3 vehiclePos3 = vehicle->getPosition();
+        const glm::vec2 vehiclePos(vehiclePos3.x, vehiclePos3.y);
+        const float distance = glm::length(vehiclePos - playerPos);
+
+        if (distance <= nearestDistance) {
+            nearestVehicle = vehicle.get();
+            nearestDistance = distance;
         }
     }
 
@@ -165,19 +113,8 @@ bool GameLogic::tryEnterNearestVehicle(float radius) {
     // Trigger the carjack callback if set (this spawns a pedestrian for autopiloted vehicles)
     nearestVehicle->triggerCarjack();
 
-    if (nearestIsTraffic && m_trafficManager) {
-        std::unique_ptr<Vehicle> claimed = m_trafficManager->claimTrafficVehicle(nearestVehicle);
-        if (claimed) {
-            nearestVehicle = claimed.get();
-            m_vehicles->push_back(std::move(claimed));
-        }
-    } else if (nearestIsPolice && m_policeChaseManager) {
-        std::unique_ptr<Vehicle> claimed = m_policeChaseManager->claimPoliceVehicle(nearestVehicle);
-        if (claimed) {
-            nearestVehicle = claimed.get();
-            m_vehicles->push_back(std::move(claimed));
-        }
-    }
+    // Claim the vehicle: mark it as World-owned so managers stop managing it
+    nearestVehicle->setOwner(VehicleOwner::World);
 
     // Switch control to vehicle with UserPilot
     m_previousControllable = m_currentControllable;

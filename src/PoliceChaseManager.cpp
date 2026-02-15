@@ -14,7 +14,6 @@ PoliceChaseManager::PoliceChaseManager()
     , m_camera(nullptr)
     , m_player(nullptr)
     , m_trafficManager(nullptr)
-    , m_collisionCallback(nullptr)
     , m_currentTime(0.0f)
     , m_killThreshold(3)
     , m_killWindowSeconds(60.0f)
@@ -26,11 +25,13 @@ PoliceChaseManager::PoliceChaseManager()
     , m_rng(std::random_device{}()) {
 }
 
-void PoliceChaseManager::initialize(TileGrid* tileGrid, Camera* camera, Player* player, TrafficManager* trafficManager) {
+void PoliceChaseManager::initialize(TileGrid* tileGrid, Camera* camera, Player* player, TrafficManager* trafficManager,
+                                    std::vector<std::unique_ptr<Vehicle>>* vehicles) {
     m_tileGrid = tileGrid;
     m_camera = camera;
     m_player = player;
     m_trafficManager = trafficManager;
+    m_vehicles = vehicles;
 
     m_policeOfficerAnimation = std::make_unique<SpriteAnimation>();
     if (!m_policeOfficerAnimation->loadFromFile("assets/textures/policeman-animation.json")) {
@@ -42,7 +43,14 @@ void PoliceChaseManager::initialize(TileGrid* tileGrid, Camera* camera, Player* 
 }
 
 void PoliceChaseManager::reset() {
-    m_policeVehicles.clear();
+    if (m_vehicles) {
+        m_vehicles->erase(
+            std::remove_if(m_vehicles->begin(), m_vehicles->end(),
+                [](const std::unique_ptr<Vehicle>& v) {
+                    return v && v->getOwner() == VehicleOwner::Police;
+                }),
+            m_vehicles->end());
+    }
     clearOfficer(false);
     m_killTimestamps.clear();
     m_currentTime = 0.0f;
@@ -54,17 +62,6 @@ void PoliceChaseManager::reset() {
 void PoliceChaseManager::setProjectionInfo(float fovRadians, float aspectRatio) {
     m_fovRadians = fovRadians;
     m_aspectRatio = aspectRatio;
-}
-
-void PoliceChaseManager::setCollisionCallback(ColliderCallback callback) {
-    m_collisionCallback = callback;
-    
-    // Apply to all existing police vehicles
-    for (auto& vehicle : m_policeVehicles) {
-        if (vehicle) {
-            vehicle->setCollisionCallback(m_collisionCallback);
-        }
-    }
 }
 
 std::vector<Pedestrian*> PoliceChaseManager::getShootableOfficers() const {
@@ -91,7 +88,13 @@ void PoliceChaseManager::onPedestrianKilled() {
 void PoliceChaseManager::onPlayerCausedVehicleExplosion() {
     if (!m_enabled) return;
     if (m_chaseActive) return;
-    if (!m_policeVehicles.empty()) return;
+    
+    // Check if any police vehicles already exist
+    if (m_vehicles) {
+        for (const auto& v : *m_vehicles) {
+            if (v && v->getOwner() == VehicleOwner::Police) return;
+        }
+    }
 
     m_chaseActive = true;
     std::cout << "WANTED! Police chase initiated after player-caused vehicle explosion!" << std::endl;
@@ -121,7 +124,13 @@ void PoliceChaseManager::cleanupOldKills() {
 
 void PoliceChaseManager::checkChaseCondition() {
     if (m_chaseActive) return;  // Already in a chase
-    if (!m_policeVehicles.empty()) return;  // Already have a police vehicle
+    
+    // Check if any police vehicles already exist
+    if (m_vehicles) {
+        for (const auto& v : *m_vehicles) {
+            if (v && v->getOwner() == VehicleOwner::Police) return;
+        }
+    }
     
     int recentKills = getRecentKillCount();
     
@@ -150,38 +159,20 @@ void PoliceChaseManager::update(float deltaTime) {
 
 void PoliceChaseManager::render(Renderer* renderer) {
     if (!renderer) return;
-    
-    for (auto& vehicle : m_policeVehicles) {
-        if (vehicle && vehicle->isActive()) {
-            vehicle->render(renderer);
-        }
-    }
 
+    // Vehicles are rendered by Scene from the shared list.
+    // Only render the on-foot officer here.
     if (m_onFootOfficer && m_onFootOfficer->isActive()) {
         m_onFootOfficer->render(renderer);
     }
 }
 
-std::unique_ptr<Vehicle> PoliceChaseManager::claimPoliceVehicle(Vehicle* vehicle) {
-    if (!vehicle) {
-        return nullptr;
-    }
-
-    for (auto it = m_policeVehicles.begin(); it != m_policeVehicles.end(); ++it) {
-        if (it->get() == vehicle) {
-            std::unique_ptr<Vehicle> claimed = std::move(*it);
-            m_policeVehicles.erase(it);
-            return claimed;
-        }
-    }
-
-    return nullptr;
-}
-
 void PoliceChaseManager::updatePoliceVehicles(float deltaTime) {
+    if (!m_vehicles) return;
+
     // Update all police vehicles
-    for (auto& vehicle : m_policeVehicles) {
-        if (vehicle && vehicle->isActive()) {
+    for (auto& vehicle : *m_vehicles) {
+        if (vehicle && vehicle->isActive() && vehicle->getOwner() == VehicleOwner::Police) {
             vehicle->update(deltaTime);
         }
     }
@@ -235,12 +226,14 @@ bool PoliceChaseManager::isTooCloseToOtherVehicles(const glm::vec3& position) co
     const float minDistance = 8.0f;
     const float minDistSq = minDistance * minDistance;
     
-    // Check against police vehicles
-    for (const auto& vehicle : m_policeVehicles) {
-        if (!vehicle) continue;
-        glm::vec3 diff = vehicle->getPosition() - position;
-        float distSq = diff.x * diff.x + diff.y * diff.y;
-        if (distSq < minDistSq) return true;
+    // Check against all vehicles in the shared list
+    if (m_vehicles) {
+        for (const auto& vehicle : *m_vehicles) {
+            if (!vehicle) continue;
+            glm::vec3 diff = vehicle->getPosition() - position;
+            float distSq = diff.x * diff.x + diff.y * diff.y;
+            if (distSq < minDistSq) return true;
+        }
     }
     
     // Check against player if available
@@ -254,7 +247,7 @@ bool PoliceChaseManager::isTooCloseToOtherVehicles(const glm::vec3& position) co
 }
 
 void PoliceChaseManager::spawnPoliceVehicle() {
-    if (!m_tileGrid) return;
+    if (!m_tileGrid || !m_vehicles) return;
     
     glm::vec3 spawnPos = findValidSpawnPoint();
     
@@ -292,14 +285,14 @@ void PoliceChaseManager::spawnPoliceVehicle() {
     vehicle->setSpriteSize(spriteSize);
     vehicle->setTileGrid(m_tileGrid);
     
-    // Set collision callback
-    if (m_collisionCallback) {
-        vehicle->setCollisionCallback(m_collisionCallback);
-    }
-    
     assignPolicePilot(vehicle.get());
-    
-    m_policeVehicles.push_back(std::move(vehicle));
+
+    vehicle->setOwner(VehicleOwner::Police);
+    if (m_addVehicleCallback) {
+        m_addVehicleCallback(std::move(vehicle));
+    } else {
+        m_vehicles->push_back(std::move(vehicle));
+    }
     
     std::cout << "Police vehicle spawned at (" << spawnPos.x << ", " << spawnPos.y << ")" << std::endl;
 }
@@ -325,7 +318,18 @@ void PoliceChaseManager::assignPolicePilot(Vehicle* vehicle) {
 }
 
 void PoliceChaseManager::updateOfficer(float deltaTime) {
-    if (!m_chaseActive || m_policeVehicles.empty() || !m_playerPositionCallback) {
+    // Check if any police vehicles exist in the shared list
+    bool hasPoliceVehicles = false;
+    if (m_vehicles) {
+        for (const auto& v : *m_vehicles) {
+            if (v && v->getOwner() == VehicleOwner::Police) {
+                hasPoliceVehicles = true;
+                break;
+            }
+        }
+    }
+
+    if (!m_chaseActive || !hasPoliceVehicles || !m_playerPositionCallback) {
         if (m_onFootOfficer && m_onFootOfficer->isActive()) {
             m_onFootOfficer->update(deltaTime);
         }
@@ -333,10 +337,13 @@ void PoliceChaseManager::updateOfficer(float deltaTime) {
     }
 
     Vehicle* activePoliceVehicle = nullptr;
-    for (auto& vehicle : m_policeVehicles) {
-        if (vehicle && vehicle->isActive() && !vehicle->isExploding() && !vehicle->isWrecked()) {
-            activePoliceVehicle = vehicle.get();
-            break;
+    if (m_vehicles) {
+        for (auto& vehicle : *m_vehicles) {
+            if (vehicle && vehicle->isActive() && vehicle->getOwner() == VehicleOwner::Police
+                && !vehicle->isExploding() && !vehicle->isWrecked()) {
+                activePoliceVehicle = vehicle.get();
+                break;
+            }
         }
     }
 
@@ -472,7 +479,7 @@ void PoliceChaseManager::tryOfficerReenterVehicle(float deltaTime, const glm::ve
 }
 
 void PoliceChaseManager::checkOfficerVehicleCollision() {
-    if (!m_onFootOfficer || !m_onFootOfficer->isActive() || m_onFootOfficer->isDead() || !m_collisionCallback) {
+    if (!m_onFootOfficer || !m_onFootOfficer->isActive() || m_onFootOfficer->isDead() || !m_officerColliderCallback) {
         return;
     }
 
@@ -480,7 +487,7 @@ void PoliceChaseManager::checkOfficerVehicleCollision() {
     const glm::vec2 pedSize = m_onFootOfficer->getSize();
     const float pedRadius = std::max(pedSize.x, pedSize.y) * 0.3f;
 
-    const auto colliders = m_collisionCallback();
+    const auto colliders = m_officerColliderCallback();
     for (const Collider* collider : colliders) {
         const auto* vehicle = dynamic_cast<const Vehicle*>(collider);
         if (!vehicle || !vehicle->isActive() || vehicle->isWrecked() || vehicle->isExploding()) {

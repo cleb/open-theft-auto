@@ -11,9 +11,8 @@
 TrafficManager::TrafficManager()
     : m_tileGrid(nullptr)
     , m_camera(nullptr)
-    , m_playerVehicles(nullptr)
+    , m_vehicles(nullptr)
     , m_pedestrianManager(nullptr)
-    , m_collisionCallback(nullptr)
     , m_maxTrafficVehicles(10)
     , m_spawnIntervalMin(1.5f)   // Minimum time between spawns
     , m_spawnIntervalMax(4.0f)   // Maximum time between spawns
@@ -28,10 +27,10 @@ TrafficManager::TrafficManager()
 }
 
 void TrafficManager::initialize(TileGrid* tileGrid, Camera* camera,
-                                const std::vector<std::unique_ptr<Vehicle>>* playerVehicles) {
+                                std::vector<std::unique_ptr<Vehicle>>* vehicles) {
     m_tileGrid = tileGrid;
     m_camera = camera;
-    m_playerVehicles = playerVehicles;
+    m_vehicles = vehicles;
     
     if (m_tileGrid) {
         buildRoadSpawnPoints();
@@ -42,32 +41,18 @@ void TrafficManager::initialize(TileGrid* tileGrid, Camera* camera,
 }
 
 void TrafficManager::reset() {
-    m_trafficVehicles.clear();
+    if (m_vehicles) {
+        m_vehicles->erase(
+            std::remove_if(m_vehicles->begin(), m_vehicles->end(),
+                [](const std::unique_ptr<Vehicle>& v) {
+                    return v && v->getOwner() == VehicleOwner::Traffic;
+                }),
+            m_vehicles->end());
+    }
     m_spawnTimer = 0.0f;
     
     if (m_tileGrid) {
         buildRoadSpawnPoints();
-    }
-}
-
-void TrafficManager::setCollisionCallback(ColliderCallback callback) {
-    m_collisionCallback = callback;
-    
-    // Apply to all existing traffic vehicles
-    for (auto& vehicle : m_trafficVehicles) {
-        if (vehicle) {
-            vehicle->setCollisionCallback(m_collisionCallback);
-        }
-    }
-}
-
-void TrafficManager::setVehicleExplodeCallback(VehicleExplodeCallback callback) {
-    m_vehicleExplodeCallback = std::move(callback);
-
-    for (auto& vehicle : m_trafficVehicles) {
-        if (vehicle) {
-            vehicle->setExplodeCallback(m_vehicleExplodeCallback);
-        }
     }
 }
 
@@ -118,8 +103,16 @@ void TrafficManager::update(float deltaTime) {
     
     // Try to spawn new vehicles
     m_spawnTimer += deltaTime;
+    int trafficCount = 0;
+    if (m_vehicles) {
+        for (const auto& v : *m_vehicles) {
+            if (v && v->getOwner() == VehicleOwner::Traffic) {
+                ++trafficCount;
+            }
+        }
+    }
     if (m_spawnTimer >= m_nextSpawnInterval && 
-        static_cast<int>(m_trafficVehicles.size()) < m_maxTrafficVehicles) {
+        trafficCount < m_maxTrafficVehicles) {
         spawnVehicle();
         m_spawnTimer = 0.0f;
         // Randomize next spawn interval for irregular traffic
@@ -129,29 +122,9 @@ void TrafficManager::update(float deltaTime) {
 }
 
 void TrafficManager::render(Renderer* renderer) {
-    if (!renderer) return;
-    
-    for (auto& vehicle : m_trafficVehicles) {
-        if (vehicle && vehicle->isActive()) {
-            vehicle->render(renderer);
-        }
-    }
-}
-
-std::unique_ptr<Vehicle> TrafficManager::claimTrafficVehicle(Vehicle* vehicle) {
-    if (!vehicle) {
-        return nullptr;
-    }
-
-    for (auto it = m_trafficVehicles.begin(); it != m_trafficVehicles.end(); ++it) {
-        if (it->get() == vehicle) {
-            std::unique_ptr<Vehicle> claimed = std::move(*it);
-            m_trafficVehicles.erase(it);
-            return claimed;
-        }
-    }
-
-    return nullptr;
+    // Vehicles are rendered by Scene from the shared list.
+    // This method is intentionally empty.
+    (void)renderer;
 }
 
 void TrafficManager::setProjectionInfo(float fovRadians, float aspectRatio) {
@@ -256,15 +229,6 @@ void TrafficManager::spawnVehicle() {
     vehicle->setSpriteSize(spriteSize);
     vehicle->setTileGrid(m_tileGrid);
     
-    // Set collision callback
-    if (m_collisionCallback) {
-        vehicle->setCollisionCallback(m_collisionCallback);
-    }
-
-    if (m_vehicleExplodeCallback) {
-        vehicle->setExplodeCallback(m_vehicleExplodeCallback);
-    }
-    
     // Set carjack callback to spawn a pedestrian when vehicle is taken
     if (m_pedestrianManager) {
         PedestrianManager* pedMgr = m_pedestrianManager;
@@ -287,27 +251,37 @@ void TrafficManager::spawnVehicle() {
     
     // Assign an AutoPilot
     vehicle->setPilot(std::make_unique<AutoPilot>());
-    
-    m_trafficVehicles.push_back(std::move(vehicle));
+
+    vehicle->setOwner(VehicleOwner::Traffic);
+    if (m_addVehicleCallback) {
+        m_addVehicleCallback(std::move(vehicle));
+    } else {
+        m_vehicles->push_back(std::move(vehicle));
+    }
 }
 
 void TrafficManager::despawnOutOfViewVehicles(const ViewBounds& bounds) {
+    if (!m_vehicles) return;
+
     // Extend bounds by margin for despawning
     ViewBounds despawnBounds = bounds.expanded(m_viewMargin * 2.0f);
     
-    // Remove vehicles that are too far outside the view
-    auto it = std::remove_if(m_trafficVehicles.begin(), m_trafficVehicles.end(),
+    // Remove traffic vehicles that are too far outside the view
+    auto it = std::remove_if(m_vehicles->begin(), m_vehicles->end(),
         [&despawnBounds](const std::unique_ptr<Vehicle>& vehicle) {
             if (!vehicle) return true;
+            if (vehicle->getOwner() != VehicleOwner::Traffic) return false;
             return !despawnBounds.contains(vehicle->getPosition());
         });
-    m_trafficVehicles.erase(it, m_trafficVehicles.end());
+    m_vehicles->erase(it, m_vehicles->end());
 }
 
 void TrafficManager::updateTrafficVehicles(float deltaTime) {
+    if (!m_vehicles) return;
+
     // Each vehicle's update() will call its AutoPilot::update()
-    for (auto& vehicle : m_trafficVehicles) {
-        if (vehicle && vehicle->isActive()) {
+    for (auto& vehicle : *m_vehicles) {
+        if (vehicle && vehicle->isActive() && vehicle->getOwner() == VehicleOwner::Traffic) {
             vehicle->update(deltaTime);
         }
     }
@@ -349,17 +323,8 @@ bool TrafficManager::isTooCloseToOtherVehicles(const glm::vec3& position) const 
     const float minDistance = 6.0f;  // Minimum distance between vehicles
     const float minDistSq = minDistance * minDistance;
     
-    // Check against traffic vehicles
-    for (const auto& vehicle : m_trafficVehicles) {
-        if (!vehicle) continue;
-        glm::vec3 diff = vehicle->getPosition() - position;
-        float distSq = diff.x * diff.x + diff.y * diff.y;
-        if (distSq < minDistSq) return true;
-    }
-    
-    // Check against player vehicles
-    if (m_playerVehicles) {
-        for (const auto& vehicle : *m_playerVehicles) {
+    if (m_vehicles) {
+        for (const auto& vehicle : *m_vehicles) {
             if (!vehicle) continue;
             glm::vec3 diff = vehicle->getPosition() - position;
             float distSq = diff.x * diff.x + diff.y * diff.y;

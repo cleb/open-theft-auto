@@ -19,8 +19,6 @@ class Player;
 
 // Callback to get the current player position
 using PlayerPositionCallback = std::function<glm::vec3()>;
-// Callback to get all colliders
-using ColliderCallback = std::function<std::vector<const class Collider*>()>;
 // Callback for police officer weapon fire
 using OfficerShootCallback = std::function<void(const glm::vec3&, const glm::vec2&)>;
 
@@ -29,7 +27,8 @@ public:
     PoliceChaseManager();
     ~PoliceChaseManager() = default;
 
-    void initialize(TileGrid* tileGrid, Camera* camera, Player* player, TrafficManager* trafficManager);
+    void initialize(TileGrid* tileGrid, Camera* camera, Player* player, TrafficManager* trafficManager,
+                    std::vector<std::unique_ptr<Vehicle>>* vehicles);
     void update(float deltaTime);
     void render(Renderer* renderer);
     void reset();
@@ -45,12 +44,13 @@ public:
     
     // Set callbacks
     void setPlayerPositionCallback(PlayerPositionCallback callback) { m_playerPositionCallback = std::move(callback); }
-    void setCollisionCallback(ColliderCallback callback);
     void setOfficerShootCallback(OfficerShootCallback callback) { m_officerShootCallback = std::move(callback); }
+    void setOfficerColliderCallback(ColliderCallback callback) { m_officerColliderCallback = std::move(callback); }
+
+    // Callback used to add a newly-spawned vehicle to the shared list.
+    using AddVehicleCallback = std::function<void(std::unique_ptr<Vehicle>)>;
+    void setAddVehicleCallback(AddVehicleCallback callback) { m_addVehicleCallback = std::move(callback); }
     
-    // Get police vehicles (for collision detection)
-    const std::vector<std::unique_ptr<Vehicle>>& getPoliceVehicles() const { return m_policeVehicles; }
-    std::unique_ptr<Vehicle> claimPoliceVehicle(Vehicle* vehicle);
     std::vector<Pedestrian*> getShootableOfficers() const;
     
     // Configuration
@@ -69,10 +69,11 @@ private:
     Player* m_player;
     TrafficManager* m_trafficManager;
     
-    std::vector<std::unique_ptr<Vehicle>> m_policeVehicles;
-    ColliderCallback m_collisionCallback;
+    std::vector<std::unique_ptr<Vehicle>>* m_vehicles = nullptr;  // Shared vehicle list (owned by Scene)
     PlayerPositionCallback m_playerPositionCallback;
     OfficerShootCallback m_officerShootCallback;
+    AddVehicleCallback m_addVehicleCallback;
+    ColliderCallback m_officerColliderCallback;  // Used for officer-vs-vehicle collision
 
     // On-foot police officer state (one officer for now)
     std::unique_ptr<SpriteAnimation> m_policeOfficerAnimation;

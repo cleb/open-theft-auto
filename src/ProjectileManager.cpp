@@ -3,7 +3,6 @@
 #include "Renderer.hpp"
 #include "Texture.hpp"
 #include "PedestrianManager.hpp"
-#include "TrafficManager.hpp"
 #include "TileGrid.hpp"
 #include "Vehicle.hpp"
 
@@ -35,15 +34,14 @@ void ProjectileManager::spawnProjectile(const glm::vec3& origin, const glm::vec2
 }
 
 void ProjectileManager::update(float deltaTime, PedestrianManager* pedestrians,
-                               const std::vector<std::unique_ptr<Vehicle>>* playerVehicles,
-                               TrafficManager* trafficManager,
+                               const std::vector<std::unique_ptr<Vehicle>>* vehicles,
                                const TileGrid* tileGrid) {
     if (m_projectiles.empty()) {
         return;
     }
 
     for (auto& projectile : m_projectiles) {
-        updateProjectile(projectile, deltaTime, pedestrians, playerVehicles, trafficManager, tileGrid);
+        updateProjectile(projectile, deltaTime, pedestrians, vehicles, tileGrid);
     }
 
     m_projectiles.erase(
@@ -55,8 +53,7 @@ void ProjectileManager::update(float deltaTime, PedestrianManager* pedestrians,
 
 void ProjectileManager::updateProjectile(Projectile& projectile, float deltaTime,
                                          PedestrianManager* pedestrians,
-                                         const std::vector<std::unique_ptr<Vehicle>>* playerVehicles,
-                                         TrafficManager* trafficManager,
+                                         const std::vector<std::unique_ptr<Vehicle>>* vehicles,
                                          const TileGrid* tileGrid) {
     const glm::vec3 oldPosition = projectile.position;
     projectile.position.x += projectile.velocity.x * deltaTime;
@@ -81,7 +78,7 @@ void ProjectileManager::updateProjectile(Projectile& projectile, float deltaTime
     }
 
     if (projectile.owner == ProjectileOwner::Player) {
-        if (checkVehicleHit(projPos, kProjectileRadius, playerVehicles, trafficManager)) {
+        if (checkVehicleHit(projPos, kProjectileRadius, vehicles)) {
             projectile.life = 0.0f;
         }
     } else if (checkEnemyHit(projPos, kProjectileRadius)) {
@@ -142,8 +139,7 @@ bool ProjectileManager::checkEnemyHit(const glm::vec2& projPos, float projRadius
 }
 
 bool ProjectileManager::checkVehicleHit(const glm::vec2& projPos, float projRadius,
-                                        const std::vector<std::unique_ptr<Vehicle>>* playerVehicles,
-                                        TrafficManager* trafficManager) {
+                                        const std::vector<std::unique_ptr<Vehicle>>* vehicles) {
     auto testVehicle = [&](Vehicle* vehicle) {
         if (!vehicle || !vehicle->isActive()) {
             return false;
@@ -163,16 +159,8 @@ bool ProjectileManager::checkVehicleHit(const glm::vec2& projPos, float projRadi
         return false;
     };
 
-    if (playerVehicles) {
-        for (const auto& vehicle : *playerVehicles) {
-            if (testVehicle(vehicle.get())) {
-                return true;
-            }
-        }
-    }
-
-    if (trafficManager) {
-        for (const auto& vehicle : trafficManager->getTrafficVehicles()) {
+    if (vehicles) {
+        for (const auto& vehicle : *vehicles) {
             if (testVehicle(vehicle.get())) {
                 return true;
             }
