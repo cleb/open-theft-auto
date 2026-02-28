@@ -31,8 +31,15 @@ struct PickupSpawnDefinition {
     int ammo = 10;
 };
 
+struct PhoneBoothSpawnDefinition {
+    glm::ivec3 gridPosition{0, 0, 0};
+    std::string id;     // Unique identifier for this phone booth
+    std::string jobId;  // Which job this booth offers
+};
+
 struct LevelData {
     std::vector<VehicleSpawnDefinition> vehicleSpawns;
     PlayerSpawnDefinition playerSpawn;
     std::vector<PickupSpawnDefinition> pickups;
+    std::vector<PhoneBoothSpawnDefinition> phoneBooths;
 };

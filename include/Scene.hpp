@@ -15,6 +15,8 @@
 #include "Pickup.hpp"
 #include "ProjectileManager.hpp"
 #include "Collider.hpp"
+#include "MissionSystem.hpp"
+#include "Texture.hpp"
 
 #include <string>
 
@@ -42,6 +44,27 @@ private:
     
     // Input manager reference for pilot assignment
     InputManager* m_inputManager;
+
+    // Mission system
+    MissionSystem m_missionSystem;
+
+    // Phone booth rendering data
+    struct PhoneBoothRuntime {
+        glm::vec3 worldPos{0.0f};
+        std::string id;
+        std::string jobId;
+        std::shared_ptr<Texture> texInactive;
+        std::shared_ptr<Texture> texActive;
+    };
+    std::vector<PhoneBoothRuntime> m_phoneBooths;
+
+    // Mission HUD state
+    bool m_showMissionPrompt = false;
+    const Job* m_promptJob = nullptr;
+    std::string m_promptBoothId;
+    glm::vec3 m_promptBoothWorldPos{0.0f};
+    float m_missionCompletedTimer = 0.0f;
+    static constexpr float kMissionCompletedDisplayTime = 4.0f;
 
 public:
     Scene();
@@ -74,8 +97,11 @@ private:
     void onLevelChanged();
     void setupCollisionCallbacks();
     void rebuildPickupsFromSpawns();
+    void rebuildPhoneBoothsFromSpawns();
     void handlePickupCollection();
+    void handlePhoneBoothInteraction(float deltaTime);
     void fireWeaponShot();
     void handleVehicleExploded(Vehicle* vehicle);
     void restartLevel();
+    void drawMissionGui();
 };

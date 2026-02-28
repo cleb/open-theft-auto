@@ -13,6 +13,7 @@
 #include "MachineGunWeapon.hpp"
 #include "PickupTypes.hpp"
 #include "TextureManager.hpp"
+#include "MissionSystem.hpp"
 #include <iostream>
 #include <string>
 #include <algorithm>
@@ -205,6 +206,7 @@ void Scene::update(float deltaTime) {
 
     if (!isEditModeActive()) {
         handlePickupCollection();
+        handlePhoneBoothInteraction(deltaTime);
     m_projectileManager.update(deltaTime, m_pedestrianManager.get(), &m_vehicles, m_tileGrid.get());
         for (auto& pickup : m_pickups) {
             if (pickup) {
@@ -269,6 +271,15 @@ void Scene::render(Renderer* renderer) {
             }
         }
 
+        // Render phone booths
+        for (const auto& booth : m_phoneBooths) {
+            const bool active = m_missionSystem.isBoothActive(booth.jobId, *this);
+            const auto& tex = active ? booth.texActive : booth.texInactive;
+            if (tex) {
+                renderer->renderSprite(*tex, glm::vec2(booth.worldPos.x, booth.worldPos.y), glm::vec2(1.5f, 1.5f));
+            }
+        }
+
         m_projectileManager.render(renderer);
     }
     
@@ -311,6 +322,8 @@ void Scene::drawGui() {
     if (m_tileGridEditor) {
         m_tileGridEditor->drawGui();
     }
+
+    drawMissionGui();
 
     if (isEditModeActive()) {
         return;
@@ -491,6 +504,10 @@ void Scene::rebuildVehiclesFromSpawns() {
     }
 
     m_vehicles.clear();
+    m_missionSystem.reset();
+    m_showMissionPrompt = false;
+    m_promptJob = nullptr;
+    m_missionCompletedTimer = 0.0f;
     
     // Reset traffic manager
     if (m_trafficManager) {
@@ -512,6 +529,7 @@ void Scene::rebuildVehiclesFromSpawns() {
     }
 
     rebuildPickupsFromSpawns();
+    rebuildPhoneBoothsFromSpawns();
 
     for (const auto& spawn : m_levelData.vehicleSpawns) {
         auto vehicle = std::make_unique<Vehicle>();
@@ -770,4 +788,141 @@ void Scene::handleVehicleExploded(Vehicle* vehicle) {
 void Scene::restartLevel() {
     rebuildVehiclesFromSpawns();
     std::cout << "Restarted level after vehicle explosion" << std::endl;
+}
+
+void Scene::rebuildPhoneBoothsFromSpawns() {
+    m_phoneBooths.clear();
+    if (!m_tileGrid) {
+        return;
+    }
+
+    auto& texMgr = TextureManager::instance();
+    for (const auto& spawn : m_levelData.phoneBooths) {
+        PhoneBoothRuntime booth;
+        glm::vec3 worldPos = m_tileGrid->gridToWorld(spawn.gridPosition);
+        worldPos.z += 0.1f;
+        booth.worldPos = worldPos;
+        booth.id = spawn.id;
+        booth.jobId = spawn.jobId;
+        booth.texInactive = texMgr.getTextureFromPath("assets/textures/phone.png");
+        booth.texActive   = texMgr.getTextureFromPath("assets/textures/phone-active.png");
+        m_phoneBooths.push_back(std::move(booth));
+    }
+}
+
+void Scene::handlePhoneBoothInteraction(float deltaTime) {
+    (void)deltaTime;
+
+    // Count down completion display
+    if (m_missionCompletedTimer > 0.0f) {
+        m_missionCompletedTimer -= deltaTime;
+    }
+
+    // Check for mission success
+    if (m_missionSystem.getState() == MissionState::Active) {
+        if (m_missionSystem.update(*this)) {
+            m_missionCompletedTimer = kMissionCompletedDisplayTime;
+            m_showMissionPrompt = false;
+        }
+        return;
+    }
+
+    if (m_missionSystem.getState() == MissionState::Completed ||
+        m_missionSystem.getState() == MissionState::Active) {
+        return;
+    }
+
+    // Check proximity to active phone booths
+    glm::vec3 playerPos(0.0f);
+    if (m_gameLogic && m_gameLogic->isPlayerInVehicle()) {
+        const Vehicle* v = m_gameLogic->getActiveVehicle();
+        if (v) playerPos = v->getPosition();
+    } else if (m_player) {
+        playerPos = m_player->getPosition();
+    }
+
+    constexpr float kPromptRadius = 3.5f;
+
+    m_showMissionPrompt = false;
+    for (const auto& booth : m_phoneBooths) {
+        if (!m_missionSystem.isBoothActive(booth.jobId, *this)) {
+            continue;
+        }
+        const float dx = playerPos.x - booth.worldPos.x;
+        const float dy = playerPos.y - booth.worldPos.y;
+        if (dx * dx + dy * dy <= kPromptRadius * kPromptRadius) {
+            const Job* job = m_missionSystem.findJob(booth.jobId);
+            if (job) {
+                m_showMissionPrompt = true;
+                m_promptJob = job;
+                m_promptBoothId = booth.id;
+                m_promptBoothWorldPos = booth.worldPos;
+            }
+            break;
+        }
+    }
+
+    // Auto-start the mission when near the booth (press Enter to accept)
+    // We use a flag so the prompt is shown and requires key press
+}
+
+void Scene::drawMissionGui() {
+    if (isEditModeActive()) {
+        return;
+    }
+
+    const ImGuiIO& io = ImGui::GetIO();
+    const float screenW = io.DisplaySize.x;
+    const float screenH = io.DisplaySize.y;
+
+    // Mission prompt
+    if (m_showMissionPrompt && m_promptJob && m_missionSystem.getState() == MissionState::Idle) {
+        ImGui::SetNextWindowPos(ImVec2(screenW * 0.5f, screenH * 0.65f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowSize(ImVec2(420.0f, 0.0f), ImGuiCond_Always);
+        ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove
+            | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize
+            | ImGuiWindowFlags_NoFocusOnAppearing;
+        if (ImGui::Begin("MissionPrompt", nullptr, flags)) {
+            ImGui::TextUnformatted(m_promptJob->title.c_str());
+            ImGui::Separator();
+            ImGui::TextWrapped("%s", m_promptJob->description.c_str());
+            ImGui::Spacing();
+            if (ImGui::Button("Accept [Enter]") || ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+                m_missionSystem.startMission(m_promptJob, m_promptBoothId, m_promptBoothWorldPos);
+                m_showMissionPrompt = false;
+            }
+        }
+        ImGui::End();
+        return;
+    }
+
+    // Active mission HUD
+    if (m_missionSystem.getState() == MissionState::Active) {
+        const Job* job = m_missionSystem.getActiveJob();
+        if (job) {
+            ImGui::SetNextWindowPos(ImVec2(screenW * 0.5f, 12.0f), ImGuiCond_Always, ImVec2(0.5f, 0.0f));
+            ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove
+                | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize
+                | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBackground;
+            if (ImGui::Begin("MissionHUD", nullptr, flags)) {
+                ImGui::TextUnformatted(("MISSION: " + job->title).c_str());
+            }
+            ImGui::End();
+        }
+        return;
+    }
+
+    // Completion banner
+    if (m_missionCompletedTimer > 0.0f) {
+        const Job* job = m_missionSystem.getActiveJob();
+        const std::string msg = job ? job->completionMessage : "Mission complete!";
+        ImGui::SetNextWindowPos(ImVec2(screenW * 0.5f, screenH * 0.4f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove
+            | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize
+            | ImGuiWindowFlags_NoFocusOnAppearing;
+        if (ImGui::Begin("MissionComplete", nullptr, flags)) {
+            ImGui::TextUnformatted(msg.c_str());
+        }
+        ImGui::End();
+    }
 }

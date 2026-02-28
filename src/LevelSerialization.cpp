@@ -576,6 +576,7 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
 
     data.vehicleSpawns.clear();
     data.pickups.clear();
+    data.phoneBooths.clear();
 
     auto& texMgr = TextureManager::instance();
     std::unordered_map<std::string, std::string> aliasMap = texMgr.getAliases();
@@ -866,6 +867,48 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
             } else {
                 pickups.push_back(spawn);
             }
+        } else if (lowerCmd == "phone_booth" || lowerCmd == "phonebooth" || lowerCmd == "phone") {
+            int x = 0;
+            int y = 0;
+            int z = 0;
+            if (!(stream >> x >> y >> z)) {
+                logger.error("Expected coordinates after 'phone_booth'");
+                continue;
+            }
+
+            PhoneBoothSpawnDefinition spawn;
+            spawn.gridPosition = glm::ivec3(x, y, z);
+
+            KeyValueTokens tokens = collectKeyValueTokens(stream, logger);
+            if (!tokens.valid) {
+                continue;
+            }
+            for (const auto& entry : tokens.entries) {
+                const std::string lowerKey = toLowerCopy(entry.first);
+                if (lowerKey == "id") {
+                    spawn.id = entry.second;
+                } else if (lowerKey == "job" || lowerKey == "jobid") {
+                    spawn.jobId = entry.second;
+                } else {
+                    logger.warning("Unknown phone_booth property: " + entry.first);
+                }
+            }
+
+            if (!grid.isValidPosition(spawn.gridPosition)) {
+                logger.error("phone_booth coordinates out of bounds");
+                continue;
+            }
+
+            auto& booths = data.phoneBooths;
+            auto existing = std::find_if(booths.begin(), booths.end(),
+                [&](const PhoneBoothSpawnDefinition& b) {
+                    return b.gridPosition == spawn.gridPosition;
+                });
+            if (existing != booths.end()) {
+                *existing = spawn;
+            } else {
+                booths.push_back(spawn);
+            }
         } else if (lowerCmd == "player" || lowerCmd == "player_spawn" || lowerCmd == "playerspawn") {
             int x = 0;
             int y = 0;
@@ -991,6 +1034,17 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
         output << "pickup " << pickup.gridPosition.x << ' ' << pickup.gridPosition.y << ' ' << pickup.gridPosition.z;
         output << " type=" << pickupTypeToString(pickup.type);
         output << " ammo=" << pickup.ammo;
+        output << std::endl;
+    }
+
+    for (const auto& booth : data.phoneBooths) {
+        output << "phone_booth " << booth.gridPosition.x << ' ' << booth.gridPosition.y << ' ' << booth.gridPosition.z;
+        if (!booth.id.empty()) {
+            output << " id=" << booth.id;
+        }
+        if (!booth.jobId.empty()) {
+            output << " job=" << booth.jobId;
+        }
         output << std::endl;
     }
 

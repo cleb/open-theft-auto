@@ -727,6 +727,13 @@ void TileGridEditor::render(Renderer* renderer) {
                 renderer->renderSprite(*texture, glm::vec2(worldPos.x, worldPos.y), pickupDefaultSize(pickup.type));
             }
         }
+        for (const auto& booth : m_levelData->phoneBooths) {
+            const glm::vec3 worldPos = m_grid->gridToWorld(booth.gridPosition);
+            const auto texture = TextureManager::instance().getTextureFromPath("assets/textures/phone-active.png");
+            if (texture) {
+                renderer->renderSprite(*texture, glm::vec2(worldPos.x, worldPos.y), glm::vec2(1.5f, 1.5f));
+            }
+        }
     }
 
     if (m_cursorMesh) {
@@ -824,6 +831,21 @@ PickupSpawnDefinition* TileGridEditor::findPickupSpawn(const glm::ivec3& gridPos
 
 const PickupSpawnDefinition* TileGridEditor::findPickupSpawn(const glm::ivec3& gridPos) const {
     return const_cast<TileGridEditor*>(this)->findPickupSpawn(gridPos);
+}
+
+PhoneBoothSpawnDefinition* TileGridEditor::findPhoneBoothSpawn(const glm::ivec3& gridPos) {
+    if (!m_levelData) {
+        return nullptr;
+    }
+    auto& booths = m_levelData->phoneBooths;
+    auto it = std::find_if(booths.begin(), booths.end(), [&](const PhoneBoothSpawnDefinition& b) {
+        return b.gridPosition == gridPos;
+    });
+    return it != booths.end() ? &(*it) : nullptr;
+}
+
+const PhoneBoothSpawnDefinition* TileGridEditor::findPhoneBoothSpawn(const glm::ivec3& gridPos) const {
+    return const_cast<TileGridEditor*>(this)->findPhoneBoothSpawn(gridPos);
 }
 
 TileGridEditor::VehiclePlacementStatus TileGridEditor::evaluateVehiclePlacement(const glm::ivec3& position) const {
@@ -1091,6 +1113,9 @@ void TileGridEditor::refreshCursorColor() {
         case BrushType::Pickup:
             m_cursorColor = glm::vec3(0.9f, 0.4f, 0.9f);
             break;
+        case BrushType::PhoneBooth:
+            m_cursorColor = glm::vec3(0.2f, 0.9f, 0.4f);
+            break;
     }
 }
 
@@ -1277,7 +1302,7 @@ void TileGridEditor::announceCursor() {
 
 void TileGridEditor::announceBrush() {
     if (m_brush == m_lastAnnouncedBrush && m_brush != BrushType::Road && m_brush != BrushType::Sidewalk
-        && m_brush != BrushType::Vehicle && m_brush != BrushType::Pickup) {
+        && m_brush != BrushType::Vehicle && m_brush != BrushType::Pickup && m_brush != BrushType::PhoneBooth) {
         return;
     }
 
@@ -1319,6 +1344,12 @@ void TileGridEditor::announceBrush() {
             }
             break;
         }
+        case BrushType::PhoneBooth:
+            std::cout << "phone booth";
+            if (m_uiPhoneBoothState.removeMode) {
+                std::cout << " (remove)";
+            }
+            break;
     }
     std::cout << std::endl;
     refreshCursorColor();
@@ -1398,6 +1429,11 @@ void TileGridEditor::drawBrushControls() {
         m_brush = BrushType::Pickup;
         changed = true;
     }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Phone", m_brush == BrushType::PhoneBooth)) {
+        m_brush = BrushType::PhoneBooth;
+        changed = true;
+    }
 
     if (changed) {
         announceBrush();
@@ -1434,6 +1470,8 @@ void TileGridEditor::drawBrushControls() {
         drawPlayerSpawnBrushControls();
     } else if (m_brush == BrushType::Pickup) {
         drawPickupBrushControls();
+    } else if (m_brush == BrushType::PhoneBooth) {
+        drawPhoneBoothBrushControls();
     }
 }
 
@@ -2034,6 +2072,13 @@ void TileGridEditor::refreshUiStateFromTile() {
         m_uiPickupState.ammoCount = pickup->ammo;
     }
 
+    m_uiPhoneBoothState.cursorHasBooth = false;
+    if (const auto* booth = findPhoneBoothSpawn(m_cursor)) {
+        m_uiPhoneBoothState.cursorHasBooth = true;
+        std::snprintf(m_uiPhoneBoothState.idBuffer.data(), m_uiPhoneBoothState.idBuffer.size(), "%s", booth->id.c_str());
+        std::snprintf(m_uiPhoneBoothState.jobIdBuffer.data(), m_uiPhoneBoothState.jobIdBuffer.size(), "%s", booth->jobId.c_str());
+    }
+
     Tile* tile = currentTile();
     if (!tile) {
         m_uiTileState.hasTile = false;
@@ -2145,6 +2190,9 @@ void TileGridEditor::applyBrush() {
         case BrushType::Pickup:
             applyPickupBrush();
             return;
+        case BrushType::PhoneBooth:
+            applyPhoneBoothBrush();
+            return;
     }
 
     announceCursor();
@@ -2232,7 +2280,7 @@ void TileGridEditor::applyBucketFill() {
         }
     }
 
-    if (!prefab && (m_brush == BrushType::Vehicle || m_brush == BrushType::PlayerSpawn || m_brush == BrushType::Pickup)) {
+    if (!prefab && (m_brush == BrushType::Vehicle || m_brush == BrushType::PlayerSpawn || m_brush == BrushType::Pickup || m_brush == BrushType::PhoneBooth)) {
         applyBrush();
         return;
     }
@@ -2272,6 +2320,7 @@ void TileGridEditor::applyBucketFill() {
             case BrushType::Vehicle:
             case BrushType::PlayerSpawn:
             case BrushType::Pickup:
+            case BrushType::PhoneBooth:
                 break;
         }
     }
@@ -2323,6 +2372,7 @@ void TileGridEditor::applyBucketFill() {
             case BrushType::Vehicle:
             case BrushType::PlayerSpawn:
             case BrushType::Pickup:
+            case BrushType::PhoneBooth:
                 break;
         }
     };
@@ -2554,6 +2604,10 @@ void TileGridEditor::handleBrushHotkeys(InputManager* input) {
     }
     if (input->isKeyPressed(GLFW_KEY_7)) {
         m_brush = BrushType::Pickup;
+        announceBrush();
+    }
+    if (input->isKeyPressed(GLFW_KEY_8)) {
+        m_brush = BrushType::PhoneBooth;
         announceBrush();
     }
 }
@@ -2945,6 +2999,94 @@ void TileGridEditor::applyPickupBrush() {
 
     std::cout << "Placed pickup " << pickupTypeToString(spawn.type) << " at (" << m_cursor.x << ", " << m_cursor.y
               << ", " << m_cursor.z << ")" << std::endl;
+    refreshUiStateFromTile();
+    announceCursor();
+}
+
+void TileGridEditor::drawPhoneBoothBrushControls() {
+    ImGui::SeparatorText("Phone Booth Settings");
+
+    ImGui::Text("Cursor: %s", m_uiPhoneBoothState.cursorHasBooth ? "phone booth present" : "empty");
+
+    bool removeMode = m_uiPhoneBoothState.removeMode;
+    if (ImGui::Checkbox("Remove Booth", &removeMode)) {
+        m_uiPhoneBoothState.removeMode = removeMode;
+    }
+
+    if (!m_uiPhoneBoothState.removeMode) {
+        ImGui::InputText("Booth ID", m_uiPhoneBoothState.idBuffer.data(), m_uiPhoneBoothState.idBuffer.size());
+        ImGui::InputText("Job ID",   m_uiPhoneBoothState.jobIdBuffer.data(), m_uiPhoneBoothState.jobIdBuffer.size());
+        ImGui::TextDisabled("Job IDs: police_delivery");
+
+        const char* applyLabel = m_uiPhoneBoothState.cursorHasBooth ? "Update Booth" : "Place Booth";
+        if (ImGui::Button(applyLabel)) {
+            applyPhoneBoothBrush();
+        }
+        if (m_uiPhoneBoothState.cursorHasBooth) {
+            ImGui::SameLine();
+            if (ImGui::Button("Remove Booth Here")) {
+                bool prev = m_uiPhoneBoothState.removeMode;
+                m_uiPhoneBoothState.removeMode = true;
+                applyPhoneBoothBrush();
+                m_uiPhoneBoothState.removeMode = prev;
+            }
+        }
+    } else {
+        if (ImGui::Button("Remove Booth")) {
+            applyPhoneBoothBrush();
+        }
+    }
+}
+
+void TileGridEditor::applyPhoneBoothBrush() {
+    if (!m_grid || !m_levelData) {
+        return;
+    }
+
+    if (!m_grid->isValidPosition(m_cursor)) {
+        std::cout << "Cannot place phone booth outside of grid bounds" << std::endl;
+        return;
+    }
+
+    const Tile* tile = m_grid->getTile(m_cursor);
+    if (!tile || !tile->isTopSolid()) {
+        std::cout << "Cannot place phone booth without solid ground" << std::endl;
+        return;
+    }
+
+    if (m_uiPhoneBoothState.removeMode) {
+        auto& booths = m_levelData->phoneBooths;
+        auto it = std::find_if(booths.begin(), booths.end(), [&](const PhoneBoothSpawnDefinition& b) {
+            return b.gridPosition == m_cursor;
+        });
+        if (it != booths.end()) {
+            pushUndoState();
+            booths.erase(it);
+            std::cout << "Removed phone booth at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+        }
+        refreshUiStateFromTile();
+        announceCursor();
+        return;
+    }
+
+    PhoneBoothSpawnDefinition spawn;
+    spawn.gridPosition = m_cursor;
+    spawn.id = std::string(m_uiPhoneBoothState.idBuffer.data());
+    spawn.jobId = std::string(m_uiPhoneBoothState.jobIdBuffer.data());
+
+    auto& booths = m_levelData->phoneBooths;
+    auto existing = std::find_if(booths.begin(), booths.end(), [&](const PhoneBoothSpawnDefinition& b) {
+        return b.gridPosition == spawn.gridPosition;
+    });
+    pushUndoState();
+    if (existing != booths.end()) {
+        *existing = spawn;
+    } else {
+        booths.push_back(spawn);
+    }
+
+    std::cout << "Placed phone booth id='" << spawn.id << "' job='" << spawn.jobId
+              << "' at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
     refreshUiStateFromTile();
     announceCursor();
 }

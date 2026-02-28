@@ -58,7 +58,8 @@ private:
         Empty,
         Vehicle,
     PlayerSpawn,
-    Pickup
+    Pickup,
+    PhoneBooth
     };
 
     enum class VehiclePlacementStatus {
@@ -102,6 +103,13 @@ private:
         bool removeMode = false;
         int pickupTypeIndex = 0;
         int ammoCount = 10;
+    };
+
+    struct UiPhoneBoothState {
+        bool cursorHasBooth = false;
+        bool removeMode = false;
+        std::array<char, 64> idBuffer{};
+        std::array<char, 64> jobIdBuffer{};
     };
 
     struct AliasEntry {
@@ -174,6 +182,7 @@ private:
     std::string m_gridResizeError;
     UiPlayerSpawnState m_uiPlayerSpawnState;
     UiPickupState m_uiPickupState;
+    UiPhoneBoothState m_uiPhoneBoothState;
     std::unique_ptr<Mesh> m_playerSpawnMesh;
     glm::vec3 m_playerSpawnColor;
 
@@ -196,6 +205,9 @@ private:
     PickupSpawnDefinition* findPickupSpawn(const glm::ivec3& gridPos);
     const PickupSpawnDefinition* findPickupSpawn(const glm::ivec3& gridPos) const;
 
+    PhoneBoothSpawnDefinition* findPhoneBoothSpawn(const glm::ivec3& gridPos);
+    const PhoneBoothSpawnDefinition* findPhoneBoothSpawn(const glm::ivec3& gridPos) const;
+
     VehiclePlacementStatus evaluateVehiclePlacement(const glm::ivec3& position) const;
 
     void ensureCursorMesh();
@@ -213,6 +225,7 @@ private:
     void drawVehicleBrushControls();
     void drawPlayerSpawnBrushControls();
     void drawPickupBrushControls();
+    void drawPhoneBoothBrushControls();
     void drawPrefabControls();
     void drawTileFaceTabs();
     void drawTopFaceControls(Tile* tile);
@@ -229,6 +242,7 @@ private:
     void clearTileAtCursor();
     void applyPlayerSpawnBrush();
     void applyPickupBrush();
+    void applyPhoneBoothBrush();
     void syncPendingGridSizeFromGrid();
     void applySelectedTileToRect(const glm::ivec3& start, const glm::ivec3& end);
     bool pushUndoState();
