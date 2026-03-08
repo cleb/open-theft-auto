@@ -734,6 +734,11 @@ void TileGridEditor::render(Renderer* renderer) {
                 renderer->renderSprite(*texture, glm::vec2(worldPos.x, worldPos.y), glm::vec2(1.5f, 1.5f));
             }
         }
+        for (const auto& marker : m_levelData->markers) {
+            const glm::vec3 worldPos = m_grid->gridToWorld(marker.gridPosition);
+            renderer->renderDebugMarker(glm::vec2(worldPos.x, worldPos.y),
+                                        glm::vec2(1.5f, 1.5f), glm::vec3(0.9f, 0.7f, 0.2f));
+        }
     }
 
     if (m_cursorMesh) {
@@ -1116,6 +1121,9 @@ void TileGridEditor::refreshCursorColor() {
         case BrushType::PhoneBooth:
             m_cursorColor = glm::vec3(0.2f, 0.9f, 0.4f);
             break;
+        case BrushType::Marker:
+            m_cursorColor = glm::vec3(0.9f, 0.7f, 0.2f);
+            break;
     }
 }
 
@@ -1302,7 +1310,8 @@ void TileGridEditor::announceCursor() {
 
 void TileGridEditor::announceBrush() {
     if (m_brush == m_lastAnnouncedBrush && m_brush != BrushType::Road && m_brush != BrushType::Sidewalk
-        && m_brush != BrushType::Vehicle && m_brush != BrushType::Pickup && m_brush != BrushType::PhoneBooth) {
+        && m_brush != BrushType::Vehicle && m_brush != BrushType::Pickup && m_brush != BrushType::PhoneBooth
+        && m_brush != BrushType::Marker) {
         return;
     }
 
@@ -1350,6 +1359,14 @@ void TileGridEditor::announceBrush() {
                 std::cout << " (remove)";
             }
             break;
+        case BrushType::Marker:
+            std::cout << "marker";
+            if (m_uiMarkerState.removeMode) {
+                std::cout << " (remove)";
+            } else {
+                std::cout << " (name=" << m_uiMarkerState.nameBuffer.data() << ")";
+            }
+            break;
     }
     std::cout << std::endl;
     refreshCursorColor();
@@ -1369,6 +1386,8 @@ void TileGridEditor::printHelp() const {
               << "  5: vehicle brush\n"
               << "  6: player spawn brush\n"
               << "  7: pickup brush\n"
+              << "  8: phone booth brush\n"
+              << "  9: marker brush\n"
               << "  R: cycle road/sidewalk direction / rotate vehicle or player\n"
               << "  Delete: clear tile contents at cursor\n"
               << "  I/J/K/L: toggle wall (north/west/south/east)\n"
@@ -1434,6 +1453,11 @@ void TileGridEditor::drawBrushControls() {
         m_brush = BrushType::PhoneBooth;
         changed = true;
     }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Marker", m_brush == BrushType::Marker)) {
+        m_brush = BrushType::Marker;
+        changed = true;
+    }
 
     if (changed) {
         announceBrush();
@@ -1472,6 +1496,8 @@ void TileGridEditor::drawBrushControls() {
         drawPickupBrushControls();
     } else if (m_brush == BrushType::PhoneBooth) {
         drawPhoneBoothBrushControls();
+    } else if (m_brush == BrushType::Marker) {
+        drawMarkerBrushControls();
     }
 }
 
@@ -2193,6 +2219,9 @@ void TileGridEditor::applyBrush() {
         case BrushType::PhoneBooth:
             applyPhoneBoothBrush();
             return;
+        case BrushType::Marker:
+            applyMarkerBrush();
+            return;
     }
 
     announceCursor();
@@ -2321,6 +2350,7 @@ void TileGridEditor::applyBucketFill() {
             case BrushType::PlayerSpawn:
             case BrushType::Pickup:
             case BrushType::PhoneBooth:
+            case BrushType::Marker:
                 break;
         }
     }
@@ -2373,6 +2403,7 @@ void TileGridEditor::applyBucketFill() {
             case BrushType::PlayerSpawn:
             case BrushType::Pickup:
             case BrushType::PhoneBooth:
+            case BrushType::Marker:
                 break;
         }
     };
@@ -2608,6 +2639,10 @@ void TileGridEditor::handleBrushHotkeys(InputManager* input) {
     }
     if (input->isKeyPressed(GLFW_KEY_8)) {
         m_brush = BrushType::PhoneBooth;
+        announceBrush();
+    }
+    if (input->isKeyPressed(GLFW_KEY_9)) {
+        m_brush = BrushType::Marker;
         announceBrush();
     }
 }
@@ -3087,6 +3122,86 @@ void TileGridEditor::applyPhoneBoothBrush() {
 
     std::cout << "Placed phone booth id='" << spawn.id << "' job='" << spawn.jobId
               << "' at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+    refreshUiStateFromTile();
+    announceCursor();
+}
+
+void TileGridEditor::drawMarkerBrushControls() {
+    ImGui::SeparatorText("Marker");
+
+    if (!m_levelData) return;
+
+    // Show existing markers
+    if (!m_levelData->markers.empty()) {
+        ImGui::Text("Markers (%zu):", m_levelData->markers.size());
+        for (const auto& marker : m_levelData->markers) {
+            ImGui::BulletText("%s (%d, %d, %d)", marker.name.c_str(),
+                              marker.gridPosition.x, marker.gridPosition.y, marker.gridPosition.z);
+        }
+    } else {
+        ImGui::TextDisabled("No markers placed");
+    }
+
+    ImGui::InputText("Name##MarkerName", m_uiMarkerState.nameBuffer.data(), m_uiMarkerState.nameBuffer.size());
+
+    bool removeMode = m_uiMarkerState.removeMode;
+    if (ImGui::Checkbox("Remove##MarkerRemove", &removeMode)) {
+        m_uiMarkerState.removeMode = removeMode;
+    }
+
+    if (!removeMode) {
+        if (ImGui::Button("Place Marker at Cursor")) {
+            applyMarkerBrush();
+        }
+    } else {
+        if (ImGui::Button("Remove Marker at Cursor")) {
+            applyMarkerBrush();
+        }
+    }
+}
+
+void TileGridEditor::applyMarkerBrush() {
+    if (!m_grid || !m_levelData) return;
+
+    if (m_uiMarkerState.removeMode) {
+        auto& markers = m_levelData->markers;
+        auto it = std::find_if(markers.begin(), markers.end(),
+            [&](const MarkerDefinition& m) { return m.gridPosition == m_cursor; });
+        if (it != markers.end()) {
+            pushUndoState();
+            std::cout << "Removed marker '" << it->name << "'" << std::endl;
+            markers.erase(it);
+        }
+        return;
+    }
+
+    std::string name(m_uiMarkerState.nameBuffer.data());
+    if (name.empty()) {
+        std::cout << "Marker name cannot be empty" << std::endl;
+        return;
+    }
+
+    if (!m_grid->isValidPosition(m_cursor)) {
+        std::cout << "Marker position out of bounds" << std::endl;
+        return;
+    }
+
+    pushUndoState();
+
+    // Replace existing marker with same name or add new
+    auto& markers = m_levelData->markers;
+    auto existing = std::find_if(markers.begin(), markers.end(),
+        [&](const MarkerDefinition& m) { return m.name == name; });
+    if (existing != markers.end()) {
+        existing->gridPosition = m_cursor;
+    } else {
+        MarkerDefinition marker;
+        marker.gridPosition = m_cursor;
+        marker.name = name;
+        markers.push_back(std::move(marker));
+    }
+
+    std::cout << "Placed marker '" << name << "' at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
     refreshUiStateFromTile();
     announceCursor();
 }

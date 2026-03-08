@@ -59,7 +59,8 @@ private:
         Vehicle,
     PlayerSpawn,
     Pickup,
-    PhoneBooth
+    PhoneBooth,
+    Marker
     };
 
     enum class VehiclePlacementStatus {
@@ -110,6 +111,20 @@ private:
         bool removeMode = false;
         std::array<char, 64> idBuffer{};
         std::array<char, 64> jobIdBuffer{};
+    };
+
+    struct UiEscortMissionState {
+        bool removeMode = false;
+        // When placing, two clicks: pickup then escort
+        enum class PlacingStep { Pickup, Escort };
+        PlacingStep step = PlacingStep::Pickup;
+        glm::ivec3 pendingPickupPos{0};
+    };
+
+    struct UiMarkerState {
+        bool cursorHasMarker = false;
+        bool removeMode = false;
+        std::array<char, 64> nameBuffer{};
     };
 
     struct AliasEntry {
@@ -183,6 +198,8 @@ private:
     UiPlayerSpawnState m_uiPlayerSpawnState;
     UiPickupState m_uiPickupState;
     UiPhoneBoothState m_uiPhoneBoothState;
+    UiEscortMissionState m_uiEscortMissionState;
+    UiMarkerState m_uiMarkerState;
     std::unique_ptr<Mesh> m_playerSpawnMesh;
     glm::vec3 m_playerSpawnColor;
 
@@ -226,6 +243,8 @@ private:
     void drawPlayerSpawnBrushControls();
     void drawPickupBrushControls();
     void drawPhoneBoothBrushControls();
+    void drawEscortMissionBrushControls();
+    void drawMarkerBrushControls();
     void drawPrefabControls();
     void drawTileFaceTabs();
     void drawTopFaceControls(Tile* tile);
@@ -243,6 +262,8 @@ private:
     void applyPlayerSpawnBrush();
     void applyPickupBrush();
     void applyPhoneBoothBrush();
+    void applyEscortMissionBrush();
+    void applyMarkerBrush();
     void syncPendingGridSizeFromGrid();
     void applySelectedTileToRect(const glm::ivec3& start, const glm::ivec3& end);
     bool pushUndoState();

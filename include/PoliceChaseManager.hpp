@@ -5,7 +5,7 @@
 #include "Camera.hpp"
 #include "ViewBounds.hpp"
 #include "TrafficManager.hpp"
-#include "Pedestrian.hpp"
+#include "CombatPedestrian.hpp"
 #include "SpriteAnimation.hpp"
 #include <vector>
 #include <memory>
@@ -83,9 +83,8 @@ private:
 
     // On-foot police officer state (one officer for now)
     std::unique_ptr<SpriteAnimation> m_policeOfficerAnimation;
-    std::unique_ptr<Pedestrian> m_onFootOfficer;
+    std::unique_ptr<CombatPedestrian> m_onFootOfficer;
     Vehicle* m_officerVehicle = nullptr;
-    float m_officerShootCooldown = 0.0f;
     
     // Kill tracking: timestamps of recent pedestrian kills
     std::deque<float> m_killTimestamps;
@@ -124,9 +123,7 @@ private:
     void despawnOutOfViewPoliceVehicles();
     void updateOfficer(float deltaTime);
     void maybeDeployOfficer(Vehicle* vehicle, const glm::vec3& playerPos);
-    void updateOfficerCombat(float deltaTime, const glm::vec3& playerPos);
     void tryOfficerReenterVehicle(float deltaTime, const glm::vec3& playerPos);
-    void checkOfficerVehicleCollision();
     void clearOfficer(bool keepCorpse);
     glm::vec3 findValidSpawnPoint();
     bool isTooCloseToOtherVehicles(const glm::vec3& position) const;

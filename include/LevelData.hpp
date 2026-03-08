@@ -37,9 +37,15 @@ struct PhoneBoothSpawnDefinition {
     std::string jobId;  // Which job this booth offers
 };
 
+struct MarkerDefinition {
+    glm::ivec3 gridPosition{0, 0, 0};
+    std::string name;   // Unique name used to reference this marker from code
+};
+
 struct LevelData {
     std::vector<VehicleSpawnDefinition> vehicleSpawns;
     PlayerSpawnDefinition playerSpawn;
     std::vector<PickupSpawnDefinition> pickups;
     std::vector<PhoneBoothSpawnDefinition> phoneBooths;
+    std::vector<MarkerDefinition> markers;
 };

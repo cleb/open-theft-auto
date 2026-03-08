@@ -22,6 +22,7 @@ public:
 
     using ExtraPedestrianTargetsCallback = std::function<std::vector<Pedestrian*>()>;
     using EnemyHitCallback = std::function<bool(const glm::vec2&, float)>;
+    using MissionEnemyHitCallback = std::function<bool(const glm::vec2&, float)>;
 
     ProjectileManager();
     ~ProjectileManager() = default;
@@ -36,6 +37,7 @@ public:
         m_extraPedestrianTargetsCallback = std::move(callback);
     }
     void setEnemyHitCallback(EnemyHitCallback callback) { m_enemyHitCallback = std::move(callback); }
+    void setMissionEnemyHitCallback(MissionEnemyHitCallback callback) { m_missionEnemyHitCallback = std::move(callback); }
 
     void spawnProjectile(const glm::vec3& origin, const glm::vec2& direction,
                          float speed, float maxRange,
@@ -54,6 +56,7 @@ private:
     std::function<void()> m_pedestrianHitCallback;
     ExtraPedestrianTargetsCallback m_extraPedestrianTargetsCallback;
     EnemyHitCallback m_enemyHitCallback;
+    MissionEnemyHitCallback m_missionEnemyHitCallback;
 
     void updateProjectile(Projectile& projectile, float deltaTime,
                           PedestrianManager* pedestrians,

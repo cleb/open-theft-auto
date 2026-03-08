@@ -12,6 +12,9 @@ vehicle 2 7 0 rotation=90.00 type=sedan texture=assets/textures/sedan.png size=1
 vehicle 13 7 0 rotation=270.00 type=sedan texture=assets/textures/sedan.png size=1.50x3.00
 pickup 7 3 0 type=pistol ammo=10
 pickup 20 2 0 type=machine_gun ammo=50
+phone_booth 5 3 0 id=booth_main job=police_delivery
+marker 15 8 0 name=escort_pickup
+marker 16 10 0 name=escort_character
 player 5 4 0 rotation=0.00
 tile 0 0 0 top=solid:grass drivability=0.30 east=solid:wall01
 tile 1 0 0 top=solid:grass drivability=0.30

@@ -175,6 +175,19 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
 
         return false;
     });
+
+    // Set up enemy shoot callback for missions (enemies use Police owner → hits player)
+    m_missionSystem.setEnemyShootCallback([this](const glm::vec3& origin, const glm::vec2& dir) {
+        constexpr float kEnemyProjectileSpeed = 22.0f;
+        constexpr float kEnemyProjectileRange = 20.0f;
+        m_projectileManager.spawnProjectile(origin, dir, kEnemyProjectileSpeed, kEnemyProjectileRange,
+                                            ProjectileManager::ProjectileOwner::Police);
+    });
+
+    // Set up player-projectile → mission-enemy hit callback
+    m_projectileManager.setMissionEnemyHitCallback([this](const glm::vec2& projPos, float projRadius) -> bool {
+        return m_missionSystem.checkProjectileHitEnemy(projPos, projRadius);
+    });
     
     return true;
 }
@@ -207,6 +220,18 @@ void Scene::update(float deltaTime) {
     if (!isEditModeActive()) {
         handlePickupCollection();
         handlePhoneBoothInteraction(deltaTime);
+
+        // Check vehicle-vs-mission-enemy collisions
+        if (m_missionSystem.getState() == MissionState::Active) {
+            for (const auto& vehicle : m_vehicles) {
+                if (!vehicle || !vehicle->isActive() || vehicle->isWrecked() || vehicle->isExploding()) continue;
+                const glm::vec3 vPos = vehicle->getPosition();
+                const glm::vec2 vSize = vehicle->getSpriteSize();
+                const float vRotation = vehicle->getRotation().z;
+                m_missionSystem.checkVehicleHitEnemies(vPos, vSize, vRotation);
+            }
+        }
+
     m_projectileManager.update(deltaTime, m_pedestrianManager.get(), &m_vehicles, m_tileGrid.get());
         for (auto& pickup : m_pickups) {
             if (pickup) {
@@ -273,7 +298,7 @@ void Scene::render(Renderer* renderer) {
 
         // Render phone booths
         for (const auto& booth : m_phoneBooths) {
-            const bool active = m_missionSystem.isBoothActive(booth.jobId, *this);
+            const bool active = m_missionSystem.isBoothActive(booth.currentJobId, *this);
             const auto& tex = active ? booth.texActive : booth.texInactive;
             if (tex) {
                 renderer->renderSprite(*tex, glm::vec2(booth.worldPos.x, booth.worldPos.y), glm::vec2(1.5f, 1.5f));
@@ -288,6 +313,12 @@ void Scene::render(Renderer* renderer) {
         if (vehicle && vehicle->isActive()) {
             vehicle->render(renderer);
         }
+    }
+
+    if (!isEditModeActive()) {
+        // Render mission-specific objects (escort char, enemies, markers) — after vehicles
+        // so that vehicles appear on top of enemies (depth test: first writer wins)
+        m_missionSystem.render(renderer);
     }
     
     // Render traffic debug spawn points if enabled
@@ -448,7 +479,7 @@ void Scene::addVehicle(std::unique_ptr<Vehicle> vehicle) {
 void Scene::createTestScene() {
     // Configure the tile grid with test data
     if (m_tileGrid) {
-        const std::string levelPath = "assets/levels/test_level2.tg";
+        const std::string levelPath = "assets/levels/test_level_large.tg";
         if (!LevelSerialization::loadLevel(levelPath, *m_tileGrid, m_levelData)) {
             std::cerr << "Failed to load level from " << levelPath << std::endl;
         }
@@ -508,6 +539,7 @@ void Scene::rebuildVehiclesFromSpawns() {
     m_showMissionPrompt = false;
     m_promptJob = nullptr;
     m_missionCompletedTimer = 0.0f;
+    m_completedBoothId.clear();
     
     // Reset traffic manager
     if (m_trafficManager) {
@@ -799,36 +831,68 @@ void Scene::rebuildPhoneBoothsFromSpawns() {
     auto& texMgr = TextureManager::instance();
     for (const auto& spawn : m_levelData.phoneBooths) {
         PhoneBoothRuntime booth;
-        glm::vec3 worldPos = m_tileGrid->gridToWorld(spawn.gridPosition);
-        worldPos.z += 0.1f;
+        const float tileSize = m_tileGrid->getTileSize();
+        glm::vec3 worldPos(
+            spawn.gridPosition.x * tileSize,
+            spawn.gridPosition.y * tileSize,
+            spawn.gridPosition.z * tileSize + 0.1f);
         booth.worldPos = worldPos;
         booth.id = spawn.id;
-        booth.jobId = spawn.jobId;
+        booth.currentJobId = spawn.jobId;
         booth.texInactive = texMgr.getTextureFromPath("assets/textures/phone.png");
         booth.texActive   = texMgr.getTextureFromPath("assets/textures/phone-active.png");
         m_phoneBooths.push_back(std::move(booth));
     }
+
+    // Wire marker lookup and tileGrid for mission system
+    if (m_tileGrid) {
+        m_missionSystem.setTileGrid(m_tileGrid.get());
+        m_missionSystem.setMarkerLookup([this](const std::string& name) -> glm::vec3 {
+            for (const auto& marker : m_levelData.markers) {
+                if (marker.name == name) {
+                    // Use same z formula as vehicles: z * tileSize + offset
+                    // (gridToWorld uses (z-1)*tileSize which is one layer lower)
+                    const float tileSize = m_tileGrid->getTileSize();
+                    glm::vec3 world(
+                        marker.gridPosition.x * tileSize,
+                        marker.gridPosition.y * tileSize,
+                        marker.gridPosition.z * tileSize + 0.1f);
+                    return world;
+                }
+            }
+            return glm::vec3(0.0f);
+        });
+    }
 }
 
 void Scene::handlePhoneBoothInteraction(float deltaTime) {
-    (void)deltaTime;
-
-    // Count down completion display
+    // Count down the post-completion cooldown / banner
     if (m_missionCompletedTimer > 0.0f) {
         m_missionCompletedTimer -= deltaTime;
+        if (m_missionCompletedTimer <= 0.0f && m_missionSystem.getState() == MissionState::Completed) {
+            // Advance the booth to its next mission, then reset to Idle
+            advanceBoothJob(m_completedBoothId);
+            m_missionSystem.reset();
+            m_completedBoothId.clear();
+        }
+        return;  // Don't process new booth interactions during cooldown
     }
 
-    // Check for mission success
+    // Check for mission success or failure
     if (m_missionSystem.getState() == MissionState::Active) {
-        if (m_missionSystem.update(*this)) {
-            m_missionCompletedTimer = kMissionCompletedDisplayTime;
+        if (m_missionSystem.update(deltaTime, *this)) {
+            m_missionCompletedTimer = kMissionCooldownTime;
+            m_completedBoothId = m_missionSystem.getActiveBoothId();
             m_showMissionPrompt = false;
+        }
+        // If the mission just failed, reset immediately so the booth is available again
+        if (m_missionSystem.getState() == MissionState::Failed) {
+            m_missionSystem.reset();
         }
         return;
     }
 
-    if (m_missionSystem.getState() == MissionState::Completed ||
-        m_missionSystem.getState() == MissionState::Active) {
+    if (m_missionSystem.getState() == MissionState::Completed) {
         return;
     }
 
@@ -845,13 +909,13 @@ void Scene::handlePhoneBoothInteraction(float deltaTime) {
 
     m_showMissionPrompt = false;
     for (const auto& booth : m_phoneBooths) {
-        if (!m_missionSystem.isBoothActive(booth.jobId, *this)) {
+        if (!m_missionSystem.isBoothActive(booth.currentJobId, *this)) {
             continue;
         }
         const float dx = playerPos.x - booth.worldPos.x;
         const float dy = playerPos.y - booth.worldPos.y;
         if (dx * dx + dy * dy <= kPromptRadius * kPromptRadius) {
-            const Job* job = m_missionSystem.findJob(booth.jobId);
+            const Job* job = m_missionSystem.findJob(booth.currentJobId);
             if (job) {
                 m_showMissionPrompt = true;
                 m_promptJob = job;
@@ -861,9 +925,20 @@ void Scene::handlePhoneBoothInteraction(float deltaTime) {
             break;
         }
     }
+}
 
-    // Auto-start the mission when near the booth (press Enter to accept)
-    // We use a flag so the prompt is shown and requires key press
+void Scene::advanceBoothJob(const std::string& boothId) {
+    for (auto& booth : m_phoneBooths) {
+        if (booth.id == boothId) {
+            const Job* currentJob = m_missionSystem.findJob(booth.currentJobId);
+            if (currentJob && !currentJob->nextJobId.empty()) {
+                booth.currentJobId = currentJob->nextJobId;
+                std::cout << "[Scene] Booth '" << boothId
+                          << "' advanced to job '" << booth.currentJobId << "'\n";
+            }
+            break;
+        }
+    }
 }
 
 void Scene::drawMissionGui() {
@@ -912,8 +987,8 @@ void Scene::drawMissionGui() {
         return;
     }
 
-    // Completion banner
-    if (m_missionCompletedTimer > 0.0f) {
+    // Completion banner (show only during the first kMissionBannerTime seconds of cooldown)
+    if (m_missionCompletedTimer > kMissionCooldownTime - kMissionBannerTime) {
         const Job* job = m_missionSystem.getActiveJob();
         const std::string msg = job ? job->completionMessage : "Mission complete!";
         ImGui::SetNextWindowPos(ImVec2(screenW * 0.5f, screenH * 0.4f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));

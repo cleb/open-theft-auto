@@ -577,6 +577,7 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
     data.vehicleSpawns.clear();
     data.pickups.clear();
     data.phoneBooths.clear();
+    data.markers.clear();
 
     auto& texMgr = TextureManager::instance();
     std::unordered_map<std::string, std::string> aliasMap = texMgr.getAliases();
@@ -940,6 +941,44 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
                     }
                 }
             }
+        } else if (lowerCmd == "marker") {
+            int x = 0, y = 0, z = 0;
+            if (!(stream >> x >> y >> z)) {
+                logger.error("Expected coordinates after 'marker'");
+                continue;
+            }
+            if (!grid.isValidPosition(x, y, z)) {
+                logger.error("marker coordinates out of bounds");
+                continue;
+            }
+
+            MarkerDefinition marker;
+            marker.gridPosition = glm::ivec3(x, y, z);
+
+            KeyValueTokens tokens = collectKeyValueTokens(stream, logger);
+            for (const auto& entry : tokens.entries) {
+                const std::string lowerKey = toLowerCopy(entry.first);
+                if (lowerKey == "name") {
+                    marker.name = entry.second;
+                } else {
+                    logger.warning("Unknown marker property: " + entry.first);
+                }
+            }
+
+            if (marker.name.empty()) {
+                logger.error("marker requires a name= property");
+                continue;
+            }
+
+            // Replace existing marker with same name or add new
+            auto& markers = data.markers;
+            auto existing = std::find_if(markers.begin(), markers.end(),
+                [&](const MarkerDefinition& m) { return m.name == marker.name; });
+            if (existing != markers.end()) {
+                *existing = marker;
+            } else {
+                markers.push_back(std::move(marker));
+            }
         }
     }
 
@@ -1055,6 +1094,12 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
                << data.playerSpawn.gridPosition.z;
     // rotation is a heading in degrees where 0°=+X (East) and angles increase CCW.
     output << " rotation=" << formatFloat(data.playerSpawn.rotationDegrees);
+        output << std::endl;
+    }
+
+    for (const auto& marker : data.markers) {
+        output << "marker " << marker.gridPosition.x << ' ' << marker.gridPosition.y << ' ' << marker.gridPosition.z;
+        output << " name=" << marker.name;
         output << std::endl;
     }
 

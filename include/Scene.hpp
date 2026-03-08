@@ -52,7 +52,7 @@ private:
     struct PhoneBoothRuntime {
         glm::vec3 worldPos{0.0f};
         std::string id;
-        std::string jobId;
+        std::string currentJobId;  // Advances through the mission chain after each completion
         std::shared_ptr<Texture> texInactive;
         std::shared_ptr<Texture> texActive;
     };
@@ -64,7 +64,9 @@ private:
     std::string m_promptBoothId;
     glm::vec3 m_promptBoothWorldPos{0.0f};
     float m_missionCompletedTimer = 0.0f;
-    static constexpr float kMissionCompletedDisplayTime = 4.0f;
+    std::string m_completedBoothId;       // Which booth just finished a mission
+    static constexpr float kMissionBannerTime = 4.0f;   // How long the completion banner shows
+    static constexpr float kMissionCooldownTime = 8.0f;  // Total cooldown before next mission
 
 public:
     Scene();
@@ -100,6 +102,7 @@ private:
     void rebuildPhoneBoothsFromSpawns();
     void handlePickupCollection();
     void handlePhoneBoothInteraction(float deltaTime);
+    void advanceBoothJob(const std::string& boothId);
     void fireWeaponShot();
     void handleVehicleExploded(Vehicle* vehicle);
     void restartLevel();

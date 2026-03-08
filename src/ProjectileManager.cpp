@@ -80,6 +80,8 @@ void ProjectileManager::updateProjectile(Projectile& projectile, float deltaTime
     if (projectile.owner == ProjectileOwner::Player) {
         if (checkVehicleHit(projPos, kProjectileRadius, vehicles)) {
             projectile.life = 0.0f;
+        } else if (m_missionEnemyHitCallback && m_missionEnemyHitCallback(projPos, kProjectileRadius)) {
+            projectile.life = 0.0f;
         }
     } else if (checkEnemyHit(projPos, kProjectileRadius)) {
         projectile.life = 0.0f;
