@@ -396,13 +396,13 @@ float TileGrid::getDrivability(const glm::ivec3& gridPos) const {
     return tile->getTopSurface().drivability;
 }
 
-float TileGrid::getSurfaceHeight(float worldX, float worldY, float referenceZ) const {
+TileGrid::SurfaceSample TileGrid::sampleSurface(float worldX, float worldY, float referenceZ) const {
     const float halfSize = m_tileSize * 0.5f;
     const int gridX = static_cast<int>(std::floor((worldX + halfSize) / m_tileSize));
     const int gridY = static_cast<int>(std::floor((worldY + halfSize) / m_tileSize));
 
     if (gridX < 0 || gridX >= m_gridSize.x || gridY < 0 || gridY >= m_gridSize.y) {
-        return referenceZ;
+        return {referenceZ, false, false};
     }
 
     float localX = (worldX - (static_cast<float>(gridX) * m_tileSize - halfSize)) / m_tileSize;
@@ -433,6 +433,7 @@ float TileGrid::getSurfaceHeight(float worldX, float worldY, float referenceZ) c
     // 1) Prefer the highest surface at or below the entity's current feet.
     int bestZ = -1;
     float bestHeight = referenceZ;
+    bool bestSloped = false;
     for (int z = m_gridSize.z - 1; z >= 0; --z) {
         const Tile* tile = getTile(gridX, gridY, z);
         if (!tile || !tile->isTopSolid()) {
@@ -447,11 +448,12 @@ float TileGrid::getSurfaceHeight(float worldX, float worldY, float referenceZ) c
             if (bestZ < 0 || height > bestHeight) {
                 bestZ = z;
                 bestHeight = height;
+                bestSloped = tile->isSloped();
             }
         }
     }
     if (bestZ >= 0) {
-        return bestHeight;
+        return {bestHeight, true, bestSloped};
     }
 
     // 2) Fallback: lowest surface above the reference but within one tile-size
@@ -459,6 +461,7 @@ float TileGrid::getSurfaceHeight(float worldX, float worldY, float referenceZ) c
     const float stepLimit = referenceZ + m_tileSize + matchTolerance;
     float stepBest = 0.0f;
     bool foundStep = false;
+    bool stepSloped = false;
     for (int z = 0; z < m_gridSize.z; ++z) {
         const Tile* tile = getTile(gridX, gridY, z);
         if (!tile || !tile->isTopSolid()) {
@@ -469,8 +472,50 @@ float TileGrid::getSurfaceHeight(float worldX, float worldY, float referenceZ) c
             if (!foundStep || height < stepBest) {
                 stepBest = height;
                 foundStep = true;
+                stepSloped = tile->isSloped();
             }
         }
     }
-    return foundStep ? stepBest : referenceZ;
+    return foundStep ? SurfaceSample{stepBest, true, stepSloped}
+                     : SurfaceSample{referenceZ, false, false};
+}
+
+float TileGrid::getSurfaceHeight(float worldX, float worldY, float referenceZ) const {
+    return sampleSurface(worldX, worldY, referenceZ).height;
+}
+
+float TileGrid::getSurfaceHeightForFootprint(const glm::vec3& worldPos,
+                                             const glm::vec2& footprintSize,
+                                             const glm::vec2& movementDirection,
+                                             float referenceZ) const {
+    const SurfaceSample center = sampleSurface(worldPos.x, worldPos.y, referenceZ);
+    const float movementLenSq = glm::dot(movementDirection, movementDirection);
+    if (movementLenSq <= 0.0001f) {
+        return center.height;
+    }
+
+    const glm::vec2 forward = movementDirection / std::sqrt(movementLenSq);
+    const glm::vec2 right(forward.y, -forward.x);
+    const float halfWidth = footprintSize.x * 0.5f;
+    const float halfLength = footprintSize.y * 0.5f;
+
+    bool frontTouchesSlope = false;
+    float frontHeight = center.height;
+    auto sampleFront = [&](const glm::vec2& offset) {
+        const SurfaceSample sample = sampleSurface(worldPos.x + offset.x, worldPos.y + offset.y, referenceZ);
+        if (!sample.found || !sample.sloped) {
+            return;
+        }
+        if (!frontTouchesSlope || sample.height > frontHeight) {
+            frontHeight = sample.height;
+        }
+        frontTouchesSlope = true;
+    };
+
+    const glm::vec2 front = forward * halfLength;
+    sampleFront(front);
+    sampleFront(front + right * halfWidth);
+    sampleFront(front - right * halfWidth);
+
+    return frontTouchesSlope ? frontHeight : center.height;
 }

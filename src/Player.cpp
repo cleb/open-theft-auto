@@ -248,8 +248,10 @@ void Player::applyMovement(const glm::vec3& delta) {
         }
     }
 
-    // Follow the ground surface (handles slopes).
-    newPosition.z = m_tileGrid->getSurfaceHeight(newPosition.x, newPosition.y, m_position.z);
+    // Follow the ground surface (handles slopes). When stepping onto a slope,
+    // use the leading edge of the footprint so the sprite stays above the ramp.
+    const glm::vec2 movement(newPosition.x - m_position.x, newPosition.y - m_position.y);
+    newPosition.z = m_tileGrid->getSurfaceHeightForFootprint(newPosition, m_size, movement, m_position.z);
 
     setPosition(newPosition);
 }

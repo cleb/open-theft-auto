@@ -102,7 +102,9 @@ private:
     void updatePanic(float deltaTime);
 
     // Adjust the z of `pos` to follow the tile grid's top surface, honoring slopes.
-    void snapToSurface(glm::vec3& pos) const;
+    // When entering a slope, the leading edge of the sprite determines the height
+    // so the pedestrian does not clip halfway into the surface.
+    void snapToSurface(glm::vec3& pos, const glm::vec3& previousPos) const;
     void findNearestSidewalk();
     glm::vec4 getCurrentFrameUV() const;
 };
