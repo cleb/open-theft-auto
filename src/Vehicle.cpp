@@ -182,6 +182,9 @@ void Vehicle::update(float deltaTime) {
 
             m_inCollision = blockedThisFrame;
 
+            // Follow ground surface (handle slopes).
+            newPosition.z = m_tileGrid->getSurfaceHeight(newPosition.x, newPosition.y, m_position.z);
+
             setPosition(newPosition);
         } else {
             // No tile grid - still check vehicle collisions
@@ -230,32 +233,32 @@ void Vehicle::render(Renderer* renderer) {
     if (m_texture) {
         if (m_exploding) {
             float progress = std::min(1.0f, m_explosionTimer / 1.2f);
-            renderer->renderExplosionSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size,
+            renderer->renderExplosionSprite(*m_texture, m_position, m_size,
                                             m_rotation.z, glm::vec3(1.0f), progress);
         } else if (m_burning) {
             // Burning vehicles: render with damage overlay if applicable, then fire on top
             if (m_damage.hasAnyDamage() && m_deltaTexture) {
                 renderer->renderFireDamagedSprite(*m_texture, m_deltaTexture.get(),
-                                                  glm::vec2(m_position.x, m_position.y), m_size,
+                                                  m_position, m_size,
                                                   m_rotation.z, glm::vec3(1.0f),
                                                   m_damage.frontLeft, m_damage.frontRight,
                                                   m_damage.rearLeft, m_damage.rearRight,
                                                   getFireIntensity(), m_effectTime);
             } else {
-                renderer->renderFireSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size,
+                renderer->renderFireSprite(*m_texture, m_position, m_size,
                                            m_rotation.z, glm::vec3(1.0f), getFireIntensity(), m_effectTime);
             }
         } else if (m_hasExploded) {
-            renderer->renderSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size,
+            renderer->renderSprite(*m_texture, m_position, m_size,
                                    m_rotation.z, glm::vec3(1.0f));
         } else if (m_damage.hasAnyDamage() && m_deltaTexture) {
             renderer->renderDamagedSprite(*m_texture, m_deltaTexture.get(),
-                                          glm::vec2(m_position.x, m_position.y), m_size,
+                                          m_position, m_size,
                                           m_rotation.z, glm::vec3(1.0f),
                                           m_damage.frontLeft, m_damage.frontRight,
                                           m_damage.rearLeft, m_damage.rearRight);
         } else {
-            renderer->renderSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size,
+            renderer->renderSprite(*m_texture, m_position, m_size,
                                    m_rotation.z, glm::vec3(1.0f));
         }
         return;

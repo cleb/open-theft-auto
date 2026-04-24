@@ -229,11 +229,24 @@ bool TileGrid::hasGroundSupport(const glm::ivec3& tilePos) const {
     }
 
     const Tile* groundTile = getTile(tilePos.x, tilePos.y, groundZ);
-    if (!groundTile) {
-        return false;
+    if (groundTile && groundTile->isTopSolid()) {
+        return true;
     }
 
-    return groundTile->isTopSolid();
+    // A sloped tile two levels below supports this grid cell as well: its top
+    // surface rises up to the boundary of this layer, so entities walking up
+    // the slope are still "on the ground" even once their worldZ rolls over
+    // into this grid layer.
+    int slopeZ = tilePos.z - 2;
+    if (slopeZ < 0) {
+        return false;
+    }
+    const Tile* slopeTile = getTile(tilePos.x, tilePos.y, slopeZ);
+    if (slopeTile && slopeTile->isTopSolid() && slopeTile->isSloped()) {
+        return true;
+    }
+
+    return false;
 }
 
 glm::vec3 TileGrid::gridToWorld(const glm::ivec3& gridPos) const {
@@ -381,4 +394,83 @@ float TileGrid::getDrivability(const glm::ivec3& gridPos) const {
     }
 
     return tile->getTopSurface().drivability;
+}
+
+float TileGrid::getSurfaceHeight(float worldX, float worldY, float referenceZ) const {
+    const float halfSize = m_tileSize * 0.5f;
+    const int gridX = static_cast<int>(std::floor((worldX + halfSize) / m_tileSize));
+    const int gridY = static_cast<int>(std::floor((worldY + halfSize) / m_tileSize));
+
+    if (gridX < 0 || gridX >= m_gridSize.x || gridY < 0 || gridY >= m_gridSize.y) {
+        return referenceZ;
+    }
+
+    float localX = (worldX - (static_cast<float>(gridX) * m_tileSize - halfSize)) / m_tileSize;
+    float localY = (worldY - (static_cast<float>(gridY) * m_tileSize - halfSize)) / m_tileSize;
+    if (localX < 0.0f) localX = 0.0f; else if (localX > 1.0f) localX = 1.0f;
+    if (localY < 0.0f) localY = 0.0f; else if (localY > 1.0f) localY = 1.0f;
+
+    // A slope tile's top reaches all the way up to baseTop + tileSize at its
+    // high side. We intentionally do NOT clamp below that boundary: entities
+    // at the top of a slope need to sit at exactly baseTop + tileSize so they
+    // can transition onto an adjacent raised platform. hasGroundSupport is
+    // slope-aware and keeps supporting the entity when worldZ rolls over into
+    // the next grid layer above the slope.
+    const float matchTolerance = m_tileSize * 0.01f;
+
+    auto heightForTile = [&](int z, const Tile* tile) -> float {
+        const float baseTop = static_cast<float>(z) * m_tileSize;
+        switch (tile->getSlopeDirection()) {
+            case SlopeDirection::North: return baseTop + m_tileSize * localY;
+            case SlopeDirection::South: return baseTop + m_tileSize * (1.0f - localY);
+            case SlopeDirection::East:  return baseTop + m_tileSize * localX;
+            case SlopeDirection::West:  return baseTop + m_tileSize * (1.0f - localX);
+            case SlopeDirection::None:
+            default: return baseTop;
+        }
+    };
+
+    // 1) Prefer the highest surface at or below the entity's current feet.
+    int bestZ = -1;
+    float bestHeight = referenceZ;
+    for (int z = m_gridSize.z - 1; z >= 0; --z) {
+        const Tile* tile = getTile(gridX, gridY, z);
+        if (!tile || !tile->isTopSolid()) {
+            continue;
+        }
+        const float baseTop = static_cast<float>(z) * m_tileSize;
+        if (baseTop > referenceZ + m_tileSize + matchTolerance) {
+            continue;  // clearly a roof overhead
+        }
+        const float height = heightForTile(z, tile);
+        if (height <= referenceZ + matchTolerance) {
+            if (bestZ < 0 || height > bestHeight) {
+                bestZ = z;
+                bestHeight = height;
+            }
+        }
+    }
+    if (bestZ >= 0) {
+        return bestHeight;
+    }
+
+    // 2) Fallback: lowest surface above the reference but within one tile-size
+    // step, which lets entities walk onto a rising slope from flat ground.
+    const float stepLimit = referenceZ + m_tileSize + matchTolerance;
+    float stepBest = 0.0f;
+    bool foundStep = false;
+    for (int z = 0; z < m_gridSize.z; ++z) {
+        const Tile* tile = getTile(gridX, gridY, z);
+        if (!tile || !tile->isTopSolid()) {
+            continue;
+        }
+        const float height = heightForTile(z, tile);
+        if (height > referenceZ + matchTolerance && height <= stepLimit) {
+            if (!foundStep || height < stepBest) {
+                stepBest = height;
+                foundStep = true;
+            }
+        }
+    }
+    return foundStep ? stepBest : referenceZ;
 }

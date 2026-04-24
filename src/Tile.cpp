@@ -123,6 +123,14 @@ void Tile::setSidewalkDirection(SidewalkDirection dir) {
     m_topSurface.sidewalkDirection = dir;
 }
 
+void Tile::setSlopeDirection(SlopeDirection dir) {
+    if (m_topSurface.slopeDirection == dir) {
+        return;
+    }
+    m_topSurface.slopeDirection = dir;
+    m_meshesGenerated = false;  // Slope affects top mesh geometry
+}
+
 void Tile::applyUpdate(const Update& update,
                        const std::function<std::string(const std::string&)>& resolveTexture,
                        const std::function<std::shared_ptr<Texture>(const std::string&)>& loadTexture) {
@@ -258,23 +266,55 @@ void Tile::createWallMesh(WallDirection dir) {
 void Tile::createTopMesh() {
     std::vector<Vertex> vertices;
     std::vector<GLuint> indices;
-    
+
     float halfSize = m_tileSize / 2.0f;
-    float height = m_tileSize;  // Top surface is at the top of the tile
-    
-    // Top surface (horizontal quad)
-    vertices.push_back({{-halfSize, -halfSize, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}});
-    vertices.push_back({{ halfSize, -halfSize, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}});
-    vertices.push_back({{ halfSize,  halfSize, height}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}});
-    vertices.push_back({{-halfSize,  halfSize, height}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}});
-    
+    float baseHeight = m_tileSize;        // Top surface base (this tile's top)
+    float highHeight = m_tileSize * 2.0f; // One level above
+
+    // Per-corner heights: [-X,-Y], [+X,-Y], [+X,+Y], [-X,+Y]
+    // Corners on the side the slope rises toward are elevated to highHeight.
+    float h[4] = {baseHeight, baseHeight, baseHeight, baseHeight};
+    switch (m_topSurface.slopeDirection) {
+        case SlopeDirection::North:  // rises toward +Y -> +Y corners high
+            h[2] = highHeight;
+            h[3] = highHeight;
+            break;
+        case SlopeDirection::South:  // rises toward -Y -> -Y corners high
+            h[0] = highHeight;
+            h[1] = highHeight;
+            break;
+        case SlopeDirection::East:   // rises toward +X -> +X corners high
+            h[1] = highHeight;
+            h[2] = highHeight;
+            break;
+        case SlopeDirection::West:   // rises toward -X -> -X corners high
+            h[0] = highHeight;
+            h[3] = highHeight;
+            break;
+        case SlopeDirection::None:
+        default:
+            break;
+    }
+
+    // Compute a face normal from the quad's first triangle (corners 0,1,2).
+    glm::vec3 p0(-halfSize, -halfSize, h[0]);
+    glm::vec3 p1( halfSize, -halfSize, h[1]);
+    glm::vec3 p2( halfSize,  halfSize, h[2]);
+    glm::vec3 p3(-halfSize,  halfSize, h[3]);
+    glm::vec3 normal = glm::normalize(glm::cross(p1 - p0, p3 - p0));
+
+    vertices.push_back({{p0.x, p0.y, p0.z}, {normal.x, normal.y, normal.z}, {0.0f, 0.0f}});
+    vertices.push_back({{p1.x, p1.y, p1.z}, {normal.x, normal.y, normal.z}, {1.0f, 0.0f}});
+    vertices.push_back({{p2.x, p2.y, p2.z}, {normal.x, normal.y, normal.z}, {1.0f, 1.0f}});
+    vertices.push_back({{p3.x, p3.y, p3.z}, {normal.x, normal.y, normal.z}, {0.0f, 1.0f}});
+
     indices.push_back(0);
     indices.push_back(1);
     indices.push_back(2);
     indices.push_back(2);
     indices.push_back(3);
     indices.push_back(0);
-    
+
     m_topMesh = std::make_unique<Mesh>(vertices, indices);
 
     // Load texture if specified

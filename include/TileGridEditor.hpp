@@ -78,6 +78,7 @@ private:
         bool topSolid = false;
         CarDirection topCarDirection = CarDirection::None;
         SidewalkDirection topSidewalkDirection = SidewalkDirection::None;
+        SlopeDirection topSlopeDirection = SlopeDirection::None;
         float drivability = 1.0f;  // Surface drivability (0.0-1.0)
         std::array<char, TextureBufferSize> topTexture{};
         std::array<bool, 4> wallWalkable{};

@@ -100,6 +100,9 @@ private:
     void updateSeekingSidewalk(float deltaTime);
     void updateCenteringSidewalk(float deltaTime);
     void updatePanic(float deltaTime);
+
+    // Adjust the z of `pos` to follow the tile grid's top surface, honoring slopes.
+    void snapToSurface(glm::vec3& pos) const;
     void findNearestSidewalk();
     glm::vec4 getCurrentFrameUV() const;
 };

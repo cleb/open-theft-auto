@@ -2,6 +2,12 @@
 #include <iostream>
 #include <GL/glew.h>
 
+namespace {
+// Lift sprites slightly above the ground/slope surface so they render on top
+// of the terrain rather than z-fighting with it.
+constexpr float kSpriteZBias = 0.1f;
+}
+
 Renderer::Renderer()
     : m_fovRadians(1.57f)
     , m_aspectRatio(16.0f / 9.0f)
@@ -162,7 +168,7 @@ void Renderer::renderMesh(const Mesh& mesh, const glm::mat4& modelMatrix, const 
     shader->unuse();
 }
 
-void Renderer::renderSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size, 
+void Renderer::renderSprite(const Texture& texture, const glm::vec3& position, const glm::vec2& size, 
                            float rotation, const glm::vec3& color) {
     Shader* shader = getShader("sprite");
     if (!shader) return;
@@ -180,7 +186,7 @@ void Renderer::renderSprite(const Texture& texture, const glm::vec2& position, c
     // Position is the center of the sprite. Since vertices are centered (-0.5 to 0.5),
     // we translate directly to position after scaling.
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3(position.x, position.y, 0.1f));
+    model = glm::translate(model, position + glm::vec3(0.0f, 0.0f, kSpriteZBias));
     model = glm::rotate(model, glm::radians(rotation - 90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
     
@@ -202,7 +208,7 @@ void Renderer::renderSprite(const Texture& texture, const glm::vec2& position, c
     shader->unuse();
 }
 
-void Renderer::renderAnimatedSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size,
+void Renderer::renderAnimatedSprite(const Texture& texture, const glm::vec3& position, const glm::vec2& size,
                                     const glm::vec4& uvOffsetScale, float rotation, const glm::vec3& color) {
     Shader* shader = getShader("sprite");
     if (!shader) return;
@@ -211,7 +217,7 @@ void Renderer::renderAnimatedSprite(const Texture& texture, const glm::vec2& pos
     
     // Create model matrix (same as renderSprite)
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3(position.x, position.y, 0.1f));
+    model = glm::translate(model, position + glm::vec3(0.0f, 0.0f, kSpriteZBias));
     model = glm::rotate(model, glm::radians(rotation - 90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
     
@@ -234,7 +240,7 @@ void Renderer::renderAnimatedSprite(const Texture& texture, const glm::vec2& pos
 }
 
 void Renderer::renderDamagedSprite(const Texture& texture, const Texture* deltaTexture,
-                                   const glm::vec2& position, const glm::vec2& size,
+                                   const glm::vec3& position, const glm::vec2& size,
                                    float rotation, const glm::vec3& color,
                                    bool damageFrontLeft, bool damageFrontRight,
                                    bool damageRearLeft, bool damageRearRight) {
@@ -255,7 +261,7 @@ void Renderer::renderDamagedSprite(const Texture& texture, const Texture* deltaT
     
     // Create model matrix (same as renderSprite)
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3(position.x, position.y, 0.1f));
+    model = glm::translate(model, position + glm::vec3(0.0f, 0.0f, kSpriteZBias));
     model = glm::rotate(model, glm::radians(rotation - 90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
     
@@ -286,7 +292,7 @@ void Renderer::renderDamagedSprite(const Texture& texture, const Texture* deltaT
     shader->unuse();
 }
 
-void Renderer::renderFireSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size,
+void Renderer::renderFireSprite(const Texture& texture, const glm::vec3& position, const glm::vec2& size,
                                 float rotation, const glm::vec3& color, float fireIntensity, float timeSeconds) {
     Shader* shader = getShader("sprite_fire");
     if (!shader) {
@@ -297,7 +303,7 @@ void Renderer::renderFireSprite(const Texture& texture, const glm::vec2& positio
     shader->use();
 
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3(position.x, position.y, 0.1f));
+    model = glm::translate(model, position + glm::vec3(0.0f, 0.0f, kSpriteZBias));
     model = glm::rotate(model, glm::radians(rotation - 90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
 
@@ -318,7 +324,7 @@ void Renderer::renderFireSprite(const Texture& texture, const glm::vec2& positio
 }
 
 void Renderer::renderFireDamagedSprite(const Texture& texture, const Texture* deltaTexture,
-                                       const glm::vec2& position, const glm::vec2& size,
+                                       const glm::vec3& position, const glm::vec2& size,
                                        float rotation, const glm::vec3& color,
                                        bool damageFrontLeft, bool damageFrontRight,
                                        bool damageRearLeft, bool damageRearRight,
@@ -332,7 +338,7 @@ void Renderer::renderFireDamagedSprite(const Texture& texture, const Texture* de
     shader->use();
 
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3(position.x, position.y, 0.1f));
+    model = glm::translate(model, position + glm::vec3(0.0f, 0.0f, kSpriteZBias));
     model = glm::rotate(model, glm::radians(rotation - 90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
 
@@ -360,7 +366,7 @@ void Renderer::renderFireDamagedSprite(const Texture& texture, const Texture* de
     shader->unuse();
 }
 
-void Renderer::renderExplosionSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size,
+void Renderer::renderExplosionSprite(const Texture& texture, const glm::vec3& position, const glm::vec2& size,
                                      float rotation, const glm::vec3& color, float explosionProgress) {
     Shader* shader = getShader("sprite_explosion");
     if (!shader) {
@@ -371,7 +377,7 @@ void Renderer::renderExplosionSprite(const Texture& texture, const glm::vec2& po
     shader->use();
 
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3(position.x, position.y, 0.1f));
+    model = glm::translate(model, position + glm::vec3(0.0f, 0.0f, kSpriteZBias));
     model = glm::rotate(model, glm::radians(rotation - 90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     model = glm::scale(model, glm::vec3(size.x, size.y, 1.0f));
 
@@ -489,4 +495,57 @@ void Renderer::renderDebugMarker(const glm::vec2& position, const glm::vec2& siz
     glBindVertexArray(0);
     
     shader->unuse();
+}
+
+// ---------------------------------------------------------------------------
+// vec2 -> vec3 forwarders. They default the sprite to z = 0.1 (just above the
+// ground plane) for call sites that don't need slope-aware sprite placement.
+// ---------------------------------------------------------------------------
+namespace {
+// vec2 callers (stationary sprites like pickups, projectiles, previews) just
+// forward at surface level; the Z-bias added inside the vec3 implementations
+// already lifts them above the ground plane.
+constexpr float kDefaultSpriteZ = 0.0f;
+}
+
+void Renderer::renderSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size,
+                            float rotation, const glm::vec3& color) {
+    renderSprite(texture, glm::vec3(position.x, position.y, kDefaultSpriteZ), size, rotation, color);
+}
+
+void Renderer::renderAnimatedSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size,
+                                    const glm::vec4& uvOffsetScale, float rotation, const glm::vec3& color) {
+    renderAnimatedSprite(texture, glm::vec3(position.x, position.y, kDefaultSpriteZ), size, uvOffsetScale, rotation, color);
+}
+
+void Renderer::renderDamagedSprite(const Texture& texture, const Texture* deltaTexture,
+                                   const glm::vec2& position, const glm::vec2& size,
+                                   float rotation, const glm::vec3& color,
+                                   bool damageFrontLeft, bool damageFrontRight,
+                                   bool damageRearLeft, bool damageRearRight) {
+    renderDamagedSprite(texture, deltaTexture, glm::vec3(position.x, position.y, kDefaultSpriteZ), size,
+                        rotation, color, damageFrontLeft, damageFrontRight, damageRearLeft, damageRearRight);
+}
+
+void Renderer::renderFireSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size,
+                                float rotation, const glm::vec3& color, float fireIntensity, float timeSeconds) {
+    renderFireSprite(texture, glm::vec3(position.x, position.y, kDefaultSpriteZ), size,
+                     rotation, color, fireIntensity, timeSeconds);
+}
+
+void Renderer::renderFireDamagedSprite(const Texture& texture, const Texture* deltaTexture,
+                                       const glm::vec2& position, const glm::vec2& size,
+                                       float rotation, const glm::vec3& color,
+                                       bool damageFrontLeft, bool damageFrontRight,
+                                       bool damageRearLeft, bool damageRearRight,
+                                       float fireIntensity, float timeSeconds) {
+    renderFireDamagedSprite(texture, deltaTexture, glm::vec3(position.x, position.y, kDefaultSpriteZ), size,
+                            rotation, color, damageFrontLeft, damageFrontRight, damageRearLeft, damageRearRight,
+                            fireIntensity, timeSeconds);
+}
+
+void Renderer::renderExplosionSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size,
+                                     float rotation, const glm::vec3& color, float explosionProgress) {
+    renderExplosionSprite(texture, glm::vec3(position.x, position.y, kDefaultSpriteZ), size,
+                          rotation, color, explosionProgress);
 }

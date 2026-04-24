@@ -175,12 +175,12 @@ void Player::render(Renderer* renderer) {
     if (m_walkAnimation && m_walkAnimation->getTexture()) {
         // Render animated sprite
         glm::vec4 uvOffsetScale = m_walkAnimation->getCurrentFrameUV();
-        renderer->renderAnimatedSprite(*m_walkAnimation->getTexture(), 
-                                        glm::vec2(m_position.x, m_position.y), 
+        renderer->renderAnimatedSprite(*m_walkAnimation->getTexture(),
+                                        m_position,
                                         m_size, uvOffsetScale, m_rotation.z, glm::vec3(1.0f));
     } else if (m_texture) {
         // Fallback to static sprite
-        renderer->renderSprite(*m_texture, glm::vec2(m_position.x, m_position.y), m_size, m_rotation.z, glm::vec3(1.0f));
+        renderer->renderSprite(*m_texture, m_position, m_size, m_rotation.z, glm::vec3(1.0f));
     }
 }
 
@@ -247,6 +247,9 @@ void Player::applyMovement(const glm::vec3& delta) {
             newPosition.y = target.y;
         }
     }
+
+    // Follow the ground surface (handles slopes).
+    newPosition.z = m_tileGrid->getSurfaceHeight(newPosition.x, newPosition.y, m_position.z);
 
     setPosition(newPosition);
 }

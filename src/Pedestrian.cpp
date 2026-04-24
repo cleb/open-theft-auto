@@ -56,6 +56,13 @@ bool Pedestrian::isBlockedByVehicle(const glm::vec3& position) const {
     return m_vehicleBlockCheck(position, pedRadius);
 }
 
+void Pedestrian::snapToSurface(glm::vec3& pos) const {
+    if (!m_tileGrid) {
+        return;
+    }
+    pos.z = m_tileGrid->getSurfaceHeight(pos.x, pos.y, m_position.z);
+}
+
 void Pedestrian::setWalkingDirection(SidewalkDirection dir, bool avoidReverse) {
     m_walkingDirection = dir;
     
@@ -184,6 +191,7 @@ void Pedestrian::updateMovement(float deltaTime) {
             m_rotation.z = Heading::wrapDegrees360(m_rotation.z + 180.0f);
             return;
         }
+        snapToSurface(newPosition);
         m_position = newPosition;
     } else {
         // Hit a wall - turn around
@@ -278,7 +286,7 @@ void Pedestrian::render(Renderer* renderer) {
     if (m_sharedAnimation && m_sharedAnimation->getTexture()) {
         glm::vec4 uvOffsetScale = getCurrentFrameUV();
         renderer->renderAnimatedSprite(*m_sharedAnimation->getTexture(),
-                                       glm::vec2(m_position.x, m_position.y),
+                                       m_position,
                                        m_size, uvOffsetScale, m_rotation.z, glm::vec3(1.0f));
     }
 }
@@ -397,6 +405,7 @@ void Pedestrian::updatePanic(float deltaTime) {
     glm::vec3 delta(bestDir.x * m_speed * deltaTime, bestDir.y * m_speed * deltaTime, 0.0f);
     glm::vec3 newPosition = m_position + delta;
     if (m_tileGrid->canOccupy(m_position, newPosition) && !isBlockedByVehicle(newPosition)) {
+        snapToSurface(newPosition);
         m_position = newPosition;
     }
 
@@ -516,6 +525,7 @@ void Pedestrian::updateSeekingSidewalk(float deltaTime) {
     
     // Check if the new position would be on a sidewalk - if so, move there and transition
     if (m_tileGrid->isSidewalkTile(newPosition)) {
+        snapToSurface(newPosition);
         m_position = newPosition;
         m_hasTargetSidewalk = false;
         
@@ -544,6 +554,7 @@ void Pedestrian::updateSeekingSidewalk(float deltaTime) {
             }
             return;
         }
+        snapToSurface(newPosition);
         m_position = newPosition;
     } else {
         // Can't move due to wall - try to find an alternate path or give up
@@ -606,6 +617,7 @@ void Pedestrian::updateCenteringSidewalk(float deltaTime) {
             setWalkingDirection(m_pendingSidewalkDir, true);
             return;
         }
+        snapToSurface(newPosition);
         m_position = newPosition;
     } else {
         // Can't move to center, just start walking
