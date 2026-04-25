@@ -402,7 +402,7 @@ TileGrid::SurfaceSample TileGrid::sampleSurface(float worldX, float worldY, floa
     const int gridY = static_cast<int>(std::floor((worldY + halfSize) / m_tileSize));
 
     if (gridX < 0 || gridX >= m_gridSize.x || gridY < 0 || gridY >= m_gridSize.y) {
-        return {referenceZ, false, false};
+        return {referenceZ, false};
     }
 
     float localX = (worldX - (static_cast<float>(gridX) * m_tileSize - halfSize)) / m_tileSize;
@@ -433,7 +433,6 @@ TileGrid::SurfaceSample TileGrid::sampleSurface(float worldX, float worldY, floa
     // 1) Prefer the highest surface at or below the entity's current feet.
     int bestZ = -1;
     float bestHeight = referenceZ;
-    bool bestSloped = false;
     for (int z = m_gridSize.z - 1; z >= 0; --z) {
         const Tile* tile = getTile(gridX, gridY, z);
         if (!tile || !tile->isTopSolid()) {
@@ -448,12 +447,11 @@ TileGrid::SurfaceSample TileGrid::sampleSurface(float worldX, float worldY, floa
             if (bestZ < 0 || height > bestHeight) {
                 bestZ = z;
                 bestHeight = height;
-                bestSloped = tile->isSloped();
             }
         }
     }
     if (bestZ >= 0) {
-        return {bestHeight, true, bestSloped};
+        return {bestHeight, true};
     }
 
     // 2) Fallback: lowest surface above the reference but within one tile-size
@@ -461,7 +459,6 @@ TileGrid::SurfaceSample TileGrid::sampleSurface(float worldX, float worldY, floa
     const float stepLimit = referenceZ + m_tileSize + matchTolerance;
     float stepBest = 0.0f;
     bool foundStep = false;
-    bool stepSloped = false;
     for (int z = 0; z < m_gridSize.z; ++z) {
         const Tile* tile = getTile(gridX, gridY, z);
         if (!tile || !tile->isTopSolid()) {
@@ -472,12 +469,11 @@ TileGrid::SurfaceSample TileGrid::sampleSurface(float worldX, float worldY, floa
             if (!foundStep || height < stepBest) {
                 stepBest = height;
                 foundStep = true;
-                stepSloped = tile->isSloped();
             }
         }
     }
-    return foundStep ? SurfaceSample{stepBest, true, stepSloped}
-                     : SurfaceSample{referenceZ, false, false};
+    return foundStep ? SurfaceSample{stepBest, true}
+                     : SurfaceSample{referenceZ, false};
 }
 
 float TileGrid::getSurfaceHeight(float worldX, float worldY, float referenceZ) const {
@@ -486,36 +482,43 @@ float TileGrid::getSurfaceHeight(float worldX, float worldY, float referenceZ) c
 
 float TileGrid::getSurfaceHeightForFootprint(const glm::vec3& worldPos,
                                              const glm::vec2& footprintSize,
-                                             const glm::vec2& movementDirection,
+                                             const glm::vec2& forwardDirection,
                                              float referenceZ) const {
     const SurfaceSample center = sampleSurface(worldPos.x, worldPos.y, referenceZ);
-    const float movementLenSq = glm::dot(movementDirection, movementDirection);
-    if (movementLenSq <= 0.0001f) {
+    const float forwardLenSq = glm::dot(forwardDirection, forwardDirection);
+    if (forwardLenSq <= 0.0001f) {
         return center.height;
     }
 
-    const glm::vec2 forward = movementDirection / std::sqrt(movementLenSq);
+    const glm::vec2 forward = forwardDirection / std::sqrt(forwardLenSq);
     const glm::vec2 right(forward.y, -forward.x);
     const float halfWidth = footprintSize.x * 0.5f;
     const float halfLength = footprintSize.y * 0.5f;
 
-    bool frontTouchesSlope = false;
-    float frontHeight = center.height;
-    auto sampleFront = [&](const glm::vec2& offset) {
+    bool foundContact = center.found;
+    float maxHeight = center.height;
+    auto considerSample = [&](const glm::vec2& offset) {
         const SurfaceSample sample = sampleSurface(worldPos.x + offset.x, worldPos.y + offset.y, referenceZ);
-        if (!sample.found || !sample.sloped) {
+        if (!sample.found) {
             return;
         }
-        if (!frontTouchesSlope || sample.height > frontHeight) {
-            frontHeight = sample.height;
+        if (!foundContact || sample.height > maxHeight) {
+            maxHeight = sample.height;
         }
-        frontTouchesSlope = true;
+        foundContact = true;
     };
 
-    const glm::vec2 front = forward * halfLength;
-    sampleFront(front);
-    sampleFront(front + right * halfWidth);
-    sampleFront(front - right * halfWidth);
+    constexpr float longitudinalSamples[] = {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f};
+    constexpr float lateralSamples[] = {-1.0f, 0.0f, 1.0f};
+    for (float longT : longitudinalSamples) {
+        for (float latT : lateralSamples) {
+            if (longT == 0.0f && latT == 0.0f) {
+                continue;
+            }
+            const glm::vec2 offset = forward * (halfLength * longT) + right * (halfWidth * latT);
+            considerSample(offset);
+        }
+    }
 
-    return frontTouchesSlope ? frontHeight : center.height;
+    return foundContact ? maxHeight : center.height;
 }

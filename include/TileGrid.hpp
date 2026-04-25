@@ -66,20 +66,19 @@ public:
     // passed-in `referenceZ` unchanged if no supporting tile is found.
     float getSurfaceHeight(float worldX, float worldY, float referenceZ) const;
 
-    // Like getSurfaceHeight(), but if the entity is moving and its leading edge
-    // is already on a slope, the front of the footprint drives the returned
-    // height. This keeps sprites from clipping halfway into a rising/descending
-    // slope while they are entering it.
+    // Like getSurfaceHeight(), but for moving flat sprites it samples a small
+    // grid across the oriented footprint and returns the highest contacted
+    // point under that footprint. The direction vector defines the footprint's
+    // forward axis.
     float getSurfaceHeightForFootprint(const glm::vec3& worldPos,
                                        const glm::vec2& footprintSize,
-                                       const glm::vec2& movementDirection,
+                                       const glm::vec2& forwardDirection,
                                        float referenceZ) const;
 
 private:
     struct SurfaceSample {
         float height = 0.0f;
         bool found = false;
-        bool sloped = false;
     };
 
     int getIndex(int x, int y, int z) const;

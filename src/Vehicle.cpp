@@ -182,10 +182,11 @@ void Vehicle::update(float deltaTime) {
 
             m_inCollision = blockedThisFrame;
 
-            // Follow ground surface (handle slopes). Use the vehicle's front
-            // edge so the body lifts as soon as it starts climbing a ramp.
-            const glm::vec2 movement(newPosition.x - m_position.x, newPosition.y - m_position.y);
-            newPosition.z = m_tileGrid->getSurfaceHeightForFootprint(newPosition, m_size, movement, m_position.z);
+            // Follow ground surface (handle slopes). Vehicles use their body
+            // heading to orient the sampled footprint so angled entry/exit on
+            // ramps tracks the actual car body rather than just the last delta.
+            const glm::vec2 forward2D = Heading::forwardFromHeadingDeg(m_rotation.z);
+            newPosition.z = m_tileGrid->getSurfaceHeightForFootprint(newPosition, m_size, forward2D, m_position.z);
 
             setPosition(newPosition);
         } else {

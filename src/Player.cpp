@@ -248,8 +248,9 @@ void Player::applyMovement(const glm::vec3& delta) {
         }
     }
 
-    // Follow the ground surface (handles slopes). When stepping onto a slope,
-    // use the leading edge of the footprint so the sprite stays above the ramp.
+    // Follow the ground surface (handles slopes). Use the highest contacted
+    // point under the footprint so the flat sprite stays above uphill and
+    // downhill slopes instead of clipping into the terrain.
     const glm::vec2 movement(newPosition.x - m_position.x, newPosition.y - m_position.y);
     newPosition.z = m_tileGrid->getSurfaceHeightForFootprint(newPosition, m_size, movement, m_position.z);
 
