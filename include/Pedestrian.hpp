@@ -100,6 +100,11 @@ private:
     void updateSeekingSidewalk(float deltaTime);
     void updateCenteringSidewalk(float deltaTime);
     void updatePanic(float deltaTime);
+
+    // Adjust the z of `pos` to follow the tile grid's top surface, honoring slopes.
+    // The highest contacted point under the footprint determines the height so
+    // the flat sprite does not clip into uphill or downhill ramps.
+    void snapToSurface(glm::vec3& pos, const glm::vec3& previousPos) const;
     void findNearestSidewalk();
     glm::vec4 getCurrentFrameUV() const;
 };

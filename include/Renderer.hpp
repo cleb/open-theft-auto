@@ -43,24 +43,36 @@ public:
     void renderMesh(const Mesh& mesh, const glm::mat4& modelMatrix, const std::string& shaderName, const glm::vec3& tint = glm::vec3(1.0f));
     
     // 2D sprite rendering
-    void renderSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size, 
+    void renderSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size,
                      float rotation = 0.0f, const glm::vec3& color = glm::vec3(1.0f));
-    
+    void renderSprite(const Texture& texture, const glm::vec3& position, const glm::vec2& size,
+                     float rotation = 0.0f, const glm::vec3& color = glm::vec3(1.0f));
+
     // 2D animated sprite rendering (sprite sheet with UV coordinates)
     // uvOffsetScale: xy = UV offset (top-left), zw = UV scale (width/height in UV space)
     void renderAnimatedSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size,
-                              const glm::vec4& uvOffsetScale, float rotation = 0.0f, 
+                              const glm::vec4& uvOffsetScale, float rotation = 0.0f,
                               const glm::vec3& color = glm::vec3(1.0f));
-    
+    void renderAnimatedSprite(const Texture& texture, const glm::vec3& position, const glm::vec2& size,
+                              const glm::vec4& uvOffsetScale, float rotation = 0.0f,
+                              const glm::vec3& color = glm::vec3(1.0f));
+
     // 2D sprite rendering with damage overlay (GPU-accelerated)
     void renderDamagedSprite(const Texture& texture, const Texture* deltaTexture,
                              const glm::vec2& position, const glm::vec2& size,
                              float rotation, const glm::vec3& color,
                              bool damageFrontLeft, bool damageFrontRight,
                              bool damageRearLeft, bool damageRearRight);
+    void renderDamagedSprite(const Texture& texture, const Texture* deltaTexture,
+                             const glm::vec3& position, const glm::vec2& size,
+                             float rotation, const glm::vec3& color,
+                             bool damageFrontLeft, bool damageFrontRight,
+                             bool damageRearLeft, bool damageRearRight);
 
     // 2D sprite rendering with fire shader
     void renderFireSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size,
+                          float rotation, const glm::vec3& color, float fireIntensity, float timeSeconds);
+    void renderFireSprite(const Texture& texture, const glm::vec3& position, const glm::vec2& size,
                           float rotation, const glm::vec3& color, float fireIntensity, float timeSeconds);
 
     // 2D sprite rendering with fire shader and damage overlay
@@ -70,9 +82,17 @@ public:
                                  bool damageFrontLeft, bool damageFrontRight,
                                  bool damageRearLeft, bool damageRearRight,
                                  float fireIntensity, float timeSeconds);
+    void renderFireDamagedSprite(const Texture& texture, const Texture* deltaTexture,
+                                 const glm::vec3& position, const glm::vec2& size,
+                                 float rotation, const glm::vec3& color,
+                                 bool damageFrontLeft, bool damageFrontRight,
+                                 bool damageRearLeft, bool damageRearRight,
+                                 float fireIntensity, float timeSeconds);
 
     // 2D sprite rendering with explosion shader
     void renderExplosionSprite(const Texture& texture, const glm::vec2& position, const glm::vec2& size,
+                               float rotation, const glm::vec3& color, float explosionProgress);
+    void renderExplosionSprite(const Texture& texture, const glm::vec3& position, const glm::vec2& size,
                                float rotation, const glm::vec3& color, float explosionProgress);
     
     // Shader management

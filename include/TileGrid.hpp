@@ -59,9 +59,31 @@ public:
     float getDrivability(const glm::vec3& worldPos) const;
     float getDrivability(const glm::ivec3& gridPos) const;
 
+    // Get the world-space Z of the ground surface at (worldX, worldY), taking
+    // slopes into account. Uses `referenceZ` to decide which vertical layer
+    // the entity currently stands on (looks for the solid top surface whose
+    // top is closest to, but not above, referenceZ + tileSize). Returns the
+    // passed-in `referenceZ` unchanged if no supporting tile is found.
+    float getSurfaceHeight(float worldX, float worldY, float referenceZ) const;
+
+    // Like getSurfaceHeight(), but for moving flat sprites it samples a small
+    // grid across the oriented footprint and returns the highest contacted
+    // point under that footprint. The direction vector defines the footprint's
+    // forward axis.
+    float getSurfaceHeightForFootprint(const glm::vec3& worldPos,
+                                       const glm::vec2& footprintSize,
+                                       const glm::vec2& forwardDirection,
+                                       float referenceZ) const;
+
 private:
+    struct SurfaceSample {
+        float height = 0.0f;
+        bool found = false;
+    };
+
     int getIndex(int x, int y, int z) const;
     bool hasGroundSupport(const glm::ivec3& tilePos) const;
+    SurfaceSample sampleSurface(float worldX, float worldY, float referenceZ) const;
     bool rebuildTiles();
 
     friend struct LevelSerialization::GridAccess;

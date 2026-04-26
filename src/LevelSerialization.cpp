@@ -262,6 +262,33 @@ bool parseSidewalkDirectionValue(const std::string& value, SidewalkDirection& ou
     return false;
 }
 
+bool parseSlopeDirectionValue(const std::string& value, SlopeDirection& out, const LineLogger& logger) {
+    const std::string lower = toLowerCopy(trimCopy(value));
+    if (lower.empty() || lower == "none" || lower == "off" || lower == "flat") {
+        out = SlopeDirection::None;
+        return true;
+    }
+    if (lower == "north" || lower == "n" || lower == "up_north") {
+        out = SlopeDirection::North;
+        return true;
+    }
+    if (lower == "south" || lower == "s" || lower == "up_south") {
+        out = SlopeDirection::South;
+        return true;
+    }
+    if (lower == "east" || lower == "e" || lower == "up_east") {
+        out = SlopeDirection::East;
+        return true;
+    }
+    if (lower == "west" || lower == "w" || lower == "up_west") {
+        out = SlopeDirection::West;
+        return true;
+    }
+
+    logger.error("Unknown slope direction: " + value);
+    return false;
+}
+
 struct WallConfig {
     bool specified = false;
     bool walkable = true;
@@ -276,6 +303,8 @@ struct TileConfig {
     CarDirection carDirection = CarDirection::None;
     bool sidewalkSpecified = false;
     SidewalkDirection sidewalkDirection = SidewalkDirection::None;
+    bool slopeSpecified = false;
+    SlopeDirection slopeDirection = SlopeDirection::None;
     bool drivabilitySpecified = false;
     float drivability = 1.0f;
     WallConfig walls[4];
@@ -340,6 +369,11 @@ bool parseTileProperty(const std::string& key, const std::string& value, TileCon
     if (lowerKey == "sidewalk" || lowerKey == "sidewalkdirection" || lowerKey == "pedestrian") {
         config.sidewalkSpecified = true;
         return parseSidewalkDirectionValue(value, config.sidewalkDirection, logger);
+    }
+
+    if (lowerKey == "slope" || lowerKey == "ramp") {
+        config.slopeSpecified = true;
+        return parseSlopeDirectionValue(value, config.slopeDirection, logger);
     }
 
     // Parse drivability: drivability=0.3 (0.0-1.0, how easily vehicles can drive)
@@ -424,6 +458,10 @@ void applyTileConfig(Tile& tile, const TileConfig& config) {
 
     if (config.sidewalkSpecified) {
         tile.setSidewalkDirection(config.sidewalkDirection);
+    }
+
+    if (config.slopeSpecified) {
+        tile.setSlopeDirection(config.slopeDirection);
     }
 
     // Apply drivability
@@ -1139,6 +1177,17 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
         }
     };
 
+    auto slopeDirectionToString = [](SlopeDirection dir) -> std::string {
+        switch (dir) {
+            case SlopeDirection::North: return "north";
+            case SlopeDirection::South: return "south";
+            case SlopeDirection::East: return "east";
+            case SlopeDirection::West: return "west";
+            case SlopeDirection::None:
+            default: return "none";
+        }
+    };
+
     auto wallKey = [](WallDirection dir) -> const char* {
         switch (dir) {
             case WallDirection::North: return "north";
@@ -1176,6 +1225,10 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
 
                 if (top.sidewalkDirection != SidewalkDirection::None) {
                     properties.push_back(std::string("sidewalk=") + sidewalkDirectionToString(top.sidewalkDirection));
+                }
+
+                if (top.slopeDirection != SlopeDirection::None) {
+                    properties.push_back(std::string("slope=") + slopeDirectionToString(top.slopeDirection));
                 }
 
                 // Save drivability (only if different from default 1.0)

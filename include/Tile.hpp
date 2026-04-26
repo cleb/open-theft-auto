@@ -42,6 +42,17 @@ enum class CarDirection {
     OptionalNorthWestSouthEast
 };
 
+// Slope direction indicates which side of the tile rises up one level.
+// The top surface has two vertices at the base level (z=tileSize) and two
+// vertices one level above (z=2*tileSize) on the side named by the enum.
+enum class SlopeDirection {
+    None = 0,
+    North,  // Rises toward +Y
+    South,  // Rises toward -Y
+    East,   // Rises toward +X
+    West    // Rises toward -X
+};
+
 // Sidewalk directions - always bidirectional for pedestrian traffic
 enum class SidewalkDirection {
     None = 0,
@@ -68,6 +79,7 @@ struct TopSurfaceData {
     std::shared_ptr<Texture> texture;
     CarDirection carDirection = CarDirection::None;
     SidewalkDirection sidewalkDirection = SidewalkDirection::None;
+    SlopeDirection slopeDirection = SlopeDirection::None;
     // Drivability: 1.0 = fully drivable (road/sidewalk), 0.0 = impassable
     // Affects vehicle max speed based on their drivabilityImpact setting
     float drivability = 1.0f;
@@ -153,11 +165,14 @@ public:
     void setTopTexture(std::shared_ptr<Texture> texture);
     void setCarDirection(CarDirection dir);
     void setSidewalkDirection(SidewalkDirection dir);
+    void setSlopeDirection(SlopeDirection dir);
     const TopSurfaceData& getTopSurface() const { return m_topSurface; }
     bool isTopSolid() const { return m_topSurface.solid; }
     bool hasRenderableGeometry() const;
     CarDirection getCarDirection() const { return m_topSurface.carDirection; }
     SidewalkDirection getSidewalkDirection() const { return m_topSurface.sidewalkDirection; }
+    SlopeDirection getSlopeDirection() const { return m_topSurface.slopeDirection; }
+    bool isSloped() const { return m_topSurface.slopeDirection != SlopeDirection::None; }
     bool isSidewalk() const { return m_topSurface.sidewalkDirection != SidewalkDirection::None; }
     float getDrivability() const { return m_topSurface.drivability; }
     void setDrivability(float drivability) { m_topSurface.drivability = drivability; }

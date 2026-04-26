@@ -163,6 +163,27 @@ SidewalkDirection indexToSidewalkDirection(int index) {
     }
 }
 
+int slopeDirectionToIndex(SlopeDirection dir) {
+    switch (dir) {
+        case SlopeDirection::None: return 0;
+        case SlopeDirection::North: return 1;
+        case SlopeDirection::South: return 2;
+        case SlopeDirection::East: return 3;
+        case SlopeDirection::West: return 4;
+    }
+    return 0;
+}
+
+SlopeDirection indexToSlopeDirection(int index) {
+    switch (index) {
+        case 1: return SlopeDirection::North;
+        case 2: return SlopeDirection::South;
+        case 3: return SlopeDirection::East;
+        case 4: return SlopeDirection::West;
+        default: return SlopeDirection::None;
+    }
+}
+
 std::string trimCopy(const std::string& value) {
     auto begin = value.begin();
     while (begin != value.end() && std::isspace(static_cast<unsigned char>(*begin))) {
@@ -1716,6 +1737,13 @@ void TileGridEditor::drawTopFaceControls(Tile* tile) {
         applyTopSurfaceFromUi();
     }
 
+    int slopeIndex = slopeDirectionToIndex(m_uiTileState.topSlopeDirection);
+    const char* slopeLabels[] = {"None (flat)", "Up North", "Up South", "Up East", "Up West"};
+    if (ImGui::Combo("Slope Direction", &slopeIndex, slopeLabels, IM_ARRAYSIZE(slopeLabels))) {
+        m_uiTileState.topSlopeDirection = indexToSlopeDirection(slopeIndex);
+        applyTopSurfaceFromUi();
+    }
+
     // Drivability slider - affects vehicle max speed on this surface
     ImGui::SeparatorText("Surface Drivability");
     ImGui::TextDisabled("1.0 = full speed (roads), lower = vehicles slow down");
@@ -1856,11 +1884,13 @@ void TileGridEditor::applyTopSurfaceFromUi() {
         tile->setTopSurface(false, "", CarDirection::None);
         tile->setCarDirection(CarDirection::None);
         tile->setSidewalkDirection(SidewalkDirection::None);
+        tile->setSlopeDirection(SlopeDirection::None);
     } else {
         const std::string texturePath = m_uiTileState.topTexture.data();
         tile->setTopSurface(true, texturePath, m_uiTileState.topCarDirection);
         tile->setCarDirection(m_uiTileState.topCarDirection);
         tile->setSidewalkDirection(m_uiTileState.topSidewalkDirection);
+        tile->setSlopeDirection(m_uiTileState.topSlopeDirection);
     }
 
     announceCursor();
@@ -2129,6 +2159,7 @@ void TileGridEditor::refreshUiStateFromTile() {
     m_uiTileState.topSolid = top.solid;
     m_uiTileState.topCarDirection = top.carDirection;
     m_uiTileState.topSidewalkDirection = top.sidewalkDirection;
+    m_uiTileState.topSlopeDirection = top.slopeDirection;
     m_uiTileState.drivability = top.drivability;
     std::snprintf(m_uiTileState.topTexture.data(), m_uiTileState.topTexture.size(), "%s", top.texturePath.c_str());
     
