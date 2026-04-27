@@ -1,4 +1,5 @@
 #include "SpriteAnimation.hpp"
+#include "TextureManager.hpp"
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -42,9 +43,9 @@ bool SpriteAnimation::parseAnimationFile(const nlohmann::json& json) {
     std::string textureFile = json["texture"].get<std::string>();
     
     // Load texture
-    m_texture = std::make_unique<Texture>();
     std::string texturePath = "assets/textures/" + textureFile;
-    if (!m_texture->loadFromFile(texturePath)) {
+    m_texture = TextureManager::instance().getTextureFromPath(texturePath);
+    if (!m_texture) {
         std::cerr << "Failed to load animation texture: " << texturePath << std::endl;
         return false;
     }

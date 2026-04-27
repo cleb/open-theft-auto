@@ -1,5 +1,18 @@
 #include "TextureManager.hpp"
+#include <algorithm>
+#include <cctype>
+#include <filesystem>
 #include <iostream>
+
+namespace {
+bool isSupportedTextureExtension(std::string extension) {
+    std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+
+    return extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".bmp" || extension == ".tga";
+}
+}
 
 TextureManager& TextureManager::instance() {
     static TextureManager instance;
@@ -39,6 +52,40 @@ std::shared_ptr<Texture> TextureManager::getTextureFromPath(const std::string& p
     // Cache and return
     m_cache[path] = texture;
     return texture;
+}
+
+size_t TextureManager::preloadTexturesFromDirectory(const std::string& directoryPath) {
+    namespace fs = std::filesystem;
+
+    if (directoryPath.empty() || !fs::exists(directoryPath) || !fs::is_directory(directoryPath)) {
+        std::cerr << "TextureManager: Cannot preload textures from missing directory: " << directoryPath << std::endl;
+        return 0;
+    }
+
+    std::vector<std::string> texturePaths;
+    for (const auto& entry : fs::recursive_directory_iterator(directoryPath)) {
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+
+        const fs::path& path = entry.path();
+        if (isSupportedTextureExtension(path.extension().string())) {
+            texturePaths.push_back(path.generic_string());
+        }
+    }
+
+    std::sort(texturePaths.begin(), texturePaths.end());
+
+    size_t loadedCount = 0;
+    for (const std::string& path : texturePaths) {
+        if (getTextureFromPath(path)) {
+            ++loadedCount;
+        }
+    }
+
+    std::cout << "TextureManager: Preloaded " << loadedCount << " of " << texturePaths.size()
+              << " textures from " << directoryPath << std::endl;
+    return loadedCount;
 }
 
 bool TextureManager::hasAlias(const std::string& alias) const {

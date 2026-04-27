@@ -25,7 +25,7 @@ struct Animation {
 // Manages sprite sheet animations loaded from JSON definition files
 class SpriteAnimation {
 private:
-    std::unique_ptr<Texture> m_texture;
+    std::shared_ptr<Texture> m_texture;
     std::unordered_map<std::string, Animation> m_animations;
     
     int m_frameWidth;

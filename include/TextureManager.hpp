@@ -42,6 +42,9 @@ public:
     // Get a texture, loading from a specific path (bypasses alias resolution)
     std::shared_ptr<Texture> getTextureFromPath(const std::string& path);
 
+    // Recursively preload all supported image textures in a directory.
+    size_t preloadTexturesFromDirectory(const std::string& directoryPath);
+
     // Check if an alias exists
     bool hasAlias(const std::string& alias) const;
 

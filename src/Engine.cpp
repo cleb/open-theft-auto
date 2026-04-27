@@ -1,4 +1,5 @@
 #include "Engine.hpp"
+#include "TextureManager.hpp"
 #include "VehicleConfig.hpp"
 #include <iostream>
 #include <GL/glew.h>
@@ -48,6 +49,8 @@ bool Engine::initialize(int width, int height, const std::string& title) {
     if (!VehicleConfig::getInstance().loadFromFile("assets/vehicles.json")) {
         std::cerr << "Warning: Failed to load vehicles.json, using defaults" << std::endl;
     }
+
+    TextureManager::instance().preloadTexturesFromDirectory("assets");
     
     // Set up window resize callback to update renderer projection
     m_window->setResizeCallback([this](int w, int h) {

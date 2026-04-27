@@ -1,5 +1,6 @@
 #include "Tile.hpp"
 #include "Renderer.hpp"
+#include "TextureManager.hpp"
 #include <iostream>
 
 Tile::Tile(const glm::ivec3& gridPos, float tileSize) 
@@ -253,8 +254,8 @@ void Tile::createWallMesh(WallDirection dir) {
     // Load texture if specified
     const std::string& texPath = wallData.texturePath;
     if (!texPath.empty() && !wallData.texture) {
-        wallData.texture = std::make_shared<Texture>();
-        if (!wallData.texture->loadFromFile(texPath)) {
+        wallData.texture = TextureManager::instance().getTextureFromPath(texPath);
+        if (!wallData.texture) {
             std::cerr << "Failed to load wall texture: " << texPath << std::endl;
         }
     }
@@ -319,8 +320,8 @@ void Tile::createTopMesh() {
 
     // Load texture if specified
     if (!m_topSurface.texturePath.empty() && !m_topSurface.texture) {
-        m_topSurface.texture = std::make_shared<Texture>();
-        if (!m_topSurface.texture->loadFromFile(m_topSurface.texturePath)) {
+        m_topSurface.texture = TextureManager::instance().getTextureFromPath(m_topSurface.texturePath);
+        if (!m_topSurface.texture) {
             std::cerr << "Failed to load top surface texture: " << m_topSurface.texturePath << std::endl;
         }
     }

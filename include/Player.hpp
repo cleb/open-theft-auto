@@ -13,7 +13,7 @@ class TileGrid;
 
 class Player : public ControllableObject, public Collider {
 private:
-    std::unique_ptr<Texture> m_texture;          // Static fallback texture
+    std::shared_ptr<Texture> m_texture;          // Static fallback texture
     std::unique_ptr<SpriteAnimation> m_walkAnimation;
     float m_speed;
     float m_rotationSpeed;

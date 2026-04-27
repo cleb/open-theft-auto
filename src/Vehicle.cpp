@@ -34,10 +34,9 @@ Vehicle::~Vehicle() = default;
 
 bool Vehicle::initialize(const std::string& texturePath) {
     if (!texturePath.empty()) {
-        m_texture = std::make_shared<Texture>();
-        if (!m_texture->loadFromFile(texturePath)) {
+        m_texture = TextureManager::instance().getTextureFromPath(texturePath);
+        if (!m_texture) {
             std::cerr << "Failed to load vehicle texture: " << texturePath << std::endl;
-            m_texture.reset();
         }
     }
     

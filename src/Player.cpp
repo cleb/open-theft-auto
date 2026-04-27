@@ -2,6 +2,7 @@
 #include "Renderer.hpp"
 #include "TileGrid.hpp"
 #include "Heading.hpp"
+#include "TextureManager.hpp"
 #include <glm/gtc/constants.hpp>
 #include <iostream>
 
@@ -31,8 +32,7 @@ bool Player::initialize() {
         m_walkAnimation.reset();
         
         // Fallback to static texture
-        m_texture = std::make_unique<Texture>();
-        m_texture->loadFromFile("assets/textures/player.png");
+        m_texture = TextureManager::instance().getTextureFromPath("assets/textures/player.png");
     }
     
     setPosition(glm::vec3(0.0f, 0.0f, 0.1f)); // Slightly above ground
