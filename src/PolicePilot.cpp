@@ -37,6 +37,8 @@ void PolicePilot::onAssign(Vehicle* vehicle) {
     m_cachedGoal = glm::ivec3(-1, -1, -1);
     m_repathCooldown = 0.0f;
     m_detourTimer = 0.0f;
+    m_recoveryTimer = 0.0f;
+    m_recoveryTurnSign = 1.0f;
 }
 
 void PolicePilot::onRelease(Vehicle* vehicle) {
@@ -45,6 +47,8 @@ void PolicePilot::onRelease(Vehicle* vehicle) {
     m_cachedGoal = glm::ivec3(-1, -1, -1);
     m_repathCooldown = 0.0f;
     m_detourTimer = 0.0f;
+    m_recoveryTimer = 0.0f;
+    m_recoveryTurnSign = 1.0f;
 }
 
 float PolicePilot::angleDifference(float from, float to) const {
@@ -287,6 +291,48 @@ bool PolicePilot::canMoveTo(const TileGrid* tileGrid, const glm::vec3& fromPos, 
     return tileGrid && tileGrid->canOccupy(fromPos, toPos);
 }
 
+void PolicePilot::beginRecovery(Vehicle* vehicle, float desiredHeading) {
+    if (!vehicle || m_recoveryTimer > 0.0f) {
+        return;
+    }
+
+    const float diff = angleDifference(vehicle->getRotation().z, desiredHeading);
+    m_recoveryTurnSign = diff >= 0.0f ? 1.0f : -1.0f;
+    m_recoveryTimer = 0.65f;
+    m_detourTimer = 0.0f;
+    m_repathCooldown = 0.0f;
+    m_cachedPath.clear();
+    vehicle->setSpeed(0.0f);
+    vehicle->setInCollision(true);
+}
+
+bool PolicePilot::updateRecovery(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime) {
+    if (!vehicle || !tileGrid || m_recoveryTimer <= 0.0f) {
+        return false;
+    }
+
+    m_recoveryTimer = std::max(0.0f, m_recoveryTimer - deltaTime);
+    const glm::vec3 pos = vehicle->getPosition();
+    const float currentHeading = vehicle->getRotation().z;
+    const float newHeading = normalizeAngle(currentHeading + m_recoveryTurnSign * 135.0f * deltaTime);
+    const glm::vec2 fwd2 = Heading::forwardFromHeadingDeg(newHeading);
+    const float reverseDistance = 6.0f * deltaTime;
+    glm::vec3 candidatePos = pos - glm::vec3(fwd2.x, fwd2.y, 0.0f) * reverseDistance;
+    candidatePos.z = pos.z;
+
+    vehicle->setRotation(glm::vec3(0.0f, 0.0f, newHeading));
+    vehicle->setSpeed(0.0f);
+
+    if (canMoveTo(tileGrid, pos, candidatePos) && !wouldCollideAt(vehicle, candidatePos, newHeading)) {
+        vehicle->setPosition(candidatePos);
+        vehicle->setInCollision(false);
+    } else {
+        vehicle->setInCollision(true);
+    }
+
+    return true;
+}
+
 float PolicePilot::chooseDetourHeading(const Vehicle* vehicle, const TileGrid* tileGrid, const glm::vec3& pos,
                                        float desiredHeading, float travelDistance, bool& foundDetour) const {
     foundDetour = false;
@@ -350,6 +396,9 @@ void PolicePilot::update(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime) 
 
     m_repathCooldown = std::max(0.0f, m_repathCooldown - deltaTime);
     m_detourTimer = std::max(0.0f, m_detourTimer - deltaTime);
+    if (updateRecovery(vehicle, tileGrid, deltaTime)) {
+        return;
+    }
 
     bool needRepath = m_cachedPath.empty() || m_repathCooldown <= 0.0f || m_cachedGoal != goalGrid;
 
@@ -410,7 +459,7 @@ void PolicePilot::update(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime) 
 
     const float desiredHeading = Heading::headingDegFromForward(glm::normalize(toWaypoint));
     const float baseSpeed = getMaxSpeed();
-    const float travelDistance = std::max(0.6f, baseSpeed * deltaTime);
+    const float travelDistance = std::max(1.2f, baseSpeed * deltaTime * 2.0f);
 
     bool foundDetour = false;
     float movementHeading = desiredHeading;
@@ -422,10 +471,7 @@ void PolicePilot::update(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime) 
     if (!canMoveTo(tileGrid, pos, desiredProbe) || wouldCollideAt(vehicle, desiredProbe, desiredHeading)) {
         movementHeading = chooseDetourHeading(vehicle, tileGrid, pos, desiredHeading, travelDistance, foundDetour);
         if (!foundDetour) {
-            if (!vehicle->isInCollision()) {
-                vehicle->applyDamage(CollisionDirection::Front);
-            }
-            vehicle->setInCollision(true);
+            beginRecovery(vehicle, desiredHeading);
             return;
         }
         m_detourTimer = 0.45f;
@@ -469,8 +515,5 @@ void PolicePilot::update(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime) 
         return;
     }
 
-    if (!vehicle->isInCollision()) {
-        vehicle->applyDamage(CollisionDirection::Front);
-    }
-    vehicle->setInCollision(true);
+    beginRecovery(vehicle, desiredHeading);
 }

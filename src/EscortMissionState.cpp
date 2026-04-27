@@ -104,10 +104,11 @@ bool EscortMissionState::checkBulletHit(const glm::vec3& bulletPos, float bullet
     return false;
 }
 
-void EscortMissionState::checkVehicleCollision(const glm::vec3& vehiclePos, const glm::vec2& vehicleSize, float vehicleRotation) {
+void EscortMissionState::checkVehicleCollision(const glm::vec3& vehiclePos, const glm::vec2& vehicleSize,
+                                               float vehicleRotation, float vehicleSpeed) {
     for (auto& enemy : m_enemies) {
         if (enemy) {
-            enemy->checkVehicleCollision(vehiclePos, vehicleSize, vehicleRotation);
+            enemy->checkVehicleCollision(vehiclePos, vehicleSize, vehicleRotation, vehicleSpeed);
         }
     }
 }

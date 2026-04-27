@@ -461,15 +461,9 @@ void PoliceChaseManager::updateOfficer(float deltaTime) {
             if (!vehicle || !vehicle->isActive() || vehicle->isWrecked() || vehicle->isExploding()) {
                 continue;
             }
-            m_onFootOfficer->checkVehicleCollision(vehicle->getPosition(), vehicle->getSpriteSize(), vehicle->getRotation().z);
+            m_onFootOfficer->checkVehicleCollision(vehicle->getPosition(), vehicle->getSpriteSize(),
+                                                   vehicle->getRotation().z, vehicle->getSpeed());
         }
-    }
-
-    // CombatPedestrian::update handles Pedestrian::update + chase + shoot
-    m_onFootOfficer->update(deltaTime, playerPos);
-
-    if (m_onFootOfficer->isDead()) {
-        return;
     }
 
     const float dx = playerPos.x - m_onFootOfficer->getPosition().x;
@@ -477,6 +471,14 @@ void PoliceChaseManager::updateOfficer(float deltaTime) {
     const float distToPlayer = std::sqrt(dx * dx + dy * dy);
     if (distToPlayer >= m_officerReturnDistance) {
         tryOfficerReenterVehicle(deltaTime, playerPos);
+        return;
+    }
+
+    // CombatPedestrian::update handles Pedestrian::update + pathfinding chase + shoot
+    m_onFootOfficer->update(deltaTime, playerPos);
+
+    if (m_onFootOfficer->isDead()) {
+        return;
     }
 }
 
@@ -512,6 +514,17 @@ void PoliceChaseManager::maybeDeployOfficer(Vehicle* vehicle, const glm::vec3& p
     officer->setFireDistance(m_officerFireDistance);
     officer->setChaseDistance(5.0f);
     officer->setShootCooldown(0.55f);
+    officer->setVehicleBlockCheck([this](const glm::vec3& position, float officerRadius) {
+        return isOfficerPositionBlockedByVehicle(position, officerRadius);
+    });
+    officer->setMovementTargetAdjustCallback([this](const glm::vec3& from, const glm::vec3& target,
+                                                    float officerRadius) {
+        return adjustOfficerMovementTargetAroundVehicles(from, target, officerRadius);
+    });
+    officer->setLineOfSightBlockCallback([this](const glm::vec3& from, const glm::vec3& target,
+                                                float clearanceRadius) {
+        return isOfficerLineOfSightBlockedByVehicle(from, target, clearanceRadius);
+    });
 
     vehicle->clearPilot();
     vehicle->setSpeed(0.0f);
@@ -529,23 +542,15 @@ void PoliceChaseManager::tryOfficerReenterVehicle(float deltaTime, const glm::ve
     Pedestrian* ped = m_onFootOfficer->getPedestrian();
     if (!ped) return;
 
-    const glm::vec3 officerPos = ped->getPosition();
-    const glm::vec3 vehiclePos = m_officerVehicle->getPosition();
-    glm::vec2 toVehicle(vehiclePos.x - officerPos.x, vehiclePos.y - officerPos.y);
-    const float distToVehicle = glm::length(toVehicle);
+    ped->update(deltaTime);
 
-    if (distToVehicle > 0.05f) {
-        const glm::vec2 dirToVehicle = glm::normalize(toVehicle);
-        ped->setRotation(glm::vec3(0.0f, 0.0f, Heading::headingDegFromForward(dirToVehicle)));
+    const glm::vec3 entryPos = getOfficerVehicleEntryPoint(ped->getPosition());
+    m_onFootOfficer->moveToward(deltaTime, entryPos, 0.35f);
 
-        glm::vec3 nextPos = officerPos + glm::vec3(dirToVehicle.x, dirToVehicle.y, 0.0f) * (m_officerSpeed * deltaTime);
-        nextPos.z = officerPos.z;
-        if (m_tileGrid && m_tileGrid->canOccupy(officerPos, nextPos)) {
-            ped->setPosition(nextPos);
-        }
-    }
-
-    if (distToVehicle <= 1.1f) {
+    const glm::vec3 updatedOfficerPos = ped->getPosition();
+    const float dx = entryPos.x - updatedOfficerPos.x;
+    const float dy = entryPos.y - updatedOfficerPos.y;
+    if (std::sqrt(dx * dx + dy * dy) <= 0.45f) {
         if (!m_officerVehicle->hasPilot()) {
             assignPolicePilot(m_officerVehicle);
         }
@@ -566,4 +571,214 @@ void PoliceChaseManager::clearOfficer(bool keepCorpse) {
 
     m_onFootOfficer.reset();
     m_officerVehicle = nullptr;
+    m_officerDetourVehicle = nullptr;
+    m_officerDetourSide = 0;
+}
+
+glm::vec3 PoliceChaseManager::getOfficerVehicleEntryPoint(const glm::vec3& officerPos) const {
+    if (!m_officerVehicle) {
+        return officerPos;
+    }
+
+    const glm::vec3 vehiclePos = m_officerVehicle->getPosition();
+    const glm::vec2 vehicleSize = m_officerVehicle->getSpriteSize();
+    const glm::vec2 forward = Heading::forwardFromHeadingDeg(m_officerVehicle->getRotation().z);
+    const glm::vec2 right(forward.y, -forward.x);
+    const glm::vec2 toOfficer(officerPos.x - vehiclePos.x, officerPos.y - vehiclePos.y);
+
+    const float halfWidth = vehicleSize.x * 0.5f;
+    const float halfLength = vehicleSize.y * 0.5f;
+    const float localX = glm::dot(toOfficer, right);
+    const float localY = glm::dot(toOfficer, forward);
+    constexpr float kEntryClearance = 0.85f;
+    constexpr float kCornerInset = 0.2f;
+
+    const bool useSideDoor = std::abs(localX) / std::max(halfWidth, 0.001f) >=
+                             std::abs(localY) / std::max(halfLength, 0.001f);
+
+    float entryLocalX = std::clamp(localX, -halfWidth + kCornerInset, halfWidth - kCornerInset);
+    float entryLocalY = std::clamp(localY, -halfLength + kCornerInset, halfLength - kCornerInset);
+    if (useSideDoor) {
+        entryLocalX = (localX < 0.0f ? -1.0f : 1.0f) * (halfWidth + kEntryClearance);
+    } else {
+        entryLocalY = (localY < 0.0f ? -1.0f : 1.0f) * (halfLength + kEntryClearance);
+    }
+
+    glm::vec3 entryPos = vehiclePos +
+                         glm::vec3(right.x * entryLocalX + forward.x * entryLocalY,
+                                   right.y * entryLocalX + forward.y * entryLocalY,
+                                   0.0f);
+    entryPos.z = officerPos.z;
+    return entryPos;
+}
+
+glm::vec3 PoliceChaseManager::adjustOfficerMovementTargetAroundVehicles(const glm::vec3& from,
+                                                                        const glm::vec3& target,
+                                                                        float officerRadius) {
+    if (!m_officerColliderCallback) {
+        return target;
+    }
+
+    const auto colliders = m_officerColliderCallback();
+    for (const Collider* collider : colliders) {
+        const auto* vehicle = dynamic_cast<const Vehicle*>(collider);
+        if (!vehicle || !vehicle->isActive() || vehicle->isWrecked() || vehicle->isExploding()) {
+            continue;
+        }
+        if (!segmentIntersectsVehicle(from, target, vehicle, officerRadius, false)) {
+            continue;
+        }
+
+        const glm::vec3 vehiclePos = vehicle->getPosition();
+        const glm::vec2 vehicleSize = vehicle->getSpriteSize();
+        const glm::vec2 forward = Heading::forwardFromHeadingDeg(vehicle->getRotation().z);
+        const glm::vec2 right(forward.y, -forward.x);
+        const glm::vec2 toFrom(from.x - vehiclePos.x, from.y - vehiclePos.y);
+        const glm::vec2 toTarget(target.x - vehiclePos.x, target.y - vehiclePos.y);
+        const float localX = glm::dot(toFrom, right);
+        const float localY = glm::dot(toFrom, forward);
+        const float targetLocalY = glm::dot(toTarget, forward);
+        const float halfWidth = vehicleSize.x * 0.5f;
+        const float halfLength = vehicleSize.y * 0.5f;
+        const float detourWidth = halfWidth + officerRadius + 1.2f;
+        const float detourLength = halfLength + officerRadius + 1.2f;
+
+        if (m_officerDetourVehicle != vehicle || m_officerDetourSide == 0) {
+            std::uniform_int_distribution<int> sideDist(0, 1);
+            m_officerDetourVehicle = vehicle;
+            m_officerDetourSide = sideDist(m_rng) == 0 ? -1 : 1;
+        }
+
+        glm::vec2 localDetour(
+            static_cast<float>(m_officerDetourSide) * detourWidth,
+            std::clamp(localY, -detourLength, detourLength)
+        );
+
+        if (std::abs(localX) >= detourWidth * 0.75f) {
+            localDetour.y = std::clamp(targetLocalY, -detourLength, detourLength);
+        }
+
+        glm::vec3 detourTarget = vehiclePos +
+                                 glm::vec3(right.x * localDetour.x + forward.x * localDetour.y,
+                                           right.y * localDetour.x + forward.y * localDetour.y,
+                                           0.0f);
+        detourTarget.z = from.z;
+        if (isOfficerPositionBlockedByVehicle(detourTarget, officerRadius)) {
+            m_officerDetourSide *= -1;
+            localDetour.x = static_cast<float>(m_officerDetourSide) * detourWidth;
+            detourTarget = vehiclePos +
+                           glm::vec3(right.x * localDetour.x + forward.x * localDetour.y,
+                                     right.y * localDetour.x + forward.y * localDetour.y,
+                                     0.0f);
+            detourTarget.z = from.z;
+        }
+
+        return detourTarget;
+    }
+
+    m_officerDetourVehicle = nullptr;
+    m_officerDetourSide = 0;
+    return target;
+}
+
+bool PoliceChaseManager::isOfficerPositionBlockedByVehicle(const glm::vec3& position, float officerRadius) const {
+    if (!m_officerColliderCallback) {
+        return false;
+    }
+
+    const auto colliders = m_officerColliderCallback();
+    for (const Collider* collider : colliders) {
+        const auto* vehicle = dynamic_cast<const Vehicle*>(collider);
+        if (!vehicle || !vehicle->isActive() || vehicle->isWrecked() || vehicle->isExploding()) {
+            continue;
+        }
+
+        const glm::vec3 vehiclePos = vehicle->getPosition();
+        const glm::vec2 vehicleSize = vehicle->getSpriteSize();
+        const glm::vec2 forward = Heading::forwardFromHeadingDeg(vehicle->getRotation().z);
+        const glm::vec2 right(forward.y, -forward.x);
+        const glm::vec2 toP(position.x - vehiclePos.x, position.y - vehiclePos.y);
+        const float localX = glm::dot(toP, right);
+        const float localY = glm::dot(toP, forward);
+        const float halfWidth = vehicleSize.x * 0.5f;
+        const float halfLength = vehicleSize.y * 0.5f;
+
+        if (std::abs(localX) < halfWidth + officerRadius &&
+            std::abs(localY) < halfLength + officerRadius) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool PoliceChaseManager::isOfficerLineOfSightBlockedByVehicle(const glm::vec3& from, const glm::vec3& target,
+                                                              float clearanceRadius) const {
+    if (!m_officerColliderCallback) {
+        return false;
+    }
+
+    const auto colliders = m_officerColliderCallback();
+    for (const Collider* collider : colliders) {
+        const auto* vehicle = dynamic_cast<const Vehicle*>(collider);
+        if (!vehicle || !vehicle->isActive() || vehicle->isWrecked() || vehicle->isExploding()) {
+            continue;
+        }
+        if (segmentIntersectsVehicle(from, target, vehicle, clearanceRadius, true)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool PoliceChaseManager::segmentIntersectsVehicle(const glm::vec3& from, const glm::vec3& target,
+                                                  const Vehicle* vehicle, float clearanceRadius,
+                                                  bool ignoreIfTargetInside) const {
+    if (!vehicle) {
+        return false;
+    }
+
+    const glm::vec3 vehiclePos = vehicle->getPosition();
+    const glm::vec2 vehicleSize = vehicle->getSpriteSize();
+    const glm::vec2 forward = Heading::forwardFromHeadingDeg(vehicle->getRotation().z);
+    const glm::vec2 right(forward.y, -forward.x);
+    const float halfWidth = vehicleSize.x * 0.5f + clearanceRadius;
+    const float halfLength = vehicleSize.y * 0.5f + clearanceRadius;
+
+    auto toLocal = [&](const glm::vec3& worldPos) {
+        const glm::vec2 toP(worldPos.x - vehiclePos.x, worldPos.y - vehiclePos.y);
+        return glm::vec2(glm::dot(toP, right), glm::dot(toP, forward));
+    };
+
+    const glm::vec2 start = toLocal(from);
+    const glm::vec2 end = toLocal(target);
+    const bool targetInside = std::abs(end.x) <= halfWidth && std::abs(end.y) <= halfLength;
+    if (ignoreIfTargetInside && targetInside) {
+        return false;
+    }
+
+    const glm::vec2 delta = end - start;
+    float tMin = 0.0f;
+    float tMax = 1.0f;
+
+    auto clipAxis = [&](float startCoord, float deltaCoord, float minCoord, float maxCoord) {
+        constexpr float kEpsilon = 0.0001f;
+        if (std::abs(deltaCoord) < kEpsilon) {
+            return startCoord >= minCoord && startCoord <= maxCoord;
+        }
+
+        float t1 = (minCoord - startCoord) / deltaCoord;
+        float t2 = (maxCoord - startCoord) / deltaCoord;
+        if (t1 > t2) {
+            std::swap(t1, t2);
+        }
+        tMin = std::max(tMin, t1);
+        tMax = std::min(tMax, t2);
+        return tMin <= tMax;
+    };
+
+    return clipAxis(start.x, delta.x, -halfWidth, halfWidth) &&
+           clipAxis(start.y, delta.y, -halfLength, halfLength) &&
+           tMax >= 0.0f && tMin <= 1.0f;
 }

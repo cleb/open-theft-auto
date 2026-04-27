@@ -46,7 +46,8 @@ public:
     const glm::vec3& getReturnPos() const { return m_boothPos; }
 
     bool checkBulletHit(const glm::vec3& bulletPos, float bulletRadius);
-    void checkVehicleCollision(const glm::vec3& vehiclePos, const glm::vec2& vehicleSize, float vehicleRotation);
+    void checkVehicleCollision(const glm::vec3& vehiclePos, const glm::vec2& vehicleSize, float vehicleRotation,
+                               float vehicleSpeed);
 
     bool hasActiveEnemies() const;
 

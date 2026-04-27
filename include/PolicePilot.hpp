@@ -45,6 +45,8 @@ private:
     glm::ivec3 m_cachedGoal{-1, -1, -1};
     float m_repathCooldown = 0.0f;
     float m_detourTimer = 0.0f;
+    float m_recoveryTimer = 0.0f;
+    float m_recoveryTurnSign = 1.0f;
 
     glm::ivec3 worldToDriveGrid(const TileGrid* tileGrid, const glm::vec3& worldPos) const;
     glm::vec3 gridToDriveWorld(const TileGrid* tileGrid, const glm::ivec3& gridPos, float z) const;
@@ -56,7 +58,9 @@ private:
     float heuristicCost(const glm::ivec3& from, const glm::ivec3& goal) const;
     bool wouldCollideAt(const Vehicle* vehicle, const glm::vec3& newPos, float heading) const;
     bool canMoveTo(const TileGrid* tileGrid, const glm::vec3& fromPos, const glm::vec3& toPos) const;
+    void beginRecovery(Vehicle* vehicle, float desiredHeading);
+    bool updateRecovery(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime);
     float chooseDetourHeading(const Vehicle* vehicle, const TileGrid* tileGrid, const glm::vec3& pos,
-                              float desiredHeading, float travelDistance, bool& foundDetour) const;
+                               float desiredHeading, float travelDistance, bool& foundDetour) const;
     float angleDifference(float from, float to) const;
 };

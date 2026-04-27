@@ -228,7 +228,7 @@ void Scene::update(float deltaTime) {
                 const glm::vec3 vPos = vehicle->getPosition();
                 const glm::vec2 vSize = vehicle->getSpriteSize();
                 const float vRotation = vehicle->getRotation().z;
-                m_missionSystem.checkVehicleHitEnemies(vPos, vSize, vRotation);
+                m_missionSystem.checkVehicleHitEnemies(vPos, vSize, vRotation, vehicle->getSpeed());
             }
         }
 

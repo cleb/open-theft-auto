@@ -65,7 +65,8 @@ public:
     // Returns true if a player projectile hit a mission enemy
     bool checkProjectileHitEnemy(const glm::vec2& projPos, float projRadius);
     // Check if a vehicle overlaps a mission enemy
-    void checkVehicleHitEnemies(const glm::vec3& vehiclePos, const glm::vec2& vehicleSize, float vehicleRotation);
+    void checkVehicleHitEnemies(const glm::vec3& vehiclePos, const glm::vec2& vehicleSize, float vehicleRotation,
+                                float vehicleSpeed);
 
 private:
     std::vector<Job> m_jobs;

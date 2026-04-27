@@ -85,6 +85,8 @@ private:
     std::unique_ptr<SpriteAnimation> m_policeOfficerAnimation;
     std::unique_ptr<CombatPedestrian> m_onFootOfficer;
     Vehicle* m_officerVehicle = nullptr;
+    const Vehicle* m_officerDetourVehicle = nullptr;
+    int m_officerDetourSide = 0;
     
     // Kill tracking: timestamps of recent pedestrian kills
     std::deque<float> m_killTimestamps;
@@ -125,6 +127,14 @@ private:
     void maybeDeployOfficer(Vehicle* vehicle, const glm::vec3& playerPos);
     void tryOfficerReenterVehicle(float deltaTime, const glm::vec3& playerPos);
     void clearOfficer(bool keepCorpse);
+    glm::vec3 getOfficerVehicleEntryPoint(const glm::vec3& officerPos) const;
+    glm::vec3 adjustOfficerMovementTargetAroundVehicles(const glm::vec3& from, const glm::vec3& target,
+                                                        float officerRadius);
     glm::vec3 findValidSpawnPoint();
     bool isTooCloseToOtherVehicles(const glm::vec3& position) const;
+    bool isOfficerPositionBlockedByVehicle(const glm::vec3& position, float officerRadius) const;
+    bool isOfficerLineOfSightBlockedByVehicle(const glm::vec3& from, const glm::vec3& target,
+                                              float clearanceRadius) const;
+    bool segmentIntersectsVehicle(const glm::vec3& from, const glm::vec3& target, const Vehicle* vehicle,
+                                  float clearanceRadius, bool ignoreIfTargetInside) const;
 };

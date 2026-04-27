@@ -182,9 +182,10 @@ bool MissionSystem::checkProjectileHitEnemy(const glm::vec2& projPos, float proj
     return false;
 }
 
-void MissionSystem::checkVehicleHitEnemies(const glm::vec3& vehiclePos, const glm::vec2& vehicleSize, float vehicleRotation) {
+void MissionSystem::checkVehicleHitEnemies(const glm::vec3& vehiclePos, const glm::vec2& vehicleSize,
+                                           float vehicleRotation, float vehicleSpeed) {
     if (m_state != MissionState::Active || !m_activeJob) return;
     if (m_escortState && m_escortState->hasActiveEnemies()) {
-        m_escortState->checkVehicleCollision(vehiclePos, vehicleSize, vehicleRotation);
+        m_escortState->checkVehicleCollision(vehiclePos, vehicleSize, vehicleRotation, vehicleSpeed);
     }
 }
