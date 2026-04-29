@@ -187,6 +187,7 @@ Property examples:
 - `top=solid:grass`, `top=none` – toggles the walkable surface and texture.
 - `car=eastwest`, `car=northsouth`, etc. – assigns vehicle directions.
 - `slope=north|south|east|west|none` – turns the top surface into a simple ramp. The two vertices on the named side are raised one level (one `tile_size`), while the other two stay at this tile's base top level. Omit or set to `none` for a flat surface. The player, pedestrians, and vehicles query `TileGrid::getSurfaceHeight(...)` after each movement, so entities smoothly ride up and down slopes.
+- On sloped tiles, solid side walls keep their normal rectangular wall face and automatically add the triangular ramp side face above it.
 - `wallN=solid:wall`, `wallE=walkable` – controls wall collision and textures per face.
 
 The bundled `test_grid.tg` recreates the previous hard-coded scene:

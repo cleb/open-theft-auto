@@ -3,6 +3,32 @@
 #include "TextureManager.hpp"
 #include <iostream>
 
+namespace {
+bool isSlopeSideFace(SlopeDirection slopeDirection, WallDirection wallDirection) {
+    switch (slopeDirection) {
+        case SlopeDirection::North:
+        case SlopeDirection::South:
+            return wallDirection == WallDirection::East || wallDirection == WallDirection::West;
+        case SlopeDirection::East:
+        case SlopeDirection::West:
+            return wallDirection == WallDirection::North || wallDirection == WallDirection::South;
+        case SlopeDirection::None:
+        default:
+            return false;
+    }
+}
+
+glm::vec3 wallNormal(WallDirection dir) {
+    switch (dir) {
+        case WallDirection::North: return {0.0f, 1.0f, 0.0f};
+        case WallDirection::South: return {0.0f, -1.0f, 0.0f};
+        case WallDirection::East: return {1.0f, 0.0f, 0.0f};
+        case WallDirection::West: return {-1.0f, 0.0f, 0.0f};
+    }
+    return {0.0f, 1.0f, 0.0f};
+}
+} // namespace
+
 Tile::Tile(const glm::ivec3& gridPos, float tileSize) 
     : m_gridPosition(gridPos), m_tileSize(tileSize), m_meshesGenerated(false) {
     updateWorldPosition();
@@ -208,8 +234,9 @@ void Tile::createWallMesh(WallDirection dir) {
     
     float halfSize = m_tileSize / 2.0f;
     float height = m_tileSize;  // Wall height
-    
-    // Define vertices based on wall direction
+    const float highHeight = m_tileSize * 2.0f;
+
+    // Define the rectangular wall based on wall direction
     switch (dir) {
         case WallDirection::North:  // +Y wall
             vertices.push_back({{-halfSize, halfSize, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}});
@@ -240,13 +267,59 @@ void Tile::createWallMesh(WallDirection dir) {
             break;
     }
     
-    // Two triangles per wall
+    // Two triangles per rectangular wall
     indices.push_back(0);
     indices.push_back(1);
     indices.push_back(2);
     indices.push_back(2);
     indices.push_back(3);
     indices.push_back(0);
+
+    if (m_topSurface.solid && isSlopeSideFace(m_topSurface.slopeDirection, dir)) {
+        const glm::vec3 normal = wallNormal(dir);
+        glm::vec3 lowBase;
+        glm::vec3 highBase;
+        glm::vec3 highTop;
+
+        switch (dir) {
+            case WallDirection::North: {
+                const bool highEast = m_topSurface.slopeDirection == SlopeDirection::East;
+                lowBase = {highEast ? -halfSize : halfSize, halfSize, height};
+                highBase = {highEast ? halfSize : -halfSize, halfSize, height};
+                highTop = {highBase.x, halfSize, highHeight};
+                break;
+            }
+            case WallDirection::South: {
+                const bool highEast = m_topSurface.slopeDirection == SlopeDirection::East;
+                lowBase = {highEast ? -halfSize : halfSize, -halfSize, height};
+                highBase = {highEast ? halfSize : -halfSize, -halfSize, height};
+                highTop = {highBase.x, -halfSize, highHeight};
+                break;
+            }
+            case WallDirection::East: {
+                const bool highNorth = m_topSurface.slopeDirection == SlopeDirection::North;
+                lowBase = {halfSize, highNorth ? -halfSize : halfSize, height};
+                highBase = {halfSize, highNorth ? halfSize : -halfSize, height};
+                highTop = {halfSize, highBase.y, highHeight};
+                break;
+            }
+            case WallDirection::West: {
+                const bool highNorth = m_topSurface.slopeDirection == SlopeDirection::North;
+                lowBase = {-halfSize, highNorth ? -halfSize : halfSize, height};
+                highBase = {-halfSize, highNorth ? halfSize : -halfSize, height};
+                highTop = {-halfSize, highBase.y, highHeight};
+                break;
+            }
+        }
+
+        const GLuint start = static_cast<GLuint>(vertices.size());
+        vertices.push_back({lowBase, normal, {0.0f, 0.0f}});
+        vertices.push_back({highBase, normal, {1.0f, 0.0f}});
+        vertices.push_back({highTop, normal, {1.0f, 1.0f}});
+        indices.push_back(start);
+        indices.push_back(start + 1);
+        indices.push_back(start + 2);
+    }
     
     auto& wallData = m_walls[static_cast<int>(dir)];
     m_wallMeshes[static_cast<int>(dir)] = std::make_unique<Mesh>(vertices, indices);
