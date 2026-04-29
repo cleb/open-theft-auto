@@ -360,36 +360,34 @@ void Scene::drawGui() {
         return;
     }
 
-    if (!m_player || !m_player->hasWeapon()) {
+    if (!m_player) {
         return;
     }
 
     const auto equippedType = m_player->getEquippedWeaponType();
-    if (!equippedType) {
-        return;
-    }
-
-    const auto texture = TextureManager::instance().getTextureFromPath(pickupTexturePath(*equippedType));
-    if (!texture) {
-        return;
-    }
 
     ImGui::SetNextWindowPos(ImVec2(12.0f, 12.0f), ImGuiCond_Always);
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize
         | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing
         | ImGuiWindowFlags_NoBackground;
     if (ImGui::Begin("WeaponHUD", nullptr, flags)) {
-        constexpr float iconSize = 32.0f;
-        constexpr float textSpacing = 6.0f;
-        const ImVec2 startPos = ImGui::GetCursorPos();
-        ImGui::Image(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(texture->getID())),
-                     ImVec2(iconSize, iconSize),
-                     ImVec2(0.0f, 1.0f),
-                     ImVec2(1.0f, 0.0f));
-        ImGui::SameLine(0.0f, textSpacing);
-        const float textOffset = (iconSize - ImGui::GetFontSize()) * 0.5f;
-        ImGui::SetCursorPosY(startPos.y + textOffset);
-        ImGui::Text("%d", m_player->getWeaponAmmo());
+        if (equippedType) {
+            const auto texture = TextureManager::instance().getTextureFromPath(pickupTexturePath(*equippedType));
+            if (texture) {
+                constexpr float iconSize = 32.0f;
+                constexpr float textSpacing = 6.0f;
+                const ImVec2 startPos = ImGui::GetCursorPos();
+                ImGui::Image(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(texture->getID())),
+                             ImVec2(iconSize, iconSize),
+                             ImVec2(0.0f, 1.0f),
+                             ImVec2(1.0f, 0.0f));
+                ImGui::SameLine(0.0f, textSpacing);
+                const float textOffset = (iconSize - ImGui::GetFontSize()) * 0.5f;
+                ImGui::SetCursorPosY(startPos.y + textOffset);
+                ImGui::Text("%d", m_player->getWeaponAmmo());
+            }
+        }
+        ImGui::Text("$%d", m_player->getMoney());
     }
     ImGui::End();
 }
@@ -881,6 +879,10 @@ void Scene::handlePhoneBoothInteraction(float deltaTime) {
     // Check for mission success or failure
     if (m_missionSystem.getState() == MissionState::Active) {
         if (m_missionSystem.update(deltaTime, *this)) {
+            const Job* completedJob = m_missionSystem.getActiveJob();
+            if (completedJob && m_player) {
+                m_player->addMoney(completedJob->rewardMoney);
+            }
             m_missionCompletedTimer = kMissionCooldownTime;
             m_completedBoothId = m_missionSystem.getActiveBoothId();
             m_showMissionPrompt = false;

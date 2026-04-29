@@ -26,6 +26,7 @@ struct Job {
     std::string description;
     std::string completionMessage;
     std::string nextJobId;
+    int rewardMoney = 0;
     std::function<bool(const Scene&)> activationCondition;
     std::function<bool(const Scene&, const glm::vec3& boothWorldPos)> successCondition;
     std::function<void(const glm::vec3& boothWorldPos)> onStart;

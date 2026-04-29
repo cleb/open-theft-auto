@@ -12,7 +12,8 @@ Player::Player()
     , m_size(1.0f, 1.0f)
     , m_tileGrid(nullptr)
     , m_isMoving(false)
-    , m_equippedSlot(pickupTypeCount()) {
+    , m_equippedSlot(pickupTypeCount())
+    , m_money(0) {
 }
 
 bool Player::initialize() {
@@ -117,6 +118,13 @@ const char* Player::getWeaponDisplayName() const {
 int Player::getWeaponAmmo() const {
     const auto* weapon = getEquippedWeapon();
     return weapon ? weapon->getAmmo() : 0;
+}
+
+void Player::addMoney(int amount) {
+    if (amount <= 0) {
+        return;
+    }
+    m_money += amount;
 }
 
 bool Player::addAmmo(PickupType type, int amount) {

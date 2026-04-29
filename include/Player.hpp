@@ -25,6 +25,7 @@ private:
     bool m_isMoving;
     std::array<std::unique_ptr<Weapon>, pickupTypeCount()> m_weaponSlots;
     std::size_t m_equippedSlot;  // Index into m_weaponSlots; pickupTypeCount() == no weapon
+    int m_money;
     
     void applyMovement(const glm::vec3& delta);
 
@@ -51,6 +52,8 @@ public:
     std::optional<PickupType> getEquippedWeaponType() const;
     const char* getWeaponDisplayName() const;
     int getWeaponAmmo() const;
+    int getMoney() const { return m_money; }
+    void addMoney(int amount);
     bool addAmmo(PickupType type, int amount);
     void equipWeapon(PickupType type, std::unique_ptr<Weapon> weapon);
     bool equipWeaponType(PickupType type);
