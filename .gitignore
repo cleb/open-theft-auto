@@ -1,0 +1,5 @@
+imagegen/.venv/
+imagegen/models/
+imagegen/outputs/
+imagegen/__pycache__/
+imagegen/.cache/
