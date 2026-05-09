@@ -405,22 +405,34 @@ void Scene::drawPoliceChaseGui() {
     }
 
     constexpr float iconSize = 64.0f;
+    constexpr float iconSpacing = 8.0f;
     constexpr float topMargin = 12.0f;
+    const int iconCount = std::clamp(m_policeChaseManager->getWantedPoliceUnitCount(), 1, 2);
+    const float totalWidth = iconSize * static_cast<float>(iconCount) +
+                             iconSpacing * static_cast<float>(iconCount - 1);
     const ImGuiIO& io = ImGui::GetIO();
-    const ImVec2 windowPos((io.DisplaySize.x - iconSize) * 0.5f, topMargin);
+    const ImVec2 windowPos((io.DisplaySize.x - totalWidth) * 0.5f, topMargin);
 
     ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(iconSize, iconSize), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(totalWidth, iconSize), ImGuiCond_Always);
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove
         | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing
         | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoInputs;
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(iconSpacing, 0.0f));
     if (ImGui::Begin("PoliceChaseHUD", nullptr, flags)) {
-        ImGui::Image(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(texture->getID())),
-                     ImVec2(iconSize, iconSize),
-                     ImVec2(0.0f, 1.0f),
-                     ImVec2(1.0f, 0.0f));
+        for (int i = 0; i < iconCount; ++i) {
+            if (i > 0) {
+                ImGui::SameLine();
+            }
+            ImGui::Image(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(texture->getID())),
+                         ImVec2(iconSize, iconSize),
+                         ImVec2(0.0f, 1.0f),
+                         ImVec2(1.0f, 0.0f));
+        }
     }
     ImGui::End();
+    ImGui::PopStyleVar(2);
 }
 
 void Scene::processInput(InputManager* input, float deltaTime) {

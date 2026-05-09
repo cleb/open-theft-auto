@@ -67,6 +67,7 @@ public:
     
     // Chase state
     bool isChaseActive() const { return m_chaseActive; }
+    int getWantedPoliceUnitCount() const { return m_wantedPoliceUnits; }
     int getRecentKillCount() const;
 
 private:
@@ -81,10 +82,15 @@ private:
     AddVehicleCallback m_addVehicleCallback;
     ColliderCallback m_officerColliderCallback;  // Used for officer-vs-vehicle collision
 
-    // On-foot police officer state (one officer for now)
+    struct OfficerUnit {
+        std::unique_ptr<CombatPedestrian> officer;
+        Vehicle* vehicle = nullptr;
+        bool deathHandled = false;
+    };
+
+    // On-foot police officer state
     std::unique_ptr<SpriteAnimation> m_policeOfficerAnimation;
-    std::unique_ptr<CombatPedestrian> m_onFootOfficer;
-    Vehicle* m_officerVehicle = nullptr;
+    std::vector<OfficerUnit> m_onFootOfficers;
     const Vehicle* m_officerDetourVehicle = nullptr;
     int m_officerDetourSide = 0;
     
@@ -98,6 +104,7 @@ private:
     float m_viewMargin;            // Margin for spawn zone
     bool m_enabled;
     bool m_chaseActive;
+    int m_wantedPoliceUnits = 1;
     
     // Projection info for view bounds
     float m_fovRadians;
@@ -124,10 +131,15 @@ private:
     void updatePoliceVehicles(float deltaTime);
     void despawnOutOfViewPoliceVehicles();
     void updateOfficer(float deltaTime);
+    void ensureWantedPoliceUnits();
+    int getActivePoliceUnitCount() const;
+    bool isVehicleAssignedToOfficer(const Vehicle* vehicle) const;
+    void handleOfficerKilled(OfficerUnit& unit);
+    void updateOfficerUnit(OfficerUnit& unit, float deltaTime, const glm::vec3& playerPos);
     void maybeDeployOfficer(Vehicle* vehicle, const glm::vec3& playerPos);
-    void tryOfficerReenterVehicle(float deltaTime, const glm::vec3& playerPos);
-    void clearOfficer(bool keepCorpse);
-    glm::vec3 getOfficerVehicleEntryPoint(const glm::vec3& officerPos) const;
+    void tryOfficerReenterVehicle(OfficerUnit& unit, float deltaTime, const glm::vec3& playerPos);
+    void clearOfficer(OfficerUnit& unit, bool keepCorpse);
+    glm::vec3 getOfficerVehicleEntryPoint(const OfficerUnit& unit, const glm::vec3& officerPos) const;
     glm::vec3 adjustOfficerMovementTargetAroundVehicles(const glm::vec3& from, const glm::vec3& target,
                                                         float officerRadius);
     glm::vec3 findValidSpawnPoint();
