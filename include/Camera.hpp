@@ -13,6 +13,8 @@ private:
     void updateViewMatrix();
 
 public:
+    static constexpr float DefaultHeight = 27.7f;
+
     Camera();
     ~Camera() = default;
     

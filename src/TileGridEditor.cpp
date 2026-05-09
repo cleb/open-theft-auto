@@ -506,7 +506,7 @@ void TileGridEditor::processInput(InputManager* input, float deltaTime) {
                 if (Camera* camera = m_renderer->getCamera()) {
                     constexpr float kZoomStep = 1.5f;
                     constexpr float kMinCameraHeight = 4.0f;
-                    constexpr float kMaxCameraHeight = 40.0f;
+                    constexpr float kMaxCameraHeight = 64.0f;
                     glm::vec3 cameraPos = camera->getPosition();
                     cameraPos.z = std::clamp(
                         cameraPos.z - static_cast<float>(scrollY) * kZoomStep,

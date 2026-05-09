@@ -6,10 +6,12 @@ namespace {
 // Lift sprites slightly above the ground/slope surface so they render on top
 // of the terrain rather than z-fighting with it.
 constexpr float kSpriteZBias = 0.1f;
+constexpr float kDefaultFovRadians = glm::radians(60.0f);
+constexpr float kFarClipDistance = 160.0f;
 }
 
 Renderer::Renderer()
-    : m_fovRadians(1.57f)
+    : m_fovRadians(kDefaultFovRadians)
     , m_aspectRatio(16.0f / 9.0f)
     , m_spriteVAO(0)
     , m_spriteVBO(0) {
@@ -33,11 +35,11 @@ bool Renderer::initialize(int windowWidth, int windowHeight) {
     
     // Initialize projection matrix (orthographic for 2.5D)
     m_aspectRatio = static_cast<float>(windowWidth) / static_cast<float>(windowHeight);
-    m_projectionMatrix = glm::perspective(m_fovRadians, m_aspectRatio, 0.1f, 64.0f);
+    m_projectionMatrix = glm::perspective(m_fovRadians, m_aspectRatio, 0.1f, kFarClipDistance);
     
     // Initialize camera
     m_camera = std::make_unique<Camera>();
-    m_camera->setPosition(glm::vec3(0.0f, 0.0f, 12.0f));
+    m_camera->setPosition(glm::vec3(0.0f, 0.0f, Camera::DefaultHeight));
     m_camera->lookAt(glm::vec3(0.0f, 0.0f, 0.0f));
     
     // Initialize sprite rendering data
@@ -415,7 +417,7 @@ void Renderer::onWindowResize(int width, int height) {
 
     // Update projection matrix (use perspective to match initialize)
     m_aspectRatio = static_cast<float>(width) / static_cast<float>(height);
-    m_projectionMatrix = glm::perspective(m_fovRadians, m_aspectRatio, 0.1f, 64.0f);
+    m_projectionMatrix = glm::perspective(m_fovRadians, m_aspectRatio, 0.1f, kFarClipDistance);
 }
 
 bool Renderer::screenToWorldPosition(double mouseX, double mouseY, int windowWidth, int windowHeight,

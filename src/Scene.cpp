@@ -53,7 +53,7 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     // Initialize traffic manager
     m_trafficManager = std::make_unique<TrafficManager>();
     m_trafficManager->initialize(m_tileGrid.get(), renderer->getCamera(), &m_vehicles);
-    m_trafficManager->setProjectionInfo(1.57f, window->getAspectRatio());
+    m_trafficManager->setProjectionInfo(renderer->getFovRadians(), window->getAspectRatio());
     m_trafficManager->setAddVehicleCallback([this](std::unique_ptr<Vehicle> v) {
         addVehicle(std::move(v));
     });
@@ -61,7 +61,7 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     // Initialize pedestrian manager
     m_pedestrianManager = std::make_unique<PedestrianManager>();
     m_pedestrianManager->initialize(m_tileGrid.get(), renderer->getCamera());
-    m_pedestrianManager->setProjectionInfo(1.57f, window->getAspectRatio());
+    m_pedestrianManager->setProjectionInfo(renderer->getFovRadians(), window->getAspectRatio());
     
     // Connect traffic manager to pedestrian manager for carjack callbacks
     m_trafficManager->setPedestrianManager(m_pedestrianManager.get());
@@ -80,7 +80,7 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     // Initialize police chase manager
     m_policeChaseManager = std::make_unique<PoliceChaseManager>();
     m_policeChaseManager->initialize(m_tileGrid.get(), renderer->getCamera(), m_player.get(), m_trafficManager.get(), &m_vehicles);
-    m_policeChaseManager->setProjectionInfo(1.57f, window->getAspectRatio());
+    m_policeChaseManager->setProjectionInfo(renderer->getFovRadians(), window->getAspectRatio());
     m_policeChaseManager->setAddVehicleCallback([this](std::unique_ptr<Vehicle> v) {
         addVehicle(std::move(v));
     });
