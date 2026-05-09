@@ -13,6 +13,7 @@
 #include <random>
 #include <deque>
 #include <functional>
+#include <string>
 
 class Renderer;
 class Player;
@@ -67,7 +68,7 @@ public:
     
     // Chase state
     bool isChaseActive() const { return m_chaseActive; }
-    int getWantedPoliceUnitCount() const { return m_wantedPoliceUnits; }
+    int getWantedPoliceUnitCount() const { return m_wantedLevel; }
     int getRecentKillCount() const;
 
 private:
@@ -104,7 +105,9 @@ private:
     float m_viewMargin;            // Margin for spawn zone
     bool m_enabled;
     bool m_chaseActive;
-    int m_wantedPoliceUnits = 1;
+    int m_wantedLevel = 0;
+    int m_civilianKillOffensesAtWantedLevel = 0;
+    int m_directOffensesAtWantedLevel = 0;
     
     // Projection info for view bounds
     float m_fovRadians;
@@ -123,6 +126,11 @@ private:
     // Helper methods
     bool isAnyPoliceVehicleOnScreen() const;
     void triggerChase();
+    void increaseWantedLevel(const std::string& reason);
+    void recordCivilianKillOffense(const std::string& reason);
+    void recordDirectWantedOffense(const std::string& reason);
+    int getCivilianKillThresholdForCurrentLevel() const;
+    int getDirectOffenseThresholdForCurrentLevel() const;
     void activatePoliceVehicles();
     void checkChaseCondition();
     void cleanupOldKills();

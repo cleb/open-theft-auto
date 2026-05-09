@@ -404,13 +404,18 @@ void Scene::drawPoliceChaseGui() {
         return;
     }
 
-    constexpr float iconSize = 64.0f;
+    constexpr float defaultIconSize = 64.0f;
     constexpr float iconSpacing = 8.0f;
     constexpr float topMargin = 12.0f;
-    const int iconCount = std::clamp(m_policeChaseManager->getWantedPoliceUnitCount(), 1, 2);
+    constexpr float horizontalMargin = 12.0f;
+    const int iconCount = std::max(1, m_policeChaseManager->getWantedPoliceUnitCount());
+    const ImGuiIO& io = ImGui::GetIO();
+    const float maxWidth = std::max(defaultIconSize, io.DisplaySize.x - horizontalMargin * 2.0f);
+    const float maxIconSize = (maxWidth - iconSpacing * static_cast<float>(iconCount - 1)) /
+                              static_cast<float>(iconCount);
+    const float iconSize = std::clamp(maxIconSize, 24.0f, defaultIconSize);
     const float totalWidth = iconSize * static_cast<float>(iconCount) +
                              iconSpacing * static_cast<float>(iconCount - 1);
-    const ImGuiIO& io = ImGui::GetIO();
     const ImVec2 windowPos((io.DisplaySize.x - totalWidth) * 0.5f, topMargin);
 
     ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always);
@@ -925,6 +930,9 @@ void Scene::handlePhoneBoothInteraction(float deltaTime) {
             const Job* completedJob = m_missionSystem.getActiveJob();
             if (completedJob && m_player) {
                 m_player->addMoney(completedJob->rewardMoney);
+            }
+            if (completedJob && completedJob->id == "police_delivery" && m_policeChaseManager) {
+                m_policeChaseManager->reset();
             }
             m_missionCompletedTimer = kMissionCooldownTime;
             m_completedBoothId = m_missionSystem.getActiveBoothId();

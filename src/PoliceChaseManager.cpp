@@ -8,6 +8,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 PoliceChaseManager::PoliceChaseManager()
     : m_tileGrid(nullptr)
@@ -55,7 +56,9 @@ void PoliceChaseManager::reset() {
     m_killTimestamps.clear();
     m_currentTime = 0.0f;
     m_chaseActive = false;
-    m_wantedPoliceUnits = 1;
+    m_wantedLevel = 0;
+    m_civilianKillOffensesAtWantedLevel = 0;
+    m_directOffensesAtWantedLevel = 0;
     
     std::cout << "PoliceChaseManager reset" << std::endl;
 }
@@ -77,58 +80,58 @@ std::vector<Pedestrian*> PoliceChaseManager::getShootableOfficers() const {
 
 void PoliceChaseManager::onPlayerFiredWeapon() {
     if (!m_enabled) return;
-    if (m_chaseActive) return;
-    
+
     if (isAnyPoliceVehicleOnScreen()) {
-        std::cout << "WANTED! Police chase initiated - player fired weapon with police on screen!" << std::endl;
-        triggerChase();
+        recordDirectWantedOffense("player fired weapon with police on screen");
     }
 }
 
 void PoliceChaseManager::onPedestrianRunDown() {
     if (!m_enabled) return;
-    
-    // Record the kill timestamp
-    m_killTimestamps.push_back(m_currentTime);
-    
-    if (m_chaseActive) return;
-    
-    // Immediate trigger if police can see it
-    if (isAnyPoliceVehicleOnScreen()) {
-        std::cout << "WANTED! Police chase initiated - player ran down pedestrian with police on screen!" << std::endl;
-        triggerChase();
+
+    if (m_chaseActive) {
+        recordCivilianKillOffense("player ran down pedestrians");
         return;
     }
-    
+
+    // Immediate trigger if police can see it
+    if (isAnyPoliceVehicleOnScreen()) {
+        increaseWantedLevel("player ran down pedestrian with police on screen");
+        return;
+    }
+
+    // Record the kill timestamp
+    m_killTimestamps.push_back(m_currentTime);
+
     // Fallback: check kill threshold (3 kills triggers chase even without police on screen)
     checkChaseCondition();
 }
 
 void PoliceChaseManager::onPedestrianKilledByGunfire() {
     if (!m_enabled) return;
-    
-    // Record the kill timestamp
-    m_killTimestamps.push_back(m_currentTime);
-    
-    if (m_chaseActive) return;
-    
-    // Immediate trigger if police can see it
-    if (isAnyPoliceVehicleOnScreen()) {
-        std::cout << "WANTED! Police chase initiated - player killed pedestrian with police on screen!" << std::endl;
-        triggerChase();
+
+    if (m_chaseActive) {
+        recordCivilianKillOffense("player killed pedestrians with gunfire");
         return;
     }
-    
+
+    // Immediate trigger if police can see it
+    if (isAnyPoliceVehicleOnScreen()) {
+        increaseWantedLevel("player killed pedestrian with police on screen");
+        return;
+    }
+
+    // Record the kill timestamp
+    m_killTimestamps.push_back(m_currentTime);
+
     // Fallback: check kill threshold (3 kills triggers chase even without police on screen)
     checkChaseCondition();
 }
 
 void PoliceChaseManager::onPlayerCausedVehicleExplosion() {
     if (!m_enabled) return;
-    if (m_chaseActive) return;
-    
-    std::cout << "WANTED! Police chase initiated after player-caused vehicle explosion!" << std::endl;
-    triggerChase();
+
+    recordDirectWantedOffense("player-caused vehicle explosion");
 }
 
 bool PoliceChaseManager::isAnyPoliceVehicleOnScreen() const {
@@ -150,7 +153,7 @@ bool PoliceChaseManager::isAnyPoliceVehicleOnScreen() const {
 
 void PoliceChaseManager::triggerChase() {
     m_chaseActive = true;
-    m_wantedPoliceUnits = std::max(m_wantedPoliceUnits, 1);
+    m_wantedLevel = std::max(m_wantedLevel, 1);
     
     // Check if any police vehicles already exist
     bool hasPoliceVehicles = false;
@@ -174,12 +177,64 @@ void PoliceChaseManager::triggerChase() {
     ensureWantedPoliceUnits();
 }
 
+void PoliceChaseManager::increaseWantedLevel(const std::string& reason) {
+    ++m_wantedLevel;
+    m_chaseActive = true;
+    m_civilianKillOffensesAtWantedLevel = 0;
+    m_directOffensesAtWantedLevel = 0;
+
+    std::cout << "WANTED LEVEL " << m_wantedLevel << "! Police response increased after "
+              << reason << "." << std::endl;
+    triggerChase();
+}
+
+void PoliceChaseManager::recordCivilianKillOffense(const std::string& reason) {
+    if (!m_chaseActive) {
+        increaseWantedLevel(reason);
+        return;
+    }
+
+    ++m_civilianKillOffensesAtWantedLevel;
+    if (m_civilianKillOffensesAtWantedLevel >= getCivilianKillThresholdForCurrentLevel()) {
+        increaseWantedLevel(reason);
+    }
+}
+
+void PoliceChaseManager::recordDirectWantedOffense(const std::string& reason) {
+    if (!m_chaseActive) {
+        increaseWantedLevel(reason);
+        return;
+    }
+
+    ++m_directOffensesAtWantedLevel;
+    if (m_directOffensesAtWantedLevel >= getDirectOffenseThresholdForCurrentLevel()) {
+        increaseWantedLevel(reason);
+    }
+}
+
+int PoliceChaseManager::getCivilianKillThresholdForCurrentLevel() const {
+    const int shift = std::max(0, m_wantedLevel);
+    if (shift >= 30 || m_killThreshold > std::numeric_limits<int>::max() / (1 << shift)) {
+        return std::numeric_limits<int>::max();
+    }
+    return m_killThreshold * (1 << shift);
+}
+
+int PoliceChaseManager::getDirectOffenseThresholdForCurrentLevel() const {
+    const int shift = std::max(0, m_wantedLevel - 1);
+    if (shift >= 30) {
+        return std::numeric_limits<int>::max();
+    }
+    return 1 << shift;
+}
+
 void PoliceChaseManager::activatePoliceVehicles() {
     if (!m_vehicles) return;
     
     for (auto& v : *m_vehicles) {
         if (!v || v->getOwner() != VehicleOwner::Police) continue;
         if (!v->isActive() || v->isWrecked() || v->isExploding()) continue;
+        if (isVehicleAssignedToOfficer(v.get())) continue;
         
         // Check if the vehicle already has a PolicePilot (already activated)
         if (dynamic_cast<PolicePilot*>(v->getPilot()) != nullptr) continue;
@@ -275,8 +330,7 @@ void PoliceChaseManager::checkChaseCondition() {
     int recentKills = getRecentKillCount();
     
     if (recentKills >= m_killThreshold) {
-        std::cout << "WANTED! Police chase initiated after " << recentKills << " pedestrian kills!" << std::endl;
-        triggerChase();
+        increaseWantedLevel(std::to_string(recentKills) + " pedestrian kills");
     }
 }
 
@@ -450,7 +504,7 @@ void PoliceChaseManager::ensureWantedPoliceUnits() {
         return;
     }
 
-    while (getActivePoliceUnitCount() < m_wantedPoliceUnits) {
+    while (getActivePoliceUnitCount() < m_wantedLevel) {
         spawnPoliceVehicle();
     }
 }
@@ -493,10 +547,11 @@ void PoliceChaseManager::handleOfficerKilled(OfficerUnit& unit) {
     }
 
     unit.deathHandled = true;
-    if (m_wantedPoliceUnits < 2) {
-        m_wantedPoliceUnits = 2;
-        std::cout << "WANTED LEVEL INCREASED! Two police units are now pursuing the player." << std::endl;
+    if (unit.vehicle && unit.vehicle->isActive()) {
+        unit.vehicle->clearPilot();
+        unit.vehicle->setSpeed(0.0f);
     }
+    recordDirectWantedOffense("police officer killed");
 }
 
 void PoliceChaseManager::updateOfficerUnit(OfficerUnit& unit, float deltaTime, const glm::vec3& playerPos) {
