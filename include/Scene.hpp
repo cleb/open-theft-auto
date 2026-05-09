@@ -107,4 +107,5 @@ private:
     void handleVehicleExploded(Vehicle* vehicle);
     void restartLevel();
     void drawMissionGui();
+    void drawPoliceChaseGui();
 };

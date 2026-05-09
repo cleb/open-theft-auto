@@ -360,6 +360,8 @@ void Scene::drawGui() {
         return;
     }
 
+    drawPoliceChaseGui();
+
     if (!m_player) {
         return;
     }
@@ -388,6 +390,35 @@ void Scene::drawGui() {
             }
         }
         ImGui::Text("$%d", m_player->getMoney());
+    }
+    ImGui::End();
+}
+
+void Scene::drawPoliceChaseGui() {
+    if (!m_policeChaseManager || !m_policeChaseManager->isChaseActive()) {
+        return;
+    }
+
+    const auto texture = TextureManager::instance().getTextureFromPath("assets/textures/police-chase-indicator.png");
+    if (!texture) {
+        return;
+    }
+
+    constexpr float iconSize = 64.0f;
+    constexpr float topMargin = 12.0f;
+    const ImGuiIO& io = ImGui::GetIO();
+    const ImVec2 windowPos((io.DisplaySize.x - iconSize) * 0.5f, topMargin);
+
+    ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(iconSize, iconSize), ImGuiCond_Always);
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove
+        | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing
+        | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoInputs;
+    if (ImGui::Begin("PoliceChaseHUD", nullptr, flags)) {
+        ImGui::Image(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(texture->getID())),
+                     ImVec2(iconSize, iconSize),
+                     ImVec2(0.0f, 1.0f),
+                     ImVec2(1.0f, 0.0f));
     }
     ImGui::End();
 }
