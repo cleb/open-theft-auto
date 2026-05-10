@@ -29,6 +29,7 @@ public:
     // Key input
     bool isKeyDown(int key) const;
     bool isKeyPressed(int key) const; // True only on the frame the key was pressed
+    void setSyntheticKey(int key, bool down);
     
     // Mouse input
     bool isMouseButtonDown(int button) const;

@@ -82,6 +82,12 @@ void Window::pollEvents() {
     glfwPollEvents();
 }
 
+void Window::setVSyncEnabled(bool enabled) {
+    if (m_window) {
+        glfwSwapInterval(enabled ? 1 : 0);
+    }
+}
+
 void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height) {
     Window* windowInstance = static_cast<Window*>(glfwGetWindowUserPointer(window));
     if (windowInstance) {

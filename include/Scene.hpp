@@ -21,6 +21,7 @@
 #include "Texture.hpp"
 
 #include <string>
+#include <iosfwd>
 
 class InputManager;
 
@@ -50,6 +51,7 @@ private:
 
     // Mission system
     MissionSystem m_missionSystem;
+    bool m_debugInvincible = false;
 
     // Phone booth rendering data
     struct PhoneBoothRuntime {
@@ -91,6 +93,12 @@ public:
     PedestrianManager* getPedestrianManager() const { return m_pedestrianManager.get(); }
     PoliceChaseManager* getPoliceChaseManager() const { return m_policeChaseManager.get(); }
     bool isEditModeActive() const { return m_tileGridEditor && m_tileGridEditor->isEnabled(); }
+    void dumpDebugState(std::ostream& out, double gameTimeSeconds) const;
+    void setDebugInvincible(bool enabled);
+    bool isDebugInvincible() const { return m_debugInvincible; }
+    bool setDebugWantedLevel(int wantedLevel);
+    bool grantDebugWeapon(const std::string& weaponId, int ammo);
+    bool spawnDebugVehicle(const std::string& vehicleTypeId);
     
     // Get all collidable objects for collision detection
     std::vector<const Collider*> getAllColliders() const;

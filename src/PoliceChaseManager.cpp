@@ -344,6 +344,22 @@ int PoliceChaseManager::getRecentKillCount() const {
     return count;
 }
 
+void PoliceChaseManager::setWantedLevel(int wantedLevel) {
+    wantedLevel = std::max(0, wantedLevel);
+    if (wantedLevel == 0) {
+        reset();
+        return;
+    }
+
+    m_wantedLevel = wantedLevel;
+    m_chaseActive = true;
+    m_civilianKillOffensesAtWantedLevel = 0;
+    m_directOffensesAtWantedLevel = 0;
+    activatePoliceVehicles();
+    ensureWantedPoliceUnits();
+    std::cout << "Debug wanted level set to " << m_wantedLevel << std::endl;
+}
+
 void PoliceChaseManager::cleanupOldKills() {
     float cutoffTime = m_currentTime - m_killWindowSeconds;
     

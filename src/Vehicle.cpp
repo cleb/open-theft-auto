@@ -478,7 +478,7 @@ void Vehicle::setDeltaTexture(std::shared_ptr<Texture> deltaTexture) {
 }
 
 void Vehicle::applyDamage(CollisionDirection direction) {
-    if (direction == CollisionDirection::None) {
+    if (direction == CollisionDirection::None || m_invincible) {
         return;
     }
 
@@ -517,7 +517,7 @@ void Vehicle::resetDamage() {
 }
 
 void Vehicle::applyHit(int amount) {
-    if (amount <= 0 || m_exploding || m_hasExploded) {
+    if (amount <= 0 || m_invincible || m_exploding || m_hasExploded) {
         return;
     }
 

@@ -72,6 +72,7 @@ public:
     bool isChaseActive() const { return m_chaseActive; }
     int getWantedPoliceUnitCount() const { return m_wantedLevel; }
     int getRecentKillCount() const;
+    void setWantedLevel(int wantedLevel);
 
 private:
     TileGrid* m_tileGrid;

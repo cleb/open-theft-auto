@@ -15,13 +15,55 @@
 #include "TextureManager.hpp"
 #include "MissionSystem.hpp"
 #include <iostream>
+#include <ostream>
 #include <string>
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <glm/geometric.hpp>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
+
+namespace {
+const char* missionStateName(MissionState state) {
+    switch (state) {
+        case MissionState::Idle: return "Idle";
+        case MissionState::Prompted: return "Prompted";
+        case MissionState::Active: return "Active";
+        case MissionState::Completed: return "Completed";
+        case MissionState::Failed: return "Failed";
+    }
+    return "Unknown";
+}
+
+const char* vehicleOwnerName(VehicleOwner owner) {
+    switch (owner) {
+        case VehicleOwner::World: return "World";
+        case VehicleOwner::Traffic: return "Traffic";
+        case VehicleOwner::Police: return "Police";
+    }
+    return "Unknown";
+}
+
+void dumpVec3(std::ostream& out, const glm::vec3& value) {
+    out << "[" << value.x << "," << value.y << "," << value.z << "]";
+}
+
+void dumpVec2(std::ostream& out, const glm::vec2& value) {
+    out << "[" << value.x << "," << value.y << "]";
+}
+
+std::string normalizeDebugId(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+        if (c == '-') {
+            return '_';
+        }
+        return static_cast<char>(std::tolower(c));
+    });
+    return value;
+}
+}
 
 Scene::Scene() : m_gameLogic(nullptr), m_inputManager(nullptr) {
 }
@@ -165,7 +207,9 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
             const float vehRadius = std::max(vehSize.x, vehSize.y) * 0.5f;
             const float radius = projRadius + vehRadius;
             if ((diff.x * diff.x + diff.y * diff.y) <= radius * radius) {
-                activeVehicle->applyHit(1);
+                if (!m_debugInvincible) {
+                    activeVehicle->applyHit(1);
+                }
                 return true;
             }
             return false;
@@ -182,7 +226,9 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
         const float playerRadius = std::max(playerSize.x, playerSize.y) * 0.35f;
         const float radius = projRadius + playerRadius;
         if ((diff.x * diff.x + diff.y * diff.y) <= radius * radius) {
-            restartLevel();
+            if (!m_debugInvincible) {
+                restartLevel();
+            }
             return true;
         }
 
@@ -219,6 +265,12 @@ void Scene::update(float deltaTime) {
     // Update game logic (handles player/vehicle synchronization)
     if (m_gameLogic) {
         m_gameLogic->update(deltaTime);
+    }
+
+    if (m_gameLogic) {
+        if (Vehicle* activeVehicle = m_gameLogic->getActiveVehicle()) {
+            activeVehicle->setInvincible(m_debugInvincible);
+        }
     }
     
     // Update traffic manager (AI vehicles)
@@ -453,6 +505,187 @@ void Scene::drawPoliceChaseGui() {
     }
     ImGui::End();
     ImGui::PopStyleVar(2);
+}
+
+void Scene::dumpDebugState(std::ostream& out, double gameTimeSeconds) const {
+    int activeVehicles = 0;
+    int trafficVehicles = 0;
+    int policeVehicles = 0;
+    int wreckedVehicles = 0;
+    for (const auto& vehicle : m_vehicles) {
+        if (!vehicle) {
+            continue;
+        }
+        if (vehicle->isActive()) {
+            ++activeVehicles;
+        }
+        if (vehicle->getOwner() == VehicleOwner::Traffic) {
+            ++trafficVehicles;
+        } else if (vehicle->getOwner() == VehicleOwner::Police) {
+            ++policeVehicles;
+        }
+        if (vehicle->isWrecked()) {
+            ++wreckedVehicles;
+        }
+    }
+
+    int activePickups = 0;
+    for (const auto& pickup : m_pickups) {
+        if (pickup && pickup->isActive()) {
+            ++activePickups;
+        }
+    }
+
+    int activePedestrians = 0;
+    if (m_pedestrianManager) {
+        for (const auto& pedestrian : m_pedestrianManager->getPedestrians()) {
+            if (pedestrian && pedestrian->isActive()) {
+                ++activePedestrians;
+            }
+        }
+    }
+
+    out << "BEGIN_GAME_STATE\n";
+    out << "time_seconds=" << gameTimeSeconds << "\n";
+    out << "level_path=" << m_levelPath << "\n";
+    out << "edit_mode=" << (isEditModeActive() ? "true" : "false") << "\n";
+    out << "debug.invincible=" << (m_debugInvincible ? "true" : "false") << "\n";
+
+    if (m_player) {
+        out << "player.active=" << (m_player->isActive() ? "true" : "false") << "\n";
+        out << "player.position=";
+        dumpVec3(out, m_player->getPosition());
+        out << "\nplayer.rotation=";
+        dumpVec3(out, m_player->getRotation());
+        out << "\nplayer.speed=" << m_player->getSpeed() << "\n";
+        out << "player.money=" << m_player->getMoney() << "\n";
+        out << "player.weapon=" << m_player->getWeaponDisplayName() << "\n";
+        out << "player.ammo=" << m_player->getWeaponAmmo() << "\n";
+    } else {
+        out << "player=null\n";
+    }
+
+    out << "player.in_vehicle=" << (m_gameLogic && m_gameLogic->isPlayerInVehicle() ? "true" : "false") << "\n";
+    Vehicle* activeVehicle = m_gameLogic ? m_gameLogic->getActiveVehicle() : nullptr;
+    if (activeVehicle) {
+        out << "active_vehicle.position=";
+        dumpVec3(out, activeVehicle->getPosition());
+        out << "\nactive_vehicle.rotation=";
+        dumpVec3(out, activeVehicle->getRotation());
+        out << "\nactive_vehicle.size=";
+        dumpVec2(out, activeVehicle->getSpriteSize());
+        out << "\nactive_vehicle.speed=" << activeVehicle->getSpeed() << "\n";
+        out << "active_vehicle.health=" << activeVehicle->getHealth() << "/" << activeVehicle->getMaxHealth() << "\n";
+        out << "active_vehicle.owner=" << vehicleOwnerName(activeVehicle->getOwner()) << "\n";
+        out << "active_vehicle.type=" << activeVehicle->getVehicleTypeId() << "\n";
+        out << "active_vehicle.burning=" << (activeVehicle->isBurning() ? "true" : "false") << "\n";
+        out << "active_vehicle.exploding=" << (activeVehicle->isExploding() ? "true" : "false") << "\n";
+        out << "active_vehicle.wrecked=" << (activeVehicle->isWrecked() ? "true" : "false") << "\n";
+    }
+
+    out << "vehicles.total=" << m_vehicles.size() << "\n";
+    out << "vehicles.active=" << activeVehicles << "\n";
+    out << "vehicles.traffic=" << trafficVehicles << "\n";
+    out << "vehicles.police=" << policeVehicles << "\n";
+    out << "vehicles.wrecked=" << wreckedVehicles << "\n";
+    out << "pickups.total=" << m_pickups.size() << "\n";
+    out << "pickups.active=" << activePickups << "\n";
+    out << "pedestrians.active=" << activePedestrians << "\n";
+    out << "police.chase_active=" << (m_policeChaseManager && m_policeChaseManager->isChaseActive() ? "true" : "false") << "\n";
+    out << "police.wanted_units=" << (m_policeChaseManager ? m_policeChaseManager->getWantedPoliceUnitCount() : 0) << "\n";
+    out << "police.recent_kills=" << (m_policeChaseManager ? m_policeChaseManager->getRecentKillCount() : 0) << "\n";
+    out << "mission.state=" << missionStateName(m_missionSystem.getState()) << "\n";
+    out << "mission.active_job=" << (m_missionSystem.getActiveJob() ? m_missionSystem.getActiveJob()->id : "") << "\n";
+    out << "mission.active_booth=" << m_missionSystem.getActiveBoothId() << "\n";
+    out << "END_GAME_STATE" << std::endl;
+}
+
+void Scene::setDebugInvincible(bool enabled) {
+    m_debugInvincible = enabled;
+    for (auto& vehicle : m_vehicles) {
+        if (vehicle) {
+            vehicle->setInvincible(false);
+        }
+    }
+    if (enabled && m_gameLogic) {
+        if (Vehicle* activeVehicle = m_gameLogic->getActiveVehicle()) {
+            activeVehicle->setInvincible(true);
+        }
+    }
+    std::cout << "Debug invincibility: " << (enabled ? "ON" : "OFF") << std::endl;
+}
+
+bool Scene::setDebugWantedLevel(int wantedLevel) {
+    if (!m_policeChaseManager || wantedLevel < 0) {
+        return false;
+    }
+    m_policeChaseManager->setWantedLevel(wantedLevel);
+    return true;
+}
+
+bool Scene::grantDebugWeapon(const std::string& weaponId, int ammo) {
+    if (!m_player || ammo < 0) {
+        return false;
+    }
+
+    PickupType type;
+    if (!pickupTypeFromString(normalizeDebugId(weaponId), type)) {
+        return false;
+    }
+
+    const int grantAmmo = ammo > 0 ? ammo : 999;
+    if (!m_player->addAmmo(type, grantAmmo)) {
+        switch (type) {
+            case PickupType::Pistol:
+                m_player->equipWeapon(type, std::make_unique<PistolWeapon>(grantAmmo));
+                break;
+            case PickupType::MachineGun:
+                m_player->equipWeapon(type, std::make_unique<MachineGunWeapon>(grantAmmo));
+                break;
+        }
+    }
+    m_player->equipWeaponType(type);
+    std::cout << "Granted weapon " << pickupTypeToString(type) << " ammo=" << grantAmmo << std::endl;
+    return true;
+}
+
+bool Scene::spawnDebugVehicle(const std::string& vehicleTypeId) {
+    if (!m_player || !m_tileGrid) {
+        return false;
+    }
+
+    const std::string normalizedType = normalizeDebugId(vehicleTypeId);
+    const auto& config = VehicleConfig::getInstance();
+    const auto* typeDef = config.getDefinition(normalizedType);
+    if (!typeDef) {
+        return false;
+    }
+
+    glm::vec3 basePos = m_player->getPosition();
+    float heading = m_player->getRotation().z;
+    if (m_gameLogic && m_gameLogic->isPlayerInVehicle()) {
+        if (Vehicle* activeVehicle = m_gameLogic->getActiveVehicle()) {
+            basePos = activeVehicle->getPosition();
+            heading = activeVehicle->getRotation().z;
+        }
+    }
+
+    const glm::vec2 forward = Heading::forwardFromHeadingDeg(heading);
+    glm::vec3 spawnPos = basePos + glm::vec3(forward.x, forward.y, 0.0f) * (typeDef->size.y + 2.0f);
+    spawnPos.z = m_tileGrid->getSurfaceHeightForFootprint(spawnPos, typeDef->size, glm::vec2(0.0f), basePos.z) + 0.1f;
+
+    auto vehicle = std::make_unique<Vehicle>();
+    vehicle->setVehicleType(normalizedType);
+    vehicle->initialize(typeDef->texturePath);
+    vehicle->setSpriteSize(typeDef->size);
+    vehicle->setPosition(spawnPos);
+    vehicle->setRotation(glm::vec3(0.0f, 0.0f, heading));
+    vehicle->setOwner(VehicleOwner::World);
+    addVehicle(std::move(vehicle));
+
+    std::cout << "Spawned vehicle " << normalizedType << " at ("
+              << spawnPos.x << ", " << spawnPos.y << ", " << spawnPos.z << ")" << std::endl;
+    return true;
 }
 
 void Scene::processInput(InputManager* input, float deltaTime) {
@@ -878,7 +1111,7 @@ void Scene::handleVehicleExploded(Vehicle* vehicle) {
     }
 
     const bool playerInside = m_gameLogic && m_gameLogic->getActiveVehicle() == vehicle;
-    if (playerInside) {
+    if (playerInside && !m_debugInvincible) {
         restartLevel();
     }
 }

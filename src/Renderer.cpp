@@ -1,6 +1,10 @@
 #include "Renderer.hpp"
 #include <iostream>
+#include <algorithm>
+#include <filesystem>
+#include <vector>
 #include <GL/glew.h>
+#include <stb/stb_image_write.h>
 
 namespace {
 // Lift sprites slightly above the ground/slope surface so they render on top
@@ -418,6 +422,43 @@ void Renderer::onWindowResize(int width, int height) {
     // Update projection matrix (use perspective to match initialize)
     m_aspectRatio = static_cast<float>(width) / static_cast<float>(height);
     m_projectionMatrix = glm::perspective(m_fovRadians, m_aspectRatio, 0.1f, kFarClipDistance);
+}
+
+bool Renderer::saveScreenshot(const std::string& path, int width, int height) const {
+    if (path.empty() || width <= 0 || height <= 0) {
+        std::cerr << "Cannot save screenshot: invalid path or dimensions" << std::endl;
+        return false;
+    }
+
+    std::filesystem::path outputPath(path);
+    if (outputPath.has_parent_path()) {
+        std::error_code ec;
+        std::filesystem::create_directories(outputPath.parent_path(), ec);
+        if (ec) {
+            std::cerr << "Cannot create screenshot directory '" << outputPath.parent_path().string()
+                      << "': " << ec.message() << std::endl;
+            return false;
+        }
+    }
+
+    std::vector<unsigned char> pixels(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4);
+    std::vector<unsigned char> flipped(pixels.size());
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadBuffer(GL_BACK);
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+
+    const std::size_t stride = static_cast<std::size_t>(width) * 4;
+    for (int y = 0; y < height; ++y) {
+        const auto src = pixels.begin() + static_cast<std::ptrdiff_t>(y) * static_cast<std::ptrdiff_t>(stride);
+        const auto dst = flipped.begin() + static_cast<std::ptrdiff_t>(height - 1 - y) * static_cast<std::ptrdiff_t>(stride);
+        std::copy(src, src + static_cast<std::ptrdiff_t>(stride), dst);
+    }
+
+    if (!stbi_write_png(path.c_str(), width, height, 4, flipped.data(), static_cast<int>(stride))) {
+        std::cerr << "Failed to write screenshot '" << path << "'" << std::endl;
+        return false;
+    }
+    return true;
 }
 
 bool Renderer::screenToWorldPosition(double mouseX, double mouseY, int windowWidth, int windowHeight,

@@ -102,6 +102,37 @@ mingw32-make -j4
 - **ESC**: Exit game
 - **F1**: Toggle map edit mode
 
+## Agent Debug Mode
+
+Run the game with `--agent-debug` to start a line-oriented prompt for automated debugging:
+
+```bash
+./build/bin/GTA_CPP --agent-debug
+```
+
+In this mode, wall-clock time does not drive simulation. Commands advance the game clock in fixed 1/60s steps and can hold synthetic player input while time advances, which lets agents reproduce movement and interactions deterministically.
+
+Common commands:
+
+| Command | Effect |
+| --- | --- |
+| `L 6s` | Hold the left arrow for 6 simulated seconds. |
+| `U+L 500ms` | Hold up and left together for 0.5 simulated seconds. |
+| `hold <keys> <duration>` | Explicit form of the shorthand key-hold command. |
+| `tap ENTER` | Press a key chord for one 1/60s frame, useful for enter/exit vehicle. |
+| `wait 2s` | Advance game time with no synthetic keys held. |
+| `dump` | Print machine-readable game state between `BEGIN_GAME_STATE` and `END_GAME_STATE`. |
+| `screenshot [path]` | Save a PNG screenshot. The default path is `debug-screenshots/agent-debug-N.png`, which is ignored by Git. |
+| `invincible [on\|off]` | Toggle or set player/current-vehicle invincibility. |
+| `wanted <level>` | Set the wanted level; `wanted 0` clears the chase. |
+| `weapon <type> [ammo]` | Grant and equip a weapon, for example `weapon pistol 50` or `weapon machine_gun`. |
+| `vehicle <type>` | Spawn a configured vehicle near the player, for example `vehicle pickup`; use `vehicles` to list ids. |
+| `cheat <command...>` | Optional prefix for cheat commands, for example `cheat invincible on`. |
+| `help` | Print prompt help. |
+| `quit` | Exit the game. |
+
+Key tokens: `L`, `R`, `U`, and `D` are the arrow keys. `w`, `a`, `s`, and lowercase `d` are WASD keys; use `KEY_D` if uppercase is easier in a script. Other supported tokens include `ENTER`, `SPACE`, `CTRL`, `SHIFT`, `PLUS`, `MINUS`, `F1`, and `F2`. Combine keys with `+`, for example `CTRL+PLUS 100ms`.
+
 ### Edit Mode Shortcuts
 
 - **WASD / Arrow Keys**: Move tile cursor

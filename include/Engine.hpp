@@ -2,6 +2,9 @@
 
 #include <memory>
 #include <chrono>
+#include <iosfwd>
+#include <string>
+#include <vector>
 #include "Window.hpp"
 #include "Renderer.hpp"
 #include "InputManager.hpp"
@@ -20,11 +23,18 @@ private:
     std::chrono::high_resolution_clock::time_point m_lastTime;
     float m_deltaTime;
     bool m_imguiInitialized;
+    bool m_agentDebugMode;
+    double m_agentDebugTimeSeconds;
+    int m_agentDebugScreenshotIndex;
     
     void calculateDeltaTime();
     void processInput();
     void update(float deltaTime);
     void render();
+    void runFrame(float deltaTime, bool processInputAndUpdate, const std::string& screenshotPath = std::string());
+    void advanceAgentDebugTime(float durationSeconds, const std::vector<int>& heldKeys);
+    bool runAgentDebugCommand(const std::string& line);
+    std::string nextAgentDebugScreenshotPath();
 
 public:
     Engine();
@@ -33,6 +43,10 @@ public:
     bool initialize(int width, int height, const std::string& title);
     void run();
     void shutdown();
+    void setAgentDebugMode(bool enabled) { m_agentDebugMode = enabled; }
+    bool isAgentDebugMode() const { return m_agentDebugMode; }
+    void runAgentDebugPrompt();
+    void dumpAgentDebugState(std::ostream& out) const;
     
     Window* getWindow() const { return m_window.get(); }
     Renderer* getRenderer() const { return m_renderer.get(); }

@@ -79,6 +79,7 @@ private:
     float m_explosionTimer = 0.0f;
     float m_collisionDamageCooldown = 0.0f;
     bool m_wasShotByPlayer = false;
+    bool m_invincible = false;
     VehicleExplodeCallback m_explodeCallback;
     std::shared_ptr<Texture> m_explodedTexture;
 
@@ -155,6 +156,8 @@ public:
     bool isBurning() const { return m_burning; }
     bool isExploding() const { return m_exploding; }
     bool isWrecked() const { return m_hasExploded; }
+    void setInvincible(bool invincible) { m_invincible = invincible; }
+    bool isInvincible() const { return m_invincible; }
     
     // Collision state management (prevents repeated damage application)
     void setInCollision(bool inCollision) { m_inCollision = inCollision; }

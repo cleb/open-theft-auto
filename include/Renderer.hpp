@@ -105,6 +105,7 @@ public:
     float getAspectRatio() const { return m_aspectRatio; }
 
     void onWindowResize(int width, int height);
+    bool saveScreenshot(const std::string& path, int width, int height) const;
     
     // Convert screen coordinates to world position at a given Z plane
     // Uses inverse view-projection matrix to unproject screen coordinates

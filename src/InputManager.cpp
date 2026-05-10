@@ -73,6 +73,17 @@ bool InputManager::isKeyPressed(int key) const {
     return it != m_keysPressed.end() && it->second;
 }
 
+void InputManager::setSyntheticKey(int key, bool down) {
+    if (down) {
+        if (!isKeyDown(key)) {
+            m_keysPressed[key] = true;
+        }
+        m_keys[key] = true;
+    } else {
+        m_keys[key] = false;
+    }
+}
+
 bool InputManager::isMouseButtonDown(int button) const {
     auto it = m_mouseButtons.find(button);
     return it != m_mouseButtons.end() && it->second;

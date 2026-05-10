@@ -26,6 +26,7 @@ public:
     bool shouldClose() const;
     void swapBuffers();
     void pollEvents();
+    void setVSyncEnabled(bool enabled);
     
     GLFWwindow* getGLFWWindow() const { return m_window; }
     int getWidth() const { return m_width; }

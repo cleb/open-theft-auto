@@ -3,3 +3,4 @@ imagegen/models/
 imagegen/outputs/
 imagegen/__pycache__/
 imagegen/.cache/
+debug-screenshots/
