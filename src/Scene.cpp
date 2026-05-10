@@ -949,12 +949,15 @@ void Scene::handlePhoneBoothInteraction(float deltaTime) {
         return;
     }
 
+    if (m_gameLogic && m_gameLogic->isPlayerInVehicle()) {
+        m_showMissionPrompt = false;
+        m_promptJob = nullptr;
+        return;
+    }
+
     // Check proximity to active phone booths
     glm::vec3 playerPos(0.0f);
-    if (m_gameLogic && m_gameLogic->isPlayerInVehicle()) {
-        const Vehicle* v = m_gameLogic->getActiveVehicle();
-        if (v) playerPos = v->getPosition();
-    } else if (m_player) {
+    if (m_player) {
         playerPos = m_player->getPosition();
     }
 
@@ -1015,9 +1018,14 @@ void Scene::drawMissionGui() {
             ImGui::Separator();
             ImGui::TextWrapped("%s", m_promptJob->description.c_str());
             ImGui::Spacing();
-            if (ImGui::Button("Accept [Enter]") || ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+            const bool playerInVehicle = m_gameLogic && m_gameLogic->isPlayerInVehicle();
+            if (!playerInVehicle && (ImGui::Button("Accept [Enter]") || ImGui::IsKeyPressed(ImGuiKey_Enter))) {
                 m_missionSystem.startMission(m_promptJob, m_promptBoothId, m_promptBoothWorldPos);
                 m_showMissionPrompt = false;
+            } else if (playerInVehicle) {
+                ImGui::BeginDisabled();
+                ImGui::Button("Accept [Enter]");
+                ImGui::EndDisabled();
             }
         }
         ImGui::End();
