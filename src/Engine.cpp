@@ -108,6 +108,20 @@ bool parseNonNegativeInt(const std::string& token, int& value) {
     }
 }
 
+bool parseFloatValue(const std::string& token, float& value) {
+    try {
+        std::size_t parsed = 0;
+        const float parsedValue = std::stof(token, &parsed);
+        if (parsed != token.size() || !std::isfinite(parsedValue)) {
+            return false;
+        }
+        value = parsedValue;
+        return true;
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+
 bool parseKeyToken(const std::string& rawToken, int& key) {
     static const std::unordered_map<std::string, int> namedKeys = {
         {"LEFT", GLFW_KEY_LEFT},
@@ -171,6 +185,10 @@ void printAgentDebugHelp(std::ostream& out) {
         << "  wanted <level>          Set wanted level; 0 clears the chase\n"
         << "  weapon <type> [ammo]    Grant and equip a weapon, e.g. weapon pistol 50\n"
         << "  vehicle <type>          Spawn a configured vehicle near the player, e.g. vehicle pickup\n"
+        << "  vehicle_at <type> <x> <y> <heading>  Spawn a vehicle at an exact world position\n"
+        << "  officer_at <x> <y> <heading>         Spawn an on-foot officer at an exact position\n"
+        << "  teleport <x> <y> [heading]           Move the player/current vehicle to an exact world position\n"
+        << "  enter [radius]         Enter the nearest vehicle, default radius 6\n"
         << "  vehicles                List configured vehicle type ids\n"
         << "  cheat <command...>      Optional prefix for cheat commands\n"
         << "  help                    Show this help\n"
@@ -525,6 +543,55 @@ bool Engine::runAgentDebugCommand(const std::string& rawLine) {
                 std::cout << " " << def.id;
             }
             std::cout << std::endl;
+            return true;
+        }
+        return true;
+    }
+    if (command == "VEHICLE_AT") {
+        float x = 0.0f;
+        float y = 0.0f;
+        float heading = 0.0f;
+        if (tokens.size() != 5 || !parseFloatValue(tokens[2], x) || !parseFloatValue(tokens[3], y)
+            || !parseFloatValue(tokens[4], heading) || !m_scene
+            || !m_scene->spawnDebugVehicleAt(tokens[1], glm::vec3(x, y, 0.1f), heading)) {
+            std::cout << "Usage: vehicle_at <type> <x> <y> <heading>" << std::endl;
+            return true;
+        }
+        return true;
+    }
+    if (command == "OFFICER_AT") {
+        float x = 0.0f;
+        float y = 0.0f;
+        float heading = 0.0f;
+        if (tokens.size() != 4 || !parseFloatValue(tokens[1], x) || !parseFloatValue(tokens[2], y)
+            || !parseFloatValue(tokens[3], heading) || !m_scene
+            || !m_scene->spawnDebugOfficerAt(glm::vec3(x, y, 0.1f), heading)) {
+            std::cout << "Usage: officer_at <x> <y> <heading>" << std::endl;
+            return true;
+        }
+        return true;
+    }
+    if (command == "TELEPORT" || command == "TP") {
+        float x = 0.0f;
+        float y = 0.0f;
+        float heading = 90.0f;
+        if (tokens.size() != 3 && tokens.size() != 4) {
+            std::cout << "Usage: teleport <x> <y> [heading]" << std::endl;
+            return true;
+        }
+        if (!parseFloatValue(tokens[1], x) || !parseFloatValue(tokens[2], y) ||
+            (tokens.size() == 4 && !parseFloatValue(tokens[3], heading)) || !m_scene ||
+            !m_scene->setDebugPlayerPose(glm::vec3(x, y, 0.1f), heading)) {
+            std::cout << "Usage: teleport <x> <y> [heading]" << std::endl;
+            return true;
+        }
+        return true;
+    }
+    if (command == "ENTER") {
+        float radius = 6.0f;
+        if (tokens.size() > 2 || (tokens.size() == 2 && !parseFloatValue(tokens[1], radius)) || !m_scene
+            || !m_scene->debugEnterNearestVehicle(radius)) {
+            std::cout << "Usage: enter [radius]" << std::endl;
             return true;
         }
         return true;

@@ -99,6 +99,10 @@ public:
     bool setDebugWantedLevel(int wantedLevel);
     bool grantDebugWeapon(const std::string& weaponId, int ammo);
     bool spawnDebugVehicle(const std::string& vehicleTypeId);
+    bool spawnDebugVehicleAt(const std::string& vehicleTypeId, const glm::vec3& position, float headingDeg);
+    bool spawnDebugOfficerAt(const glm::vec3& position, float headingDeg);
+    bool setDebugPlayerPose(const glm::vec3& position, float headingDeg);
+    bool debugEnterNearestVehicle(float radius);
     
     // Get all collidable objects for collision detection
     std::vector<const Collider*> getAllColliders() const;

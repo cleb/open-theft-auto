@@ -14,6 +14,7 @@
 #include <deque>
 #include <functional>
 #include <string>
+#include <iosfwd>
 
 class Renderer;
 class Player;
@@ -73,6 +74,8 @@ public:
     int getWantedPoliceUnitCount() const { return m_wantedLevel; }
     int getRecentKillCount() const;
     void setWantedLevel(int wantedLevel);
+    void dumpDebugState(std::ostream& out) const;
+    bool debugSpawnOfficerAt(const glm::vec3& position, float headingDeg);
 
 private:
     TileGrid* m_tileGrid;

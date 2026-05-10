@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <ostream>
 
 PoliceChaseManager::PoliceChaseManager()
     : m_tileGrid(nullptr)
@@ -342,6 +343,60 @@ int PoliceChaseManager::getRecentKillCount() const {
     }
     
     return count;
+}
+
+void PoliceChaseManager::dumpDebugState(std::ostream& out) const {
+    int activeOfficerIndex = 0;
+    for (const auto& officerUnit : m_onFootOfficers) {
+        if (!officerUnit.officer || !officerUnit.officer->isAlive()) {
+            continue;
+        }
+
+        const glm::vec3 officerPos = officerUnit.officer->getPosition();
+        out << "officer." << activeOfficerIndex << ".position=["
+            << officerPos.x << "," << officerPos.y << "," << officerPos.z << "]\n";
+        if (officerUnit.vehicle) {
+            const glm::vec3 vehiclePos = officerUnit.vehicle->getPosition();
+            out << "officer." << activeOfficerIndex << ".vehicle_position=["
+                << vehiclePos.x << "," << vehiclePos.y << "," << vehiclePos.z << "]\n";
+        }
+        ++activeOfficerIndex;
+    }
+    out << "officers.active=" << activeOfficerIndex << "\n";
+}
+
+bool PoliceChaseManager::debugSpawnOfficerAt(const glm::vec3& position, float headingDeg) {
+    if (!m_policeOfficerAnimation || m_policeOfficerAnimation->getTexture() == nullptr) {
+        return false;
+    }
+
+    auto officer = std::make_unique<CombatPedestrian>();
+    officer->spawn(m_policeOfficerAnimation.get(), m_tileGrid, position, headingDeg);
+    officer->setShootCallback(m_officerShootCallback);
+    officer->setSpeed(m_officerSpeed);
+    officer->setFireDistance(m_officerFireDistance);
+    officer->setChaseDistance(5.0f);
+    officer->setShootCooldown(0.55f);
+    officer->setVehicleBlockCheck([this](const glm::vec3& testPosition, float officerRadius) {
+        return isOfficerPositionBlockedByVehicle(testPosition, officerRadius);
+    });
+    officer->setMovementTargetAdjustCallback([this](const glm::vec3& from, const glm::vec3& target,
+                                                    float officerRadius) {
+        return adjustOfficerMovementTargetAroundVehicles(from, target, officerRadius);
+    });
+    officer->setLineOfSightBlockCallback([this](const glm::vec3& from, const glm::vec3& target,
+                                                float clearanceRadius) {
+        return isOfficerLineOfSightBlockedByVehicle(from, target, clearanceRadius);
+    });
+
+    OfficerUnit unit;
+    unit.officer = std::move(officer);
+    unit.vehicle = nullptr;
+    m_onFootOfficers.push_back(std::move(unit));
+    m_chaseActive = true;
+    m_wantedLevel = std::max(m_wantedLevel, 1);
+    std::cout << "Spawned debug officer at (" << position.x << ", " << position.y << ", " << position.z << ")" << std::endl;
+    return true;
 }
 
 void PoliceChaseManager::setWantedLevel(int wantedLevel) {

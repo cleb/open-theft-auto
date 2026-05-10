@@ -588,9 +588,25 @@ void Scene::dumpDebugState(std::ostream& out, double gameTimeSeconds) const {
     out << "vehicles.traffic=" << trafficVehicles << "\n";
     out << "vehicles.police=" << policeVehicles << "\n";
     out << "vehicles.wrecked=" << wreckedVehicles << "\n";
+    for (std::size_t i = 0; i < m_vehicles.size(); ++i) {
+        const auto& vehicle = m_vehicles[i];
+        if (!vehicle || !vehicle->isActive()) {
+            continue;
+        }
+        out << "vehicle." << i << ".type=" << vehicle->getVehicleTypeId() << "\n";
+        out << "vehicle." << i << ".owner=" << vehicleOwnerName(vehicle->getOwner()) << "\n";
+        out << "vehicle." << i << ".position=";
+        dumpVec3(out, vehicle->getPosition());
+        out << "\nvehicle." << i << ".rotation=";
+        dumpVec3(out, vehicle->getRotation());
+        out << "\n";
+    }
     out << "pickups.total=" << m_pickups.size() << "\n";
     out << "pickups.active=" << activePickups << "\n";
     out << "pedestrians.active=" << activePedestrians << "\n";
+    if (m_policeChaseManager) {
+        m_policeChaseManager->dumpDebugState(out);
+    }
     out << "police.chase_active=" << (m_policeChaseManager && m_policeChaseManager->isChaseActive() ? "true" : "false") << "\n";
     out << "police.wanted_units=" << (m_policeChaseManager ? m_policeChaseManager->getWantedPoliceUnitCount() : 0) << "\n";
     out << "police.recent_kills=" << (m_policeChaseManager ? m_policeChaseManager->getRecentKillCount() : 0) << "\n";
@@ -674,18 +690,59 @@ bool Scene::spawnDebugVehicle(const std::string& vehicleTypeId) {
     glm::vec3 spawnPos = basePos + glm::vec3(forward.x, forward.y, 0.0f) * (typeDef->size.y + 2.0f);
     spawnPos.z = m_tileGrid->getSurfaceHeightForFootprint(spawnPos, typeDef->size, glm::vec2(0.0f), basePos.z) + 0.1f;
 
+    return spawnDebugVehicleAt(vehicleTypeId, spawnPos, heading);
+}
+
+bool Scene::spawnDebugVehicleAt(const std::string& vehicleTypeId, const glm::vec3& position, float headingDeg) {
+    if (!m_tileGrid) {
+        return false;
+    }
+
+    const std::string normalizedType = normalizeDebugId(vehicleTypeId);
+    const auto& config = VehicleConfig::getInstance();
+    const auto* typeDef = config.getDefinition(normalizedType);
+    if (!typeDef) {
+        return false;
+    }
+
     auto vehicle = std::make_unique<Vehicle>();
     vehicle->setVehicleType(normalizedType);
     vehicle->initialize(typeDef->texturePath);
     vehicle->setSpriteSize(typeDef->size);
-    vehicle->setPosition(spawnPos);
-    vehicle->setRotation(glm::vec3(0.0f, 0.0f, heading));
+    vehicle->setPosition(position);
+    vehicle->setRotation(glm::vec3(0.0f, 0.0f, headingDeg));
     vehicle->setOwner(VehicleOwner::World);
     addVehicle(std::move(vehicle));
 
     std::cout << "Spawned vehicle " << normalizedType << " at ("
-              << spawnPos.x << ", " << spawnPos.y << ", " << spawnPos.z << ")" << std::endl;
+              << position.x << ", " << position.y << ", " << position.z << ")" << std::endl;
     return true;
+}
+
+bool Scene::spawnDebugOfficerAt(const glm::vec3& position, float headingDeg) {
+    return m_policeChaseManager && m_policeChaseManager->debugSpawnOfficerAt(position, headingDeg);
+}
+
+bool Scene::setDebugPlayerPose(const glm::vec3& position, float headingDeg) {
+    if (!m_player) {
+        return false;
+    }
+    if (m_gameLogic && m_gameLogic->isPlayerInVehicle()) {
+        if (Vehicle* activeVehicle = m_gameLogic->getActiveVehicle()) {
+            activeVehicle->setPosition(position);
+            activeVehicle->setRotation(glm::vec3(0.0f, 0.0f, headingDeg));
+            activeVehicle->setSpeed(0.0f);
+        }
+    }
+    m_player->setPosition(position);
+    m_player->setRotation(glm::vec3(0.0f, 0.0f, headingDeg));
+    std::cout << "Set player pose to (" << position.x << ", " << position.y << ", " << position.z
+              << ") heading=" << headingDeg << std::endl;
+    return true;
+}
+
+bool Scene::debugEnterNearestVehicle(float radius) {
+    return m_gameLogic && m_gameLogic->tryEnterNearestVehicle(radius);
 }
 
 void Scene::processInput(InputManager* input, float deltaTime) {

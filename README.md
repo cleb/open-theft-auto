@@ -127,6 +127,10 @@ Common commands:
 | `wanted <level>` | Set the wanted level; `wanted 0` clears the chase. |
 | `weapon <type> [ammo]` | Grant and equip a weapon, for example `weapon pistol 50` or `weapon machine_gun`. |
 | `vehicle <type>` | Spawn a configured vehicle near the player, for example `vehicle pickup`; use `vehicles` to list ids. |
+| `vehicle_at <type> <x> <y> <heading>` | Spawn a vehicle at an exact world position for reproducible layouts. |
+| `officer_at <x> <y> <heading>` | Spawn an on-foot officer at an exact world position. |
+| `teleport <x> <y> [heading]` | Move the player or current player vehicle to an exact world position. |
+| `enter [radius]` | Enter the nearest vehicle, default radius `6`. |
 | `cheat <command...>` | Optional prefix for cheat commands, for example `cheat invincible on`. |
 | `help` | Print prompt help. |
 | `quit` | Exit the game. |
