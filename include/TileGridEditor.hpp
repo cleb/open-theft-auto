@@ -111,7 +111,7 @@ private:
         bool cursorHasBooth = false;
         bool removeMode = false;
         std::array<char, 64> idBuffer{};
-        std::array<char, 64> jobIdBuffer{};
+        std::vector<std::array<char, 64>> jobIdBuffers;
     };
 
     struct UiEscortMissionState {

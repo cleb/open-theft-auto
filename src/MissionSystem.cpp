@@ -36,7 +36,6 @@ void MissionSystem::registerBuiltinJobs() {
         "Get a police vehicle and bring it to this booth.\n\n"
         "Find a police car, steal it, and drive back here.";
     policeCar.completionMessage = "Mission complete! Nice wheels, pal.";
-    policeCar.nextJobId = "escort_mission";
     policeCar.rewardMoney = 100;
 
     policeCar.activationCondition = [](const Scene& /*scene*/) -> bool {
@@ -67,7 +66,6 @@ void MissionSystem::registerBuiltinJobs() {
         "Drive to the marked location and pick up the contact.\n\n"
         "Get there by car, load the contact, and bring them back here safely.";
     escort.completionMessage = "Mission complete! The contact is safe.";
-    escort.nextJobId = "police_delivery";
     escort.rewardMoney = 500;
 
     escort.activationCondition = [](const Scene& /*scene*/) -> bool {

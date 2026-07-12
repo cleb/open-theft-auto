@@ -298,7 +298,8 @@ void Scene::render(Renderer* renderer) {
 
         // Render phone booths
         for (const auto& booth : m_phoneBooths) {
-            const bool active = m_missionSystem.isBoothActive(booth.currentJobId, *this);
+            const std::string* jobId = booth.jobs.currentJobId();
+            const bool active = jobId && m_missionSystem.isBoothActive(*jobId, *this);
             const auto& tex = active ? booth.texActive : booth.texInactive;
             if (tex) {
                 renderer->renderSprite(*tex, glm::vec2(booth.worldPos.x, booth.worldPos.y), glm::vec2(1.5f, 1.5f));
@@ -884,7 +885,13 @@ void Scene::rebuildPhoneBoothsFromSpawns() {
             spawn.gridPosition.z * tileSize + 0.1f);
         booth.worldPos = worldPos;
         booth.id = spawn.id;
-        booth.currentJobId = spawn.jobId;
+        booth.jobs.setJobs(spawn.jobIds);
+        for (const auto& jobId : spawn.jobIds) {
+            if (!m_missionSystem.findJob(jobId)) {
+                std::cerr << "[Scene] Phone booth '" << booth.id
+                          << "' references unknown job '" << jobId << "'\n";
+            }
+        }
         booth.texInactive = texMgr.getTextureFromPath("assets/textures/phone.png");
         booth.texActive   = texMgr.getTextureFromPath("assets/textures/phone-active.png");
         m_phoneBooths.push_back(std::move(booth));
@@ -965,13 +972,14 @@ void Scene::handlePhoneBoothInteraction(float deltaTime) {
 
     m_showMissionPrompt = false;
     for (const auto& booth : m_phoneBooths) {
-        if (!m_missionSystem.isBoothActive(booth.currentJobId, *this)) {
+        const std::string* jobId = booth.jobs.currentJobId();
+        if (!jobId || !m_missionSystem.isBoothActive(*jobId, *this)) {
             continue;
         }
         const float dx = playerPos.x - booth.worldPos.x;
         const float dy = playerPos.y - booth.worldPos.y;
         if (dx * dx + dy * dy <= kPromptRadius * kPromptRadius) {
-            const Job* job = m_missionSystem.findJob(booth.currentJobId);
+            const Job* job = m_missionSystem.findJob(*jobId);
             if (job) {
                 m_showMissionPrompt = true;
                 m_promptJob = job;
@@ -986,11 +994,13 @@ void Scene::handlePhoneBoothInteraction(float deltaTime) {
 void Scene::advanceBoothJob(const std::string& boothId) {
     for (auto& booth : m_phoneBooths) {
         if (booth.id == boothId) {
-            const Job* currentJob = m_missionSystem.findJob(booth.currentJobId);
-            if (currentJob && !currentJob->nextJobId.empty()) {
-                booth.currentJobId = currentJob->nextJobId;
+            if (booth.jobs.advance()) {
+                const std::string* currentJobId = booth.jobs.currentJobId();
                 std::cout << "[Scene] Booth '" << boothId
-                          << "' advanced to job '" << booth.currentJobId << "'\n";
+                          << "' advanced to job '" << *currentJobId << "'\n";
+            } else {
+                std::cout << "[Scene] Booth '" << boothId
+                          << "' completed its configured job sequence\n";
             }
             break;
         }

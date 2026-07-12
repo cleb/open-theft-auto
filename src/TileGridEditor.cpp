@@ -2132,7 +2132,13 @@ void TileGridEditor::refreshUiStateFromTile() {
     if (const auto* booth = findPhoneBoothSpawn(m_cursor)) {
         m_uiPhoneBoothState.cursorHasBooth = true;
         std::snprintf(m_uiPhoneBoothState.idBuffer.data(), m_uiPhoneBoothState.idBuffer.size(), "%s", booth->id.c_str());
-        std::snprintf(m_uiPhoneBoothState.jobIdBuffer.data(), m_uiPhoneBoothState.jobIdBuffer.size(), "%s", booth->jobId.c_str());
+        m_uiPhoneBoothState.jobIdBuffers.clear();
+        m_uiPhoneBoothState.jobIdBuffers.reserve(booth->jobIds.size());
+        for (const auto& jobId : booth->jobIds) {
+            std::array<char, 64> buffer{};
+            std::snprintf(buffer.data(), buffer.size(), "%s", jobId.c_str());
+            m_uiPhoneBoothState.jobIdBuffers.push_back(buffer);
+        }
     }
 
     Tile* tile = currentTile();
@@ -3081,8 +3087,57 @@ void TileGridEditor::drawPhoneBoothBrushControls() {
 
     if (!m_uiPhoneBoothState.removeMode) {
         ImGui::InputText("Booth ID", m_uiPhoneBoothState.idBuffer.data(), m_uiPhoneBoothState.idBuffer.size());
-        ImGui::InputText("Job ID",   m_uiPhoneBoothState.jobIdBuffer.data(), m_uiPhoneBoothState.jobIdBuffer.size());
-        ImGui::TextDisabled("Job IDs: police_delivery");
+
+        if (m_uiPhoneBoothState.jobIdBuffers.empty()) {
+            m_uiPhoneBoothState.jobIdBuffers.emplace_back();
+        }
+
+        ImGui::TextUnformatted("Jobs (in order)");
+        int moveJobIndex = -1;
+        int moveJobOffset = 0;
+        int removeJobIndex = -1;
+        for (std::size_t i = 0; i < m_uiPhoneBoothState.jobIdBuffers.size(); ++i) {
+            ImGui::PushID(static_cast<int>(i));
+            ImGui::Text("%zu.", i + 1);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-150.0f);
+            ImGui::InputText("##JobId",
+                             m_uiPhoneBoothState.jobIdBuffers[i].data(),
+                             m_uiPhoneBoothState.jobIdBuffers[i].size());
+            ImGui::SameLine();
+            ImGui::BeginDisabled(i == 0);
+            if (ImGui::ArrowButton("##MoveUp", ImGuiDir_Up)) {
+                moveJobIndex = static_cast<int>(i);
+                moveJobOffset = -1;
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::BeginDisabled(i + 1 >= m_uiPhoneBoothState.jobIdBuffers.size());
+            if (ImGui::ArrowButton("##MoveDown", ImGuiDir_Down)) {
+                moveJobIndex = static_cast<int>(i);
+                moveJobOffset = 1;
+            }
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Remove")) {
+                removeJobIndex = static_cast<int>(i);
+            }
+            ImGui::PopID();
+        }
+
+        if (moveJobIndex >= 0) {
+            const std::size_t from = static_cast<std::size_t>(moveJobIndex);
+            const std::size_t to = static_cast<std::size_t>(moveJobIndex + moveJobOffset);
+            std::swap(m_uiPhoneBoothState.jobIdBuffers[from], m_uiPhoneBoothState.jobIdBuffers[to]);
+        } else if (removeJobIndex >= 0) {
+            m_uiPhoneBoothState.jobIdBuffers.erase(
+                m_uiPhoneBoothState.jobIdBuffers.begin() + removeJobIndex);
+        }
+
+        if (ImGui::Button("Add Job")) {
+            m_uiPhoneBoothState.jobIdBuffers.emplace_back();
+        }
+        ImGui::TextDisabled("Jobs become available from top to bottom.");
 
         const char* applyLabel = m_uiPhoneBoothState.cursorHasBooth ? "Update Booth" : "Place Booth";
         if (ImGui::Button(applyLabel)) {
@@ -3137,8 +3192,13 @@ void TileGridEditor::applyPhoneBoothBrush() {
 
     PhoneBoothSpawnDefinition spawn;
     spawn.gridPosition = m_cursor;
-    spawn.id = std::string(m_uiPhoneBoothState.idBuffer.data());
-    spawn.jobId = std::string(m_uiPhoneBoothState.jobIdBuffer.data());
+    spawn.id = trimCopy(m_uiPhoneBoothState.idBuffer.data());
+    for (const auto& buffer : m_uiPhoneBoothState.jobIdBuffers) {
+        const std::string jobId = trimCopy(buffer.data());
+        if (!jobId.empty()) {
+            spawn.jobIds.push_back(jobId);
+        }
+    }
 
     auto& booths = m_levelData->phoneBooths;
     auto existing = std::find_if(booths.begin(), booths.end(), [&](const PhoneBoothSpawnDefinition& b) {
@@ -3151,8 +3211,14 @@ void TileGridEditor::applyPhoneBoothBrush() {
         booths.push_back(spawn);
     }
 
-    std::cout << "Placed phone booth id='" << spawn.id << "' job='" << spawn.jobId
-              << "' at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
+    std::cout << "Placed phone booth id='" << spawn.id << "' jobs=[";
+    for (std::size_t i = 0; i < spawn.jobIds.size(); ++i) {
+        if (i > 0) {
+            std::cout << ", ";
+        }
+        std::cout << spawn.jobIds[i];
+    }
+    std::cout << "] at (" << m_cursor.x << ", " << m_cursor.y << ", " << m_cursor.z << ")" << std::endl;
     refreshUiStateFromTile();
     announceCursor();
 }

@@ -16,6 +16,7 @@
 #include "ProjectileManager.hpp"
 #include "Collider.hpp"
 #include "MissionSystem.hpp"
+#include "PhoneBoothJobSequence.hpp"
 #include "Texture.hpp"
 
 #include <string>
@@ -52,7 +53,7 @@ private:
     struct PhoneBoothRuntime {
         glm::vec3 worldPos{0.0f};
         std::string id;
-        std::string currentJobId;  // Advances through the mission chain after each completion
+        PhoneBoothJobSequence jobs;
         std::shared_ptr<Texture> texInactive;
         std::shared_ptr<Texture> texActive;
     };

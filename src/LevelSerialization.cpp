@@ -48,6 +48,22 @@ std::string toLowerCopy(std::string text) {
     return text;
 }
 
+void appendCommaSeparatedValues(const std::string& text, std::vector<std::string>& values) {
+    std::size_t begin = 0;
+    while (begin <= text.size()) {
+        const std::size_t comma = text.find(',', begin);
+        const std::size_t end = comma == std::string::npos ? text.size() : comma;
+        std::string value = trimCopy(text.substr(begin, end - begin));
+        if (!value.empty()) {
+            values.push_back(std::move(value));
+        }
+        if (comma == std::string::npos) {
+            break;
+        }
+        begin = comma + 1;
+    }
+}
+
 bool parseFloat(const std::string& text, float& out) {
     try {
         size_t processed = 0;
@@ -927,7 +943,12 @@ bool loadLevel(const std::string& filePath, TileGrid& grid, LevelData& data) {
                 if (lowerKey == "id") {
                     spawn.id = entry.second;
                 } else if (lowerKey == "job" || lowerKey == "jobid") {
-                    spawn.jobId = entry.second;
+                    const std::string jobId = trimCopy(entry.second);
+                    if (!jobId.empty()) {
+                        spawn.jobIds.push_back(jobId);
+                    }
+                } else if (lowerKey == "jobs" || lowerKey == "jobids") {
+                    appendCommaSeparatedValues(entry.second, spawn.jobIds);
                 } else {
                     logger.warning("Unknown phone_booth property: " + entry.first);
                 }
@@ -1119,8 +1140,14 @@ bool saveLevel(const std::string& filePath, const TileGrid& grid, const LevelDat
         if (!booth.id.empty()) {
             output << " id=" << booth.id;
         }
-        if (!booth.jobId.empty()) {
-            output << " job=" << booth.jobId;
+        if (!booth.jobIds.empty()) {
+            output << " jobs=";
+            for (std::size_t i = 0; i < booth.jobIds.size(); ++i) {
+                if (i > 0) {
+                    output << ',';
+                }
+                output << booth.jobIds[i];
+            }
         }
         output << std::endl;
     }

@@ -33,8 +33,8 @@ struct PickupSpawnDefinition {
 
 struct PhoneBoothSpawnDefinition {
     glm::ivec3 gridPosition{0, 0, 0};
-    std::string id;     // Unique identifier for this phone booth
-    std::string jobId;  // Which job this booth offers
+    std::string id;                 // Unique identifier for this phone booth
+    std::vector<std::string> jobIds;  // Jobs offered in completion order
 };
 
 struct MarkerDefinition {

@@ -119,6 +119,7 @@ mingw32-make -j4
 - The *Tile Faces* tabs expose top and wall settings for the selected tile, including per-face wall textures.
 - Texture inputs accept either absolute paths or texture aliases; pick from the alias dropdown for quick selections.
 - Wall controls allow toggling walkability and assigning textures per face.
+- Phone booths use an ordered job list; add, remove, or reorder job IDs to control which mission becomes available next.
 
 ## Project Structure
 

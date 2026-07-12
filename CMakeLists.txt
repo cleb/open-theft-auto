@@ -151,7 +151,11 @@ add_executable(test_curve_math tests/test_curve_math.cpp)
 target_link_libraries(test_curve_math glm::glm)
 target_include_directories(test_curve_math PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
+add_executable(test_phone_booth_job_sequence tests/test_phone_booth_job_sequence.cpp)
+target_include_directories(test_phone_booth_job_sequence PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
 # Register tests with CTest
 enable_testing()
 add_test(NAME heading_conventions COMMAND test_heading_conventions)
 add_test(NAME curve_math COMMAND test_curve_math)
+add_test(NAME phone_booth_job_sequence COMMAND test_phone_booth_job_sequence)
