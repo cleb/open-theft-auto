@@ -36,6 +36,20 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
         return false;
     }
 
+    m_characterPhysics.configure(
+        [this](const glm::vec3& from, const glm::vec3& to) {
+            return m_tileGrid && m_tileGrid->canOccupy(from, to);
+        },
+        [this](const glm::vec3& position, const glm::vec2& footprintSize,
+               const glm::vec2& movement, float referenceZ) {
+            if (!m_tileGrid) {
+                return referenceZ;
+            }
+            return m_tileGrid->getSurfaceHeightForFootprint(
+                position, footprintSize, movement, referenceZ);
+        },
+        [this]() { return getCharacterPhysicsObstacles(); });
+
     m_tileGridEditor = std::make_unique<TileGridEditor>();
     m_tileGridEditor->initialize(m_tileGrid.get(), &m_levelData);
     m_tileGridEditor->setWindow(window);
@@ -43,13 +57,11 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     m_tileGridEditor->setLevelChangedCallback([this]() { onLevelChanged(); });
     
     // Initialize player
-    m_player = std::make_unique<Player>();
+    m_player = std::make_unique<Player>(m_characterPhysics);
     if (!m_player->initialize()) {
         std::cerr << "Failed to initialize player" << std::endl;
         return false;
     }
-    m_player->setTileGrid(m_tileGrid.get());
-    
     // Initialize traffic manager
     m_trafficManager = std::make_unique<TrafficManager>();
     m_trafficManager->initialize(m_tileGrid.get(), renderer->getCamera(), &m_vehicles);
@@ -60,7 +72,7 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     
     // Initialize pedestrian manager
     m_pedestrianManager = std::make_unique<PedestrianManager>();
-    m_pedestrianManager->initialize(m_tileGrid.get(), renderer->getCamera());
+    m_pedestrianManager->initialize(m_tileGrid.get(), renderer->getCamera(), &m_characterPhysics);
     m_pedestrianManager->setProjectionInfo(renderer->getFovRadians(), window->getAspectRatio());
     
     // Connect traffic manager to pedestrian manager for carjack callbacks
@@ -79,7 +91,8 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
     
     // Initialize police chase manager
     m_policeChaseManager = std::make_unique<PoliceChaseManager>();
-    m_policeChaseManager->initialize(m_tileGrid.get(), renderer->getCamera(), m_player.get(), m_trafficManager.get(), &m_vehicles);
+    m_policeChaseManager->initialize(m_tileGrid.get(), renderer->getCamera(), m_player.get(),
+                                     m_trafficManager.get(), &m_vehicles, &m_characterPhysics);
     m_policeChaseManager->setProjectionInfo(renderer->getFovRadians(), window->getAspectRatio());
     m_policeChaseManager->setAddVehicleCallback([this](std::unique_ptr<Vehicle> v) {
         addVehicle(std::move(v));
@@ -183,6 +196,7 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
         m_projectileManager.spawnProjectile(origin, dir, kEnemyProjectileSpeed, kEnemyProjectileRange,
                                             ProjectileManager::ProjectileOwner::Police);
     });
+    m_missionSystem.setCharacterPhysics(&m_characterPhysics);
 
     // Set up player-projectile → mission-enemy hit callback
     m_projectileManager.setMissionEnemyHitCallback([this](const glm::vec2& projPos, float projRadius) -> bool {
@@ -581,6 +595,10 @@ void Scene::rebuildVehiclesFromSpawns() {
         m_gameLogic->reset();
     }
 
+    if (m_policeChaseManager) {
+        m_policeChaseManager->resetForWorldRestart();
+    }
+
     m_vehicles.clear();
     m_missionSystem.reset();
     m_showMissionPrompt = false;
@@ -598,11 +616,6 @@ void Scene::rebuildVehiclesFromSpawns() {
         m_pedestrianManager->reset();
     }
     
-    // Reset police chase manager
-    if (m_policeChaseManager) {
-        m_policeChaseManager->reset();
-    }
-
     if (!m_tileGrid) {
         return;
     }
@@ -802,12 +815,18 @@ std::vector<const Collider*> Scene::getAllColliders() const {
     return allColliders;
 }
 
-void Scene::setupCollisionCallbacks() {
-    // Set up collision callback for player
-    if (m_player) {
-        m_player->setCollisionCallback([this]() { return getAllColliders(); });
+std::vector<const Collider*> Scene::getCharacterPhysicsObstacles() const {
+    std::vector<const Collider*> obstacles;
+    obstacles.reserve(m_vehicles.size());
+    for (const auto& vehicle : m_vehicles) {
+        if (vehicle && vehicle->isActive()) {
+            obstacles.push_back(vehicle.get());
+        }
     }
-    
+    return obstacles;
+}
+
+void Scene::setupCollisionCallbacks() {
     // Set up collision and explode callbacks for all vehicles
     for (auto& vehicle : m_vehicles) {
         if (vehicle) {
@@ -937,9 +956,6 @@ void Scene::handlePhoneBoothInteraction(float deltaTime) {
             const Job* completedJob = m_missionSystem.getActiveJob();
             if (completedJob && m_player) {
                 m_player->addMoney(completedJob->rewardMoney);
-            }
-            if (completedJob && completedJob->id == "police_delivery" && m_policeChaseManager) {
-                m_policeChaseManager->reset();
             }
             m_missionCompletedTimer = kMissionCooldownTime;
             m_completedBoothId = m_missionSystem.getActiveBoothId();

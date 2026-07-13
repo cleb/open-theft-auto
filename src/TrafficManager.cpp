@@ -14,6 +14,7 @@ TrafficManager::TrafficManager()
     , m_vehicles(nullptr)
     , m_pedestrianManager(nullptr)
     , m_maxTrafficVehicles(10)
+    , m_maxPersistentPoliceVehicles(3)
     , m_spawnIntervalMin(1.5f)   // Minimum time between spawns
     , m_spawnIntervalMax(4.0f)   // Maximum time between spawns
     , m_spawnTimer(0.0f)
@@ -173,10 +174,20 @@ void TrafficManager::spawnVehicle() {
     
     std::string vehicleTypeId = "sedan";  // Default
     
-    // Police vehicles spawn as 1 in every 20 traffic vehicles
+    // Police persist for the lifetime of the world, so ambient spawning is capped.
     constexpr int kPoliceSpawnChance = 20;
     std::uniform_int_distribution<int> policeDist(1, kPoliceSpawnChance);
-    bool spawnPolice = policeDist(m_rng) == 1 && config.getDefinition("police") != nullptr;
+    int persistentPoliceCount = 0;
+    if (m_vehicles) {
+        for (const auto& vehicle : *m_vehicles) {
+            if (vehicle && vehicle->getVehicleTypeId() == "police") {
+                ++persistentPoliceCount;
+            }
+        }
+    }
+    bool spawnPolice = persistentPoliceCount < m_maxPersistentPoliceVehicles &&
+                       policeDist(m_rng) == 1 &&
+                       config.getDefinition("police") != nullptr;
     
     if (spawnPolice) {
         vehicleTypeId = "police";

@@ -31,17 +31,36 @@ float manhattanDistance(const glm::ivec3& a, const glm::ivec3& b) {
 CombatPedestrian::CombatPedestrian() = default;
 
 void CombatPedestrian::spawn(SpriteAnimation* animation, TileGrid* tileGrid,
+                              CharacterPhysics& characterPhysics,
                               const glm::vec3& position, float headingDeg) {
     m_tileGrid = tileGrid;
     invalidatePath();
-    m_pedestrian = std::make_unique<Pedestrian>();
+    m_pedestrian = std::make_unique<Pedestrian>(characterPhysics, tileGrid);
     m_pedestrian->initialize(animation);
-    m_pedestrian->setTileGrid(tileGrid);
     m_pedestrian->setSpeed(0.0f);  // We drive movement manually
     m_pedestrian->setActive(true);
     m_pedestrian->setPosition(position);
     m_pedestrian->setRotation(glm::vec3(0.0f, 0.0f, headingDeg));
     m_shootCooldown = 0.2f;
+}
+
+void CombatPedestrian::enterVehicle() {
+    if (!m_pedestrian) {
+        return;
+    }
+    m_pedestrian->setActive(false);
+    invalidatePath();
+}
+
+void CombatPedestrian::exitVehicle(const glm::vec3& position, float headingDeg) {
+    if (!m_pedestrian || m_pedestrian->isDead()) {
+        return;
+    }
+    m_pedestrian->setPosition(position);
+    m_pedestrian->setRotation(glm::vec3(0.0f, 0.0f, headingDeg));
+    m_pedestrian->setActive(true);
+    m_shootCooldown = 0.2f;
+    invalidatePath();
 }
 
 void CombatPedestrian::update(float deltaTime, const glm::vec3& targetPos) {
@@ -95,11 +114,9 @@ bool CombatPedestrian::moveToward(float deltaTime, const glm::vec3& targetPos, f
 
     if (!m_tileGrid) {
         const glm::vec2 dir = toTarget / distToTarget;
-        const glm::vec3 nextPos = pos + glm::vec3(dir.x, dir.y, 0.0f) * (m_speed * deltaTime);
         m_pedestrian->setRotation(glm::vec3(0.0f, 0.0f, Heading::headingDegFromForward(dir)));
-        if (!isBlockedByVehicle(nextPos)) {
-            m_pedestrian->setPosition(nextPos);
-        }
+        m_pedestrian->tryMove(glm::vec3(dir.x, dir.y, 0.0f) * (m_speed * deltaTime),
+                              CharacterMoveMode::AllOrNothing);
         return false;
     }
 
@@ -113,7 +130,7 @@ bool CombatPedestrian::moveToward(float deltaTime, const glm::vec3& targetPos, f
     }
 
     bool needRepath = m_cachedPath.empty() || m_cachedGoal != goalGrid || m_repathCooldown <= 0.0f;
-    if (!needRepath && m_cachedPath.size() > 1 && isBlockedByVehicle(gridToMoveWorld(m_cachedPath[1], pos.z))) {
+    if (!needRepath && m_cachedPath.size() > 1 && isPositionBlocked(gridToMoveWorld(m_cachedPath[1], pos.z))) {
         needRepath = true;
     }
     if (!needRepath && m_cachedPath.front() != currentGrid) {
@@ -145,7 +162,7 @@ bool CombatPedestrian::moveToward(float deltaTime, const glm::vec3& targetPos, f
     if (m_cachedPath.size() > 1) {
         waypoint = gridToMoveWorld(m_cachedPath[1], pos.z);
     }
-    if (isBlockedByVehicle(waypoint) && !isBlockedByVehicle(adjustedTarget)) {
+    if (isPositionBlocked(waypoint) && !isPositionBlocked(adjustedTarget)) {
         waypoint = adjustedTarget;
     }
 
@@ -163,13 +180,16 @@ bool CombatPedestrian::moveToward(float deltaTime, const glm::vec3& targetPos, f
         const float candidateHeading = Heading::wrapDegrees360(desiredHeading + offset);
         const glm::vec2 candidateDir = Heading::forwardFromHeadingDeg(candidateHeading);
         for (float scale : stepScales) {
-            glm::vec3 nextPos = pos + glm::vec3(candidateDir.x, candidateDir.y, 0.0f) * (m_speed * deltaTime * scale);
-            nextPos.z = pos.z;
-            if (m_tileGrid->canOccupy(pos, nextPos) && !isBlockedByVehicle(nextPos)) {
-                m_pedestrian->setRotation(glm::vec3(0.0f, 0.0f, candidateHeading));
-                m_pedestrian->setPosition(nextPos);
+            const glm::vec3 delta =
+                glm::vec3(candidateDir.x, candidateDir.y, 0.0f) * (m_speed * deltaTime * scale);
+            const glm::vec3 previousRotation = m_pedestrian->getRotation();
+            m_pedestrian->setRotation(glm::vec3(0.0f, 0.0f, candidateHeading));
+            const CharacterMoveResult moveResult =
+                m_pedestrian->tryMove(delta, CharacterMoveMode::AllOrNothing);
+            if (moveResult.moved) {
                 return false;
             }
+            m_pedestrian->setRotation(previousRotation);
         }
     }
 
@@ -303,12 +323,8 @@ glm::vec3 CombatPedestrian::adjustMovementTarget(const glm::vec3& from, const gl
     return m_movementTargetAdjustCallback(from, target, getPedestrianBlockRadius());
 }
 
-bool CombatPedestrian::isBlockedByVehicle(const glm::vec3& position) const {
-    if (!m_vehicleBlockCheck || !m_pedestrian) {
-        return false;
-    }
-
-    return m_vehicleBlockCheck(position, getPedestrianBlockRadius());
+bool CombatPedestrian::isPositionBlocked(const glm::vec3& position) const {
+    return !m_pedestrian || m_pedestrian->isObstacleAt(position);
 }
 
 bool CombatPedestrian::isLineOfSightBlocked(const glm::vec3& from, const glm::vec3& target,

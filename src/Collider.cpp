@@ -30,7 +30,12 @@ std::array<glm::vec2, 4> Collider::getCorners() const {
 }
 
 std::array<glm::vec2, 4> Collider::getCornersAt(const glm::vec3& position, float rotation) const {
-    glm::vec2 size = getColliderSize();
+    return getCornersAt(position, rotation, getColliderSize());
+}
+
+std::array<glm::vec2, 4> Collider::getCornersAt(const glm::vec3& position,
+                                                float rotation,
+                                                const glm::vec2& size) {
     const float halfWidth = size.x * 0.5f;
     const float halfLength = size.y * 0.5f;
     

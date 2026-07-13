@@ -11,6 +11,8 @@ class SpriteAnimation;
 class CombatPedestrian;
 class TileGrid;
 class Vehicle;
+class Pedestrian;
+class CharacterPhysics;
 
 enum class EscortPhase {
     WaitingPickup,
@@ -30,6 +32,7 @@ public:
 
     void setShootCallback(ShootCallback cb) { m_shootCallback = std::move(cb); }
     void setTileGrid(TileGrid* tileGrid) { m_tileGrid = tileGrid; }
+    void setCharacterPhysics(CharacterPhysics* characterPhysics) { m_characterPhysics = characterPhysics; }
 
     void start(const glm::vec3& boothWorldPos,
                const glm::vec3& pickupWorldPos, const glm::vec3& escortWorldPos);
@@ -57,29 +60,29 @@ private:
     glm::vec3 m_boothPos{0.0f};
     glm::vec3 m_pickupPos{0.0f};
     glm::vec3 m_escortSpawnPos{0.0f};
-    glm::vec3 m_escortCurrentPos{0.0f};
-
-    float m_escortAnimTime = 0.0f;
-    bool m_escortVisible = true;
 
     float m_enemySpawnTimer = 0.0f;
+    int m_enemySpawnCount = 0;
 
     const Vehicle* m_boardedVehicle = nullptr;
 
     std::unique_ptr<SpriteAnimation> m_escortAnimation;
     std::unique_ptr<SpriteAnimation> m_enemyAnimation;
+    std::unique_ptr<Pedestrian> m_escortCharacter;
     std::vector<std::unique_ptr<CombatPedestrian>> m_enemies;
 
     TileGrid* m_tileGrid = nullptr;
+    CharacterPhysics* m_characterPhysics = nullptr;
     ShootCallback m_shootCallback;
 
     static constexpr float kPickupRadius = 3.5f;
     static constexpr float kReturnRadius = 4.0f;
     static constexpr float kEnemySpawnDelay = 5.0f;
+    static constexpr float kEnemySpawnInterval = 0.75f;
+    static constexpr int kEnemyCount = 3;
     static constexpr float kBoardRadius = 1.2f;
     static constexpr float kEscortWalkSpeed = 3.0f;
 
-    void spawnEnemies();
+    bool spawnEnemy();
     void renderMarkers(Renderer* renderer) const;
-    void renderEscortChar(Renderer* renderer) const;
 };

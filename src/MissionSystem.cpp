@@ -25,6 +25,12 @@ void MissionSystem::setTileGrid(TileGrid* tileGrid) {
     }
 }
 
+void MissionSystem::setCharacterPhysics(CharacterPhysics* characterPhysics) {
+    if (m_escortState) {
+        m_escortState->setCharacterPhysics(characterPhysics);
+    }
+}
+
 void MissionSystem::registerBuiltinJobs() {
     m_jobs.clear();
 
@@ -52,6 +58,13 @@ void MissionSystem::registerBuiltinJobs() {
         const float dy = vehiclePos.y - boothWorldPos.y;
         constexpr float kSuccessRadius = 4.0f;
         return dx * dx + dy * dy <= kSuccessRadius * kSuccessRadius;
+    };
+
+    policeCar.onComplete = [](const Scene& scene) {
+        PoliceChaseManager* policeChase = scene.getPoliceChaseManager();
+        if (policeChase) {
+            policeChase->endChase();
+        }
     };
 
     m_jobs.push_back(std::move(policeCar));
@@ -143,6 +156,9 @@ bool MissionSystem::update(float deltaTime, const Scene& scene) {
 
     if (m_activeJob->successCondition(scene, m_activeBoothWorldPos)) {
         m_state = MissionState::Completed;
+        if (m_activeJob->onComplete) {
+            m_activeJob->onComplete(scene);
+        }
         std::cout << "[Mission] Completed: " << m_activeJob->title << std::endl;
         return true;
     }

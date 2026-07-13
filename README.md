@@ -23,6 +23,7 @@ A top-down 2.5D game engine inspired by GTA 1 & 2, featuring 2D sprites for cars
 ### Game Objects
 - **GameObject**: Base class for all game entities
 - **Player**: Player character with movement controls
+- **Character**: Shared terrain, slope, and vehicle physics for all on-foot character types
 - **Vehicle**: Drivable vehicles (extensible)
 - **Tile**: Tile-based world system
 - **TileGrid**: Grid management for tile-based world

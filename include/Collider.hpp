@@ -36,6 +36,11 @@ public:
     
     // Get corners at a hypothetical position and rotation
     std::array<glm::vec2, 4> getCornersAt(const glm::vec3& position, float rotation) const;
+
+    // Get corners for an arbitrary oriented box.
+    static std::array<glm::vec2, 4> getCornersAt(const glm::vec3& position,
+                                                 float rotation,
+                                                 const glm::vec2& size);
     
     // Check collision with another collider
     bool checkCollisionWith(const Collider* other) const;

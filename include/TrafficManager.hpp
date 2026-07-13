@@ -39,6 +39,7 @@ public:
 
     // Configuration
     void setMaxTrafficVehicles(int max) { m_maxTrafficVehicles = max; }
+    void setMaxPersistentPoliceVehicles(int max) { m_maxPersistentPoliceVehicles = max; }
     void setSpawnInterval(float minInterval, float maxInterval) { 
         m_spawnIntervalMin = minInterval; 
         m_spawnIntervalMax = maxInterval;
@@ -74,6 +75,7 @@ private:
     
     // Configuration
     int m_maxTrafficVehicles;
+    int m_maxPersistentPoliceVehicles;
     float m_spawnIntervalMin;
     float m_spawnIntervalMax;
     float m_spawnTimer;

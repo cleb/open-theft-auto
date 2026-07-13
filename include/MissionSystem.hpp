@@ -11,6 +11,7 @@ class Vehicle;
 class Renderer;
 class EscortMissionState;
 class TileGrid;
+class CharacterPhysics;
 
 enum class MissionState {
     Idle,
@@ -30,6 +31,7 @@ struct Job {
     std::function<bool(const Scene&, const glm::vec3& boothWorldPos)> successCondition;
     std::function<void(const glm::vec3& boothWorldPos)> onStart;
     std::function<void(float deltaTime, const Scene&)> onUpdate;
+    std::function<void(const Scene&)> onComplete;
     std::function<void(Renderer*)> onRender;
     std::function<void()> onReset;
 };
@@ -47,6 +49,7 @@ public:
     void setEnemyShootCallback(ShootCallback cb);
     void setMarkerLookup(MarkerLookup lookup) { m_markerLookup = std::move(lookup); }
     void setTileGrid(TileGrid* tileGrid);
+    void setCharacterPhysics(CharacterPhysics* characterPhysics);
 
     const Job* findJob(const std::string& jobId) const;
 

@@ -1,16 +1,14 @@
 #include "Player.hpp"
 #include "Renderer.hpp"
-#include "TileGrid.hpp"
 #include "Heading.hpp"
 #include "TextureManager.hpp"
 #include <glm/gtc/constants.hpp>
 #include <iostream>
 
-Player::Player() 
-    : m_speed(5.0f)
+Player::Player(CharacterPhysics& physics)
+    : Character(physics, glm::vec2(1.0f, 1.0f))
+    , m_speed(5.0f)
     , m_rotationSpeed(90.0f)
-    , m_size(1.0f, 1.0f)
-    , m_tileGrid(nullptr)
     , m_isMoving(false)
     , m_equippedSlot(pickupTypeCount())
     , m_money(0) {
@@ -23,7 +21,7 @@ bool Player::initialize() {
         // Calculate aspect ratio from frame dimensions for proper sprite size
         float aspectRatio = static_cast<float>(m_walkAnimation->getFrameWidth()) / 
                            static_cast<float>(m_walkAnimation->getFrameHeight());
-        m_size = glm::vec2(1.0f * aspectRatio, 1.0f); // Maintain aspect ratio
+        setCharacterSize(glm::vec2(1.0f * aspectRatio, 1.0f)); // Maintain aspect ratio
         
         // Start with idle (first frame of walk)
         m_walkAnimation->play("walk");
@@ -185,10 +183,10 @@ void Player::render(Renderer* renderer) {
         glm::vec4 uvOffsetScale = m_walkAnimation->getCurrentFrameUV();
         renderer->renderAnimatedSprite(*m_walkAnimation->getTexture(),
                                         m_position,
-                                        m_size, uvOffsetScale, m_rotation.z, glm::vec3(1.0f));
+                                        getCharacterSize(), uvOffsetScale, m_rotation.z, glm::vec3(1.0f));
     } else if (m_texture) {
         // Fallback to static sprite
-        renderer->renderSprite(*m_texture, m_position, m_size, m_rotation.z, glm::vec3(1.0f));
+        renderer->renderSprite(*m_texture, m_position, getCharacterSize(), m_rotation.z, glm::vec3(1.0f));
     }
 }
 
@@ -218,51 +216,7 @@ void Player::applyMovement(const glm::vec3& delta) {
     if (delta.x == 0.0f && delta.y == 0.0f) {
         return;
     }
-
-    glm::vec3 newPosition = m_position;
-
-    if (!m_tileGrid) {
-        // No tile grid - just check collisions
-        glm::vec3 target = newPosition + delta;
-        if (!m_collisionManager.hasCallback() || 
-            !m_collisionManager.wouldCollide(this, target, m_rotation.z)) {
-            newPosition = target;
-        }
-        setPosition(newPosition);
-        return;
-    }
-
-    // Resolve each axis separately so the player can slide along blocking walls.
-    if (delta.x != 0.0f) {
-        glm::vec3 target = newPosition + glm::vec3(delta.x, 0.0f, 0.0f);
-        bool canMove = m_tileGrid->canOccupy(newPosition, target);
-        if (canMove && m_collisionManager.hasCallback()) {
-            canMove = !m_collisionManager.wouldCollide(this, target, m_rotation.z);
-        }
-        if (canMove) {
-            newPosition.x = target.x;
-        }
-    }
-
-    if (delta.y != 0.0f) {
-        glm::vec3 startForY = newPosition;
-        glm::vec3 target = startForY + glm::vec3(0.0f, delta.y, 0.0f);
-        bool canMove = m_tileGrid->canOccupy(startForY, target);
-        if (canMove && m_collisionManager.hasCallback()) {
-            canMove = !m_collisionManager.wouldCollide(this, target, m_rotation.z);
-        }
-        if (canMove) {
-            newPosition.y = target.y;
-        }
-    }
-
-    // Follow the ground surface (handles slopes). Use the highest contacted
-    // point under the footprint so the flat sprite stays above uphill and
-    // downhill slopes instead of clipping into the terrain.
-    const glm::vec2 movement(newPosition.x - m_position.x, newPosition.y - m_position.y);
-    newPosition.z = m_tileGrid->getSurfaceHeightForFootprint(newPosition, m_size, movement, m_position.z);
-
-    setPosition(newPosition);
+    tryMove(delta, CharacterMoveMode::Slide);
 }
 
 void Player::turnRight(float deltaTime) {

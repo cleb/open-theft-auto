@@ -6,14 +6,14 @@
 #include <iostream>
 #include <cmath>
 
-Pedestrian::Pedestrian()
-    : m_sharedAnimation(nullptr)
+Pedestrian::Pedestrian(CharacterPhysics& physics, TileGrid* tileGrid)
+    : Character(physics, glm::vec2(0.8f, 0.8f), 0.6f)
+    , m_sharedAnimation(nullptr)
     , m_animationTime(0.0f)
-    , m_tileGrid(nullptr)
+    , m_tileGrid(tileGrid)
     , m_speed(2.0f)  // Slower than player
     , m_baseSpeed(2.0f)
     , m_panicSpeed(5.0f)
-    , m_size(0.8f, 0.8f)
     , m_walkingDirection(SidewalkDirection::NorthSouth)
     , m_state(PedestrianState::Walking)
     , m_stateTimer(0.0f)
@@ -35,7 +35,7 @@ void Pedestrian::initialize(SpriteAnimation* sharedAnimation) {
         // Calculate aspect ratio from frame dimensions for proper sprite size
         float aspectRatio = static_cast<float>(m_sharedAnimation->getFrameWidth()) / 
                            static_cast<float>(m_sharedAnimation->getFrameHeight());
-        m_size = glm::vec2(0.8f * aspectRatio, 0.8f); // Slightly smaller than player
+        setCharacterSize(glm::vec2(0.8f * aspectRatio, 0.8f)); // Slightly smaller than player
         
         // Randomize starting animation time so pedestrians aren't all in sync
         m_animationTime = static_cast<float>(rand()) / RAND_MAX * 0.8f;
@@ -48,20 +48,6 @@ void Pedestrian::setSpeed(float speed) {
     if (m_state != PedestrianState::Panic) {
         m_speed = speed;
     }
-}
-
-bool Pedestrian::isBlockedByVehicle(const glm::vec3& position) const {
-    if (!m_vehicleBlockCheck) return false;
-    float pedRadius = std::max(m_size.x, m_size.y) * 0.3f;
-    return m_vehicleBlockCheck(position, pedRadius);
-}
-
-void Pedestrian::snapToSurface(glm::vec3& pos, const glm::vec3& previousPos) const {
-    if (!m_tileGrid) {
-        return;
-    }
-    const glm::vec2 movement(pos.x - previousPos.x, pos.y - previousPos.y);
-    pos.z = m_tileGrid->getSurfaceHeightForFootprint(pos, m_size, movement, previousPos.z);
 }
 
 void Pedestrian::setWalkingDirection(SidewalkDirection dir, bool avoidReverse) {
@@ -184,18 +170,9 @@ void Pedestrian::updateMovement(float deltaTime) {
         // Pedestrians keep walking in their current direction until they hit a dead end
     }
     
-    // Check if we can move (wall collision)
-    if (m_tileGrid->canOccupy(m_position, newPosition)) {
-        // Check if a vehicle is blocking the way
-        if (isBlockedByVehicle(newPosition)) {
-            // Vehicle in the way - turn around
-            m_rotation.z = Heading::wrapDegrees360(m_rotation.z + 180.0f);
-            return;
-        }
-        snapToSurface(newPosition, m_position);
-        m_position = newPosition;
-    } else {
-        // Hit a wall - turn around
+    const CharacterMoveResult moveResult = tryMove(delta, CharacterMoveMode::AllOrNothing);
+    if (moveResult.blocked()) {
+        // Hit a wall or vehicle - turn around
         m_rotation.z = Heading::wrapDegrees360(m_rotation.z + 180.0f);
     }
 }
@@ -288,7 +265,7 @@ void Pedestrian::render(Renderer* renderer) {
         glm::vec4 uvOffsetScale = getCurrentFrameUV();
         renderer->renderAnimatedSprite(*m_sharedAnimation->getTexture(),
                                        m_position,
-                                       m_size, uvOffsetScale, m_rotation.z, glm::vec3(1.0f));
+                                       getCharacterSize(), uvOffsetScale, m_rotation.z, glm::vec3(1.0f));
     }
 }
 
@@ -388,11 +365,7 @@ void Pedestrian::updatePanic(float deltaTime) {
 
         glm::vec3 delta(candidate.x * m_speed * deltaTime, candidate.y * m_speed * deltaTime, 0.0f);
         glm::vec3 newPosition = m_position + delta;
-        if (!m_tileGrid->canOccupy(m_position, newPosition)) {
-            continue;
-        }
-        // Skip directions blocked by a vehicle
-        if (isBlockedByVehicle(newPosition)) {
+        if (!canMoveTo(newPosition)) {
             continue;
         }
 
@@ -404,11 +377,7 @@ void Pedestrian::updatePanic(float deltaTime) {
     }
 
     glm::vec3 delta(bestDir.x * m_speed * deltaTime, bestDir.y * m_speed * deltaTime, 0.0f);
-    glm::vec3 newPosition = m_position + delta;
-    if (m_tileGrid->canOccupy(m_position, newPosition) && !isBlockedByVehicle(newPosition)) {
-        snapToSurface(newPosition, m_position);
-        m_position = newPosition;
-    }
+    tryMove(delta, CharacterMoveMode::AllOrNothing);
 
     m_rotation.z = Heading::wrapDegrees360(Heading::headingDegFromForward(bestDir));
 }
@@ -522,16 +491,20 @@ void Pedestrian::updateSeekingSidewalk(float deltaTime) {
     // Move towards target
     glm::vec2 forward = Heading::forwardFromHeadingDeg(m_rotation.z);
     glm::vec3 delta(forward.x * m_speed * deltaTime, forward.y * m_speed * deltaTime, 0.0f);
-    glm::vec3 newPosition = m_position + delta;
-    
-    // Check if the new position would be on a sidewalk - if so, move there and transition
-    if (m_tileGrid->isSidewalkTile(newPosition)) {
-        snapToSurface(newPosition, m_position);
-        m_position = newPosition;
+    const CharacterMoveResult moveResult = tryMove(delta, CharacterMoveMode::AllOrNothing);
+    if (moveResult.blocked()) {
+        // Can't move due to wall - try to find an alternate path or give up
+        findNearestSidewalk();
+        if (!m_hasTargetSidewalk) {
+            m_state = PedestrianState::Walking;
+        }
+        return;
+    }
+
+    if (m_tileGrid->isSidewalkTile(m_position)) {
         m_hasTargetSidewalk = false;
-        
-        // Now walk to the center of the tile
-        glm::ivec3 gridPos = m_tileGrid->worldToGrid(newPosition);
+
+        glm::ivec3 gridPos = m_tileGrid->worldToGrid(m_position);
         gridPos.z -= 1;
         const Tile* tile = m_tileGrid->getTile(gridPos);
         if (tile) {
@@ -543,28 +516,6 @@ void Pedestrian::updateSeekingSidewalk(float deltaTime) {
             m_state = PedestrianState::Walking;
         }
         return;
-    }
-    
-    // Check if we can move there
-    if (m_tileGrid->canOccupy(m_position, newPosition)) {
-        // Check if a vehicle is blocking the way
-        if (isBlockedByVehicle(newPosition)) {
-            findNearestSidewalk();
-            if (!m_hasTargetSidewalk) {
-                m_state = PedestrianState::Walking;
-            }
-            return;
-        }
-        snapToSurface(newPosition, m_position);
-        m_position = newPosition;
-    } else {
-        // Can't move due to wall - try to find an alternate path or give up
-        // For now, just recalculate the nearest sidewalk
-        findNearestSidewalk();
-        if (!m_hasTargetSidewalk) {
-            // No sidewalk found, give up and just walk
-            m_state = PedestrianState::Walking;
-        }
     }
     
     // If we've been seeking too long or overshot the target, recalculate
@@ -608,19 +559,8 @@ void Pedestrian::updateCenteringSidewalk(float deltaTime) {
     }
     
     glm::vec3 delta(forward.x * moveDistance, forward.y * moveDistance, 0.0f);
-    glm::vec3 newPosition = m_position + delta;
-    
-    // Check if we can move there
-    if (m_tileGrid->canOccupy(m_position, newPosition)) {
-        if (isBlockedByVehicle(newPosition)) {
-            // Vehicle blocking path to center, just start walking
-            m_state = PedestrianState::Walking;
-            setWalkingDirection(m_pendingSidewalkDir, true);
-            return;
-        }
-        snapToSurface(newPosition, m_position);
-        m_position = newPosition;
-    } else {
+    const CharacterMoveResult moveResult = tryMove(delta, CharacterMoveMode::AllOrNothing);
+    if (moveResult.blocked()) {
         // Can't move to center, just start walking
         m_state = PedestrianState::Walking;
         setWalkingDirection(m_pendingSidewalkDir, true);

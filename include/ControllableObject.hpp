@@ -1,8 +1,6 @@
 #pragma once
 
-#include "GameObject.hpp"
-
-class ControllableObject : public GameObject {
+class ControllableObject {
 public:
     ControllableObject() = default;
     virtual ~ControllableObject() = default;

@@ -8,6 +8,7 @@
 PedestrianManager::PedestrianManager()
     : m_tileGrid(nullptr)
     , m_camera(nullptr)
+    , m_characterPhysics(nullptr)
     , m_maxPedestrians(15)
     , m_spawnIntervalMin(1.0f)
     , m_spawnIntervalMax(3.0f)
@@ -20,9 +21,10 @@ PedestrianManager::PedestrianManager()
     , m_rng(std::random_device{}()) {
 }
 
-void PedestrianManager::initialize(TileGrid* tileGrid, Camera* camera) {
+void PedestrianManager::initialize(TileGrid* tileGrid, Camera* camera, CharacterPhysics* characterPhysics) {
     m_tileGrid = tileGrid;
     m_camera = camera;
+    m_characterPhysics = characterPhysics;
     
     // Load the shared animation once for all pedestrians
     m_sharedAnimation = std::make_unique<SpriteAnimation>();
@@ -176,7 +178,7 @@ bool PedestrianManager::isTooCloseToOthers(const glm::vec3& position) const {
 }
 
 void PedestrianManager::spawnPedestrian() {
-    if (m_sidewalkSpawnPoints.empty() || !m_sharedAnimation) return;
+    if (m_sidewalkSpawnPoints.empty() || !m_sharedAnimation || !m_characterPhysics) return;
     
     ViewBounds bounds = ViewBounds::calculate(m_camera, m_fovRadians, m_aspectRatio);
     
@@ -196,7 +198,7 @@ void PedestrianManager::spawnPedestrian() {
     const SidewalkSpawnPoint* spawnPoint = validPoints[dist(m_rng)];
     
     // Create the pedestrian
-    auto pedestrian = std::make_unique<Pedestrian>();
+    auto pedestrian = std::make_unique<Pedestrian>(*m_characterPhysics, m_tileGrid);
     pedestrian->initialize(m_sharedAnimation.get());
     
     pedestrian->setPosition(spawnPoint->worldPos);
@@ -206,11 +208,7 @@ void PedestrianManager::spawnPedestrian() {
     float rotation = getRotationFromDirection(spawnPoint->direction);
     pedestrian->setRotation(glm::vec3(0.0f, 0.0f, rotation));
     
-    pedestrian->setTileGrid(m_tileGrid);
     pedestrian->setActive(true);
-    
-    // Set vehicle blocking callback so pedestrians avoid vehicles
-    setupVehicleBlockCheck(pedestrian.get());
     
     // Randomize speed slightly
     std::uniform_real_distribution<float> speedDist(1.5f, 2.5f);
@@ -236,46 +234,6 @@ void PedestrianManager::updatePedestrians(float deltaTime) {
             pedestrian->update(deltaTime);
         }
     }
-}
-
-bool PedestrianManager::isPositionBlockedByVehicle(const glm::vec3& position, float pedRadius) const {
-    if (!m_vehicleCallback) return false;
-    
-    auto vehicles = m_vehicleCallback();
-    
-    for (Vehicle* vehicle : vehicles) {
-        if (!vehicle || !vehicle->isActive()) continue;
-        
-        glm::vec3 vehPos = vehicle->getPosition();
-        glm::vec2 vehSize = vehicle->getSpriteSize();
-        float vehRotation = vehicle->getRotation().z;
-        
-        glm::vec2 forward = Heading::forwardFromHeadingDeg(vehRotation);
-        glm::vec2 right(forward.y, -forward.x);
-        
-        float halfWidth = vehSize.x * 0.5f;
-        float halfLength = vehSize.y * 0.5f;
-        
-        // Transform position to vehicle's local space
-        glm::vec2 toP(position.x - vehPos.x, position.y - vehPos.y);
-        float localX = glm::dot(toP, right);
-        float localY = glm::dot(toP, forward);
-        
-        if (std::abs(localX) < halfWidth + pedRadius && 
-            std::abs(localY) < halfLength + pedRadius) {
-            return true;
-        }
-    }
-    
-    return false;
-}
-
-void PedestrianManager::setupVehicleBlockCheck(Pedestrian* pedestrian) {
-    pedestrian->setVehicleBlockCheck(
-        [this](const glm::vec3& position, float pedRadius) -> bool {
-            return isPositionBlockedByVehicle(position, pedRadius);
-        }
-    );
 }
 
 void PedestrianManager::checkVehicleCollisions() {
@@ -334,21 +292,17 @@ void PedestrianManager::checkVehicleCollisions() {
 }
 
 void PedestrianManager::spawnCarjackedPedestrian(const glm::vec3& position, float rotation) {
-    if (!m_sharedAnimation) {
+    if (!m_sharedAnimation || !m_characterPhysics) {
         std::cerr << "Cannot spawn carjacked pedestrian: no shared animation loaded" << std::endl;
         return;
     }
     
-    auto pedestrian = std::make_unique<Pedestrian>();
+    auto pedestrian = std::make_unique<Pedestrian>(*m_characterPhysics, m_tileGrid);
     pedestrian->initialize(m_sharedAnimation.get());
     pedestrian->setPosition(position);
     pedestrian->setRotation(glm::vec3(0.0f, 0.0f, rotation));
-    pedestrian->setTileGrid(m_tileGrid);
     pedestrian->setActive(true);
     pedestrian->setSpeed(2.0f);
-    
-    // Set vehicle blocking callback so pedestrians avoid vehicles
-    setupVehicleBlockCheck(pedestrian.get());
     
     // Start the carjack exit animation
     pedestrian->startCarjackExit();

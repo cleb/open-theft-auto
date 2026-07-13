@@ -1,17 +1,13 @@
 #pragma once
 
-#include "GameObject.hpp"
+#include "Character.hpp"
 #include "SpriteAnimation.hpp"
 #include "Tile.hpp"
 #include <memory>
-#include <functional>
 #include <glm/glm.hpp>
 
 class TileGrid;
 class Renderer;
-
-// Callback that returns true if the given position is blocked by a vehicle
-using VehicleBlockCheck = std::function<bool(const glm::vec3& position, float pedRadius)>;
 
 // Pedestrian behavior state
 enum class PedestrianState {
@@ -25,9 +21,9 @@ enum class PedestrianState {
     Dead               // Death animation
 };
 
-class Pedestrian : public GameObject {
+class Pedestrian : public Character {
 public:
-    Pedestrian();
+    Pedestrian(CharacterPhysics& physics, TileGrid* tileGrid);
     ~Pedestrian() = default;
 
     // Initialize with a shared animation (texture shared across all pedestrians)
@@ -35,20 +31,15 @@ public:
     void update(float deltaTime) override;
     void render(Renderer* renderer) override;
 
-    void setTileGrid(TileGrid* tileGrid) { m_tileGrid = tileGrid; }
     void setSpeed(float speed);
     float getSpeed() const { return m_speed; }
-    
-    // Vehicle blocking callback - pedestrians can't walk through vehicles
-    void setVehicleBlockCheck(VehicleBlockCheck callback) { m_vehicleBlockCheck = std::move(callback); }
-    bool isBlockedByVehicle(const glm::vec3& position) const;
     
     // Set the walking direction based on sidewalk direction
     // If avoidReverse is true, prefer directions that don't turn back (used when arriving at sidewalk)
     void setWalkingDirection(SidewalkDirection dir, bool avoidReverse = false);
     SidewalkDirection getWalkingDirection() const { return m_walkingDirection; }
     
-    glm::vec2 getSize() const { return m_size; }
+    glm::vec2 getSize() const { return getCharacterSize(); }
     
     // Death state
     void kill();
@@ -71,7 +62,6 @@ private:
     float m_speed;
     float m_baseSpeed;
     float m_panicSpeed;
-    glm::vec2 m_size;
     SidewalkDirection m_walkingDirection;
     
     // State machine
@@ -91,9 +81,6 @@ private:
     glm::vec3 m_panicSource;
     float m_panicDuration;
     
-    // Vehicle blocking callback
-    VehicleBlockCheck m_vehicleBlockCheck;
-    
     void updateMovement(float deltaTime);
     void updateDeathAnimation(float deltaTime);
     void updateCarjackAnimation(float deltaTime);
@@ -101,10 +88,6 @@ private:
     void updateCenteringSidewalk(float deltaTime);
     void updatePanic(float deltaTime);
 
-    // Adjust the z of `pos` to follow the tile grid's top surface, honoring slopes.
-    // The highest contacted point under the footprint determines the height so
-    // the flat sprite does not clip into uphill or downhill ramps.
-    void snapToSurface(glm::vec3& pos, const glm::vec3& previousPos) const;
     void findNearestSidewalk();
     glm::vec4 getCurrentFrameUV() const;
 };

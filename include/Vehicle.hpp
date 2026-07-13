@@ -2,6 +2,7 @@
 
 #include "ControllableObject.hpp"
 #include "Collider.hpp"
+#include "GameObject.hpp"
 #include <memory>
 #include <array>
 #include <functional>
@@ -11,6 +12,7 @@
 class TileGrid;
 class Pilot;
 class Vehicle;
+class Texture;
 
 // Identifies which system owns / manages a vehicle
 enum class VehicleOwner {
@@ -49,7 +51,7 @@ enum class CollisionDirection {
     Right
 };
 
-class Vehicle : public ControllableObject, public Collider {
+class Vehicle : public GameObject, public ControllableObject, public Collider {
 private:
     std::shared_ptr<Texture> m_texture;
     std::shared_ptr<Texture> m_deltaTexture;     // Damage overlay texture

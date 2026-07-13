@@ -1,7 +1,7 @@
 #pragma once
 
+#include "Character.hpp"
 #include "ControllableObject.hpp"
-#include "Collider.hpp"
 #include "SpriteAnimation.hpp"
 #include "Weapon.hpp"
 #include "PickupTypes.hpp"
@@ -9,17 +9,12 @@
 #include <memory>
 #include <optional>
 
-class TileGrid;
-
-class Player : public ControllableObject, public Collider {
+class Player : public Character, public ControllableObject {
 private:
     std::shared_ptr<Texture> m_texture;          // Static fallback texture
     std::unique_ptr<SpriteAnimation> m_walkAnimation;
     float m_speed;
     float m_rotationSpeed;
-    glm::vec2 m_size;
-    TileGrid* m_tileGrid;
-    CollisionManager m_collisionManager;
     
     // Animation state
     bool m_isMoving;
@@ -30,7 +25,7 @@ private:
     void applyMovement(const glm::vec3& delta);
 
 public:
-    Player();
+    explicit Player(CharacterPhysics& physics);
     ~Player() = default;
     
     bool initialize();
@@ -41,7 +36,6 @@ public:
     void moveBackward(float deltaTime);
     void turnLeft(float deltaTime);
     void turnRight(float deltaTime);
-    void setTileGrid(TileGrid* tileGrid) { m_tileGrid = tileGrid; }
 
     bool hasWeapon() const;
     bool hasWeapon(PickupType type) const;
@@ -65,15 +59,4 @@ public:
     
     float getSpeed() const { return m_speed; }
     void setSpeed(float speed) { m_speed = speed; }
-    
-    // Collider interface implementation
-    glm::vec3 getColliderPosition() const override { return m_position; }
-    float getColliderRotation() const override { return m_rotation.z; }
-    glm::vec2 getColliderSize() const override { return m_size; }
-    bool isColliderActive() const override { return m_active; }
-    
-    // Collision management
-    void setCollisionCallback(ColliderCallback callback) { m_collisionManager.setColliderCallback(callback); }
-    CollisionManager& getCollisionManager() { return m_collisionManager; }
-    const CollisionManager& getCollisionManager() const { return m_collisionManager; }
 };

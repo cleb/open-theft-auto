@@ -17,6 +17,7 @@
 
 class Renderer;
 class Player;
+class CharacterPhysics;
 
 // Callback to get the current player position
 using PlayerPositionCallback = std::function<glm::vec3()>;
@@ -29,10 +30,11 @@ public:
     ~PoliceChaseManager() = default;
 
     void initialize(TileGrid* tileGrid, Camera* camera, Player* player, TrafficManager* trafficManager,
-                    std::vector<std::unique_ptr<Vehicle>>* vehicles);
+                    std::vector<std::unique_ptr<Vehicle>>* vehicles, CharacterPhysics* characterPhysics);
     void update(float deltaTime);
     void render(Renderer* renderer);
-    void reset();
+    void endChase();
+    void resetForWorldRestart();
     
     // Set projection info for accurate view bounds calculation
     void setProjectionInfo(float fovRadians, float aspectRatio);
@@ -76,6 +78,7 @@ private:
     Camera* m_camera;
     Player* m_player;
     TrafficManager* m_trafficManager;
+    CharacterPhysics* m_characterPhysics;
     
     std::vector<std::unique_ptr<Vehicle>>* m_vehicles = nullptr;  // Shared vehicle list (owned by Scene)
     PlayerPositionCallback m_playerPositionCallback;
@@ -87,6 +90,7 @@ private:
         std::unique_ptr<CombatPedestrian> officer;
         Vehicle* vehicle = nullptr;
         bool deathHandled = false;
+        bool inVehicle = false;
     };
 
     // On-foot police officer state
@@ -131,22 +135,24 @@ private:
     void recordDirectWantedOffense(const std::string& reason);
     int getCivilianKillThresholdForCurrentLevel() const;
     int getDirectOffenseThresholdForCurrentLevel() const;
+    void clearWantedState();
     void activatePoliceVehicles();
     void checkChaseCondition();
     void cleanupOldKills();
     void spawnPoliceVehicle();
     void assignPolicePilot(Vehicle* vehicle);
+    void assignPatrolPilot(Vehicle* vehicle);
     void updatePoliceVehicles(float deltaTime);
-    void despawnOutOfViewPoliceVehicles();
     void updateOfficer(float deltaTime);
     void ensureWantedPoliceUnits();
     int getActivePoliceUnitCount() const;
     bool isVehicleAssignedToOfficer(const Vehicle* vehicle) const;
+    OfficerUnit* findOfficerUnitForVehicle(Vehicle* vehicle);
     void handleOfficerKilled(OfficerUnit& unit);
     void updateOfficerUnit(OfficerUnit& unit, float deltaTime, const glm::vec3& playerPos);
     void maybeDeployOfficer(Vehicle* vehicle, const glm::vec3& playerPos);
     void tryOfficerReenterVehicle(OfficerUnit& unit, float deltaTime, const glm::vec3& playerPos);
-    void clearOfficer(OfficerUnit& unit, bool keepCorpse);
+    void clearOfficer(OfficerUnit& unit);
     glm::vec3 getOfficerVehicleEntryPoint(const OfficerUnit& unit, const glm::vec3& officerPos) const;
     glm::vec3 adjustOfficerMovementTargetAroundVehicles(const glm::vec3& from, const glm::vec3& target,
                                                         float officerRadius);

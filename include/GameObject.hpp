@@ -1,9 +1,6 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <memory>
-#include "Texture.hpp"
-#include "Mesh.hpp"
 
 class GameObject {
 protected:

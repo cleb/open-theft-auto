@@ -11,6 +11,7 @@ class TileGrid;
 class SpriteAnimation;
 class Renderer;
 class Vehicle;
+class CharacterPhysics;
 
 // Wraps a Pedestrian with chase/shoot/vehicle-collision behavior.
 // Used by both PoliceChaseManager (officer) and EscortMissionState (enemies).
@@ -26,8 +27,10 @@ public:
     ~CombatPedestrian() = default;
 
     // Initialize the underlying Pedestrian with animation and grid
-    void spawn(SpriteAnimation* animation, TileGrid* tileGrid,
+    void spawn(SpriteAnimation* animation, TileGrid* tileGrid, CharacterPhysics& characterPhysics,
                const glm::vec3& position, float headingDeg);
+    void enterVehicle();
+    void exitVehicle(const glm::vec3& position, float headingDeg);
 
     // Per-frame update: animation, chase, shoot
     void update(float deltaTime, const glm::vec3& targetPos);
@@ -44,7 +47,6 @@ public:
     bool checkBulletHit(const glm::vec3& bulletPos, float bulletRadius);
 
     void setShootCallback(ShootCallback cb) { m_shootCallback = std::move(cb); }
-    void setVehicleBlockCheck(VehicleBlockCheck callback) { m_vehicleBlockCheck = std::move(callback); }
     void setMovementTargetAdjustCallback(MovementTargetAdjustCallback callback) {
         m_movementTargetAdjustCallback = std::move(callback);
     }
@@ -68,7 +70,6 @@ public:
 private:
     std::unique_ptr<Pedestrian> m_pedestrian;
     ShootCallback m_shootCallback;
-    VehicleBlockCheck m_vehicleBlockCheck;
     MovementTargetAdjustCallback m_movementTargetAdjustCallback;
     LineOfSightBlockCallback m_lineOfSightBlockCallback;
     TileGrid* m_tileGrid = nullptr;
@@ -88,7 +89,7 @@ private:
     glm::ivec3 clampGridPosition(glm::ivec3 gridPos) const;
     glm::vec3 gridToMoveWorld(const glm::ivec3& gridPos, float z) const;
     glm::vec3 adjustMovementTarget(const glm::vec3& from, const glm::vec3& target) const;
-    bool isBlockedByVehicle(const glm::vec3& position) const;
+    bool isPositionBlocked(const glm::vec3& position) const;
     bool isLineOfSightBlocked(const glm::vec3& from, const glm::vec3& target, float clearanceRadius) const;
     float getPedestrianBlockRadius() const;
     void invalidatePath();

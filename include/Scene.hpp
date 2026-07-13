@@ -17,6 +17,7 @@
 #include "Collider.hpp"
 #include "MissionSystem.hpp"
 #include "PhoneBoothJobSequence.hpp"
+#include "CharacterPhysics.hpp"
 #include "Texture.hpp"
 
 #include <string>
@@ -25,6 +26,7 @@ class InputManager;
 
 class Scene {
 private:
+    CharacterPhysics m_characterPhysics;
     std::vector<std::unique_ptr<GameObject>> m_gameObjects;
     std::unique_ptr<Player> m_player;
     std::vector<std::unique_ptr<Vehicle>> m_vehicles;
@@ -99,6 +101,7 @@ private:
     void rebuildVehiclesFromSpawns();
     void onLevelChanged();
     void setupCollisionCallbacks();
+    std::vector<const Collider*> getCharacterPhysicsObstacles() const;
     void rebuildPickupsFromSpawns();
     void rebuildPhoneBoothsFromSpawns();
     void handlePickupCollection();

@@ -154,8 +154,17 @@ target_include_directories(test_curve_math PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_executable(test_phone_booth_job_sequence tests/test_phone_booth_job_sequence.cpp)
 target_include_directories(test_phone_booth_job_sequence PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
+add_executable(test_character_physics
+    tests/test_character_physics.cpp
+    src/CharacterPhysics.cpp
+    src/Collider.cpp
+)
+target_link_libraries(test_character_physics glm::glm)
+target_include_directories(test_character_physics PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
 # Register tests with CTest
 enable_testing()
 add_test(NAME heading_conventions COMMAND test_heading_conventions)
 add_test(NAME curve_math COMMAND test_curve_math)
 add_test(NAME phone_booth_job_sequence COMMAND test_phone_booth_job_sequence)
+add_test(NAME character_physics COMMAND test_character_physics)

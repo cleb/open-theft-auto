@@ -23,12 +23,20 @@ public:
     void update(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime) override;
     void onAssign(Vehicle* vehicle) override;
     void onRelease(Vehicle* vehicle) override;
+    void beginTrafficPatrol();
+    bool isChasing() const;
     
     // Set the callback to get player position
     void setPlayerPositionCallback(PlayerPositionCallback callback) { m_playerPositionCallback = std::move(callback); }
     
 private:
     PlayerPositionCallback m_playerPositionCallback;
+
+    enum class Mode {
+        Chase,
+        RejoinTraffic,
+        Patrol
+    };
 
     enum class RouteMode {
         StrictLane,
@@ -47,10 +55,19 @@ private:
     float m_detourTimer = 0.0f;
     float m_recoveryTimer = 0.0f;
     float m_recoveryTurnSign = 1.0f;
+    Mode m_mode = Mode::Chase;
+    glm::ivec3 m_rejoinGoal{-1, -1, -1};
+    float m_rejoinHeading = 0.0f;
 
     glm::ivec3 worldToDriveGrid(const TileGrid* tileGrid, const glm::vec3& worldPos) const;
     glm::vec3 gridToDriveWorld(const TileGrid* tileGrid, const glm::ivec3& gridPos, float z) const;
     bool isRoadTile(const TileGrid* tileGrid, const glm::ivec3& gridPos) const;
+    std::vector<float> getConnectedTrafficHeadings(const TileGrid* tileGrid,
+                                                   const glm::ivec3& gridPos, float z) const;
+    bool isTrafficRejoinTile(const TileGrid* tileGrid, const glm::ivec3& gridPos, float z) const;
+    glm::ivec3 findNearestReachableRoad(const Vehicle* vehicle, const TileGrid* tileGrid,
+                                        const glm::ivec3& start, float z, float& heading) const;
+    bool alignForTraffic(Vehicle* vehicle, TileGrid* tileGrid, const glm::ivec3& roadGrid, float deltaTime);
     bool isMoveAllowedByDirection(CarDirection dir, const glm::ivec2& step) const;
     SearchResult findPath(const TileGrid* tileGrid, const glm::ivec3& start, const glm::ivec3& goal, RouteMode mode) const;
     float computeMoveCost(const TileGrid* tileGrid, const glm::ivec3& from, const glm::ivec3& to,

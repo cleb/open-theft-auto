@@ -16,6 +16,9 @@ namespace {
 constexpr float kRepathIntervalSeconds = 0.30f;
 constexpr float kRoadFirstRatio = 1.35f;
 constexpr float kHeadingTurnSpeedDegPerSec = 260.0f;
+constexpr float kTrafficPatrolSpeed = 12.0f;
+constexpr float kRoadCenterToleranceScale = 0.18f;
+constexpr float kTrafficHeadingToleranceDeg = 3.0f;
 
 constexpr std::array<glm::ivec2, 4> kCardinalSteps = {
     glm::ivec2(1, 0),
@@ -33,6 +36,9 @@ PolicePilot::PolicePilot() {
 
 void PolicePilot::onAssign(Vehicle* vehicle) {
     AutoPilot::onAssign(vehicle);
+    m_mode = Mode::Chase;
+    m_rejoinGoal = glm::ivec3(-1, -1, -1);
+    m_rejoinHeading = 0.0f;
     m_cachedPath.clear();
     m_cachedGoal = glm::ivec3(-1, -1, -1);
     m_repathCooldown = 0.0f;
@@ -43,12 +49,31 @@ void PolicePilot::onAssign(Vehicle* vehicle) {
 
 void PolicePilot::onRelease(Vehicle* vehicle) {
     AutoPilot::onRelease(vehicle);
+    m_mode = Mode::Chase;
+    m_rejoinGoal = glm::ivec3(-1, -1, -1);
+    m_rejoinHeading = 0.0f;
     m_cachedPath.clear();
     m_cachedGoal = glm::ivec3(-1, -1, -1);
     m_repathCooldown = 0.0f;
     m_detourTimer = 0.0f;
     m_recoveryTimer = 0.0f;
     m_recoveryTurnSign = 1.0f;
+}
+
+void PolicePilot::beginTrafficPatrol() {
+    m_mode = Mode::RejoinTraffic;
+    m_rejoinGoal = glm::ivec3(-1, -1, -1);
+    m_rejoinHeading = 0.0f;
+    m_cachedPath.clear();
+    m_cachedGoal = glm::ivec3(-1, -1, -1);
+    m_repathCooldown = 0.0f;
+    m_detourTimer = 0.0f;
+    m_recoveryTimer = 0.0f;
+    setMaxSpeed(kTrafficPatrolSpeed);
+}
+
+bool PolicePilot::isChasing() const {
+    return m_mode == Mode::Chase;
 }
 
 float PolicePilot::angleDifference(float from, float to) const {
@@ -81,6 +106,166 @@ glm::vec3 PolicePilot::gridToDriveWorld(const TileGrid* tileGrid, const glm::ive
 bool PolicePilot::isRoadTile(const TileGrid* tileGrid, const glm::ivec3& gridPos) const {
     const Tile* tile = tileGrid->getTile(gridPos);
     return tile && tile->getCarDirection() != CarDirection::None;
+}
+
+std::vector<float> PolicePilot::getConnectedTrafficHeadings(
+    const TileGrid* tileGrid, const glm::ivec3& gridPos, float z) const {
+    std::vector<float> headings;
+    const Tile* tile = tileGrid ? tileGrid->getTile(gridPos) : nullptr;
+    if (!tile) {
+        return headings;
+    }
+
+    auto addConnectedHeading = [&](float heading, const glm::ivec2& step) {
+        const glm::ivec3 next = gridPos + glm::ivec3(step.x, step.y, 0);
+        if (!tileGrid->isValidPosition(next) || !isRoadTile(tileGrid, next)) {
+            return;
+        }
+
+        const glm::vec3 fromWorld = gridToDriveWorld(tileGrid, gridPos, z);
+        const glm::vec3 toWorld = gridToDriveWorld(tileGrid, next, z);
+        if (tileGrid->canOccupy(fromWorld, toWorld)) {
+            headings.push_back(heading);
+        }
+    };
+
+    switch (tile->getCarDirection()) {
+        case CarDirection::North:
+            addConnectedHeading(90.0f, glm::ivec2(0, 1));
+            break;
+        case CarDirection::South:
+            addConnectedHeading(270.0f, glm::ivec2(0, -1));
+            break;
+        case CarDirection::East:
+            addConnectedHeading(0.0f, glm::ivec2(1, 0));
+            break;
+        case CarDirection::West:
+            addConnectedHeading(180.0f, glm::ivec2(-1, 0));
+            break;
+        case CarDirection::SouthNorth:
+            addConnectedHeading(90.0f, glm::ivec2(0, 1));
+            addConnectedHeading(270.0f, glm::ivec2(0, -1));
+            break;
+        case CarDirection::WestEast:
+            addConnectedHeading(0.0f, glm::ivec2(1, 0));
+            addConnectedHeading(180.0f, glm::ivec2(-1, 0));
+            break;
+        default:
+            break;
+    }
+
+    return headings;
+}
+
+bool PolicePilot::isTrafficRejoinTile(const TileGrid* tileGrid,
+                                      const glm::ivec3& gridPos, float z) const {
+    return !getConnectedTrafficHeadings(tileGrid, gridPos, z).empty();
+}
+
+glm::ivec3 PolicePilot::findNearestReachableRoad(
+    const Vehicle* vehicle, const TileGrid* tileGrid, const glm::ivec3& start,
+    float z, float& heading) const {
+    if (!vehicle || !tileGrid || !tileGrid->isValidPosition(start)) {
+        return glm::ivec3(-1, -1, -1);
+    }
+
+    const glm::ivec3 gridSize = tileGrid->getGridSize();
+    const int layerSize = gridSize.x * gridSize.y;
+    auto indexOf = [gridSize](const glm::ivec3& position) {
+        return position.y * gridSize.x + position.x;
+    };
+
+    std::vector<bool> visited(layerSize, false);
+    std::queue<glm::ivec3> open;
+    open.push(start);
+    visited[indexOf(start)] = true;
+
+    while (!open.empty()) {
+        const glm::ivec3 current = open.front();
+        open.pop();
+
+        const std::vector<float> headings = getConnectedTrafficHeadings(tileGrid, current, z);
+        if (!headings.empty()) {
+            const glm::vec3 roadCenter = gridToDriveWorld(tileGrid, current, z);
+            std::vector<float> orderedHeadings = headings;
+            const float currentHeading = vehicle->getRotation().z;
+            std::sort(orderedHeadings.begin(), orderedHeadings.end(),
+                      [this, currentHeading](float lhs, float rhs) {
+                          return std::abs(angleDifference(currentHeading, lhs)) <
+                                 std::abs(angleDifference(currentHeading, rhs));
+                      });
+            for (float candidateHeading : orderedHeadings) {
+                if (!wouldCollideAt(vehicle, roadCenter, candidateHeading)) {
+                    heading = candidateHeading;
+                    return current;
+                }
+            }
+        }
+
+        for (const glm::ivec2& step : kCardinalSteps) {
+            const glm::ivec3 next = current + glm::ivec3(step.x, step.y, 0);
+            if (!tileGrid->isValidPosition(next)) {
+                continue;
+            }
+
+            const int nextIndex = indexOf(next);
+            if (visited[nextIndex]) {
+                continue;
+            }
+
+            const glm::vec3 fromWorld = gridToDriveWorld(tileGrid, current, z);
+            const glm::vec3 toWorld = gridToDriveWorld(tileGrid, next, z);
+            if (!tileGrid->canOccupy(fromWorld, toWorld)) {
+                continue;
+            }
+
+            visited[nextIndex] = true;
+            open.push(next);
+        }
+    }
+
+    return glm::ivec3(-1, -1, -1);
+}
+
+bool PolicePilot::alignForTraffic(Vehicle* vehicle, TileGrid* tileGrid,
+                                  const glm::ivec3& roadGrid, float deltaTime) {
+    if (!vehicle || !tileGrid || !isTrafficRejoinTile(tileGrid, roadGrid, vehicle->getPosition().z)) {
+        return false;
+    }
+
+    const float currentHeading = vehicle->getRotation().z;
+    const float targetHeading = m_rejoinHeading;
+    const float difference = angleDifference(currentHeading, targetHeading);
+    vehicle->setSpeed(0.0f);
+
+    if (std::abs(difference) <= kTrafficHeadingToleranceDeg) {
+        if (wouldCollideAt(vehicle, vehicle->getPosition(), targetHeading)) {
+            m_rejoinGoal = glm::ivec3(-1, -1, -1);
+            m_cachedPath.clear();
+            return true;
+        }
+        vehicle->setRotation(glm::vec3(0.0f, 0.0f, targetHeading));
+        vehicle->setInCollision(false);
+        m_mode = Mode::Patrol;
+        m_rejoinGoal = glm::ivec3(-1, -1, -1);
+        m_rejoinHeading = 0.0f;
+        m_cachedPath.clear();
+        m_cachedGoal = glm::ivec3(-1, -1, -1);
+        AutoPilot::onAssign(vehicle);
+        return true;
+    }
+
+    const float maxTurn = kHeadingTurnSpeedDegPerSec * deltaTime;
+    const float newHeading = normalizeAngle(
+        currentHeading + std::clamp(difference, -maxTurn, maxTurn));
+    if (!wouldCollideAt(vehicle, vehicle->getPosition(), newHeading)) {
+        vehicle->setRotation(glm::vec3(0.0f, 0.0f, newHeading));
+        vehicle->setInCollision(false);
+    } else {
+        m_rejoinGoal = glm::ivec3(-1, -1, -1);
+        m_cachedPath.clear();
+    }
+    return true;
 }
 
 bool PolicePilot::isMoveAllowedByDirection(CarDirection dir, const glm::ivec2& step) const {
@@ -370,28 +555,60 @@ float PolicePilot::chooseDetourHeading(const Vehicle* vehicle, const TileGrid* t
 }
 
 void PolicePilot::update(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime) {
-    if (!vehicle || !tileGrid || !m_playerPositionCallback) {
+    if (!vehicle || !tileGrid) {
+        return;
+    }
+
+    if (m_mode == Mode::Patrol) {
+        AutoPilot::update(vehicle, tileGrid, deltaTime);
         return;
     }
 
     glm::vec3 pos = vehicle->getPosition();
-    const glm::vec3 targetPos = m_playerPositionCallback();
-
     const glm::ivec3 currentGrid = worldToDriveGrid(tileGrid, pos);
-    glm::ivec3 goalGrid = worldToDriveGrid(tileGrid, targetPos);
-    goalGrid.z = currentGrid.z;
 
     if (!tileGrid->isValidPosition(currentGrid)) {
+        vehicle->setSpeed(0.0f);
         return;
     }
 
-    if (!tileGrid->isValidPosition(goalGrid)) {
-        glm::ivec3 clamped = goalGrid;
-        const glm::ivec3 size = tileGrid->getGridSize();
-        clamped.x = std::clamp(clamped.x, 0, size.x - 1);
-        clamped.y = std::clamp(clamped.y, 0, size.y - 1);
-        clamped.z = std::clamp(clamped.z, 0, size.z - 1);
-        goalGrid = clamped;
+    glm::vec3 targetPos(0.0f);
+    glm::ivec3 goalGrid(-1, -1, -1);
+    if (m_mode == Mode::RejoinTraffic) {
+        if (!tileGrid->isValidPosition(m_rejoinGoal) ||
+            !isTrafficRejoinTile(tileGrid, m_rejoinGoal, pos.z)) {
+            m_rejoinGoal = findNearestReachableRoad(
+                vehicle, tileGrid, currentGrid, pos.z, m_rejoinHeading);
+            m_cachedPath.clear();
+            m_cachedGoal = glm::ivec3(-1, -1, -1);
+        }
+        if (!tileGrid->isValidPosition(m_rejoinGoal)) {
+            vehicle->setSpeed(0.0f);
+            return;
+        }
+
+        goalGrid = m_rejoinGoal;
+        targetPos = gridToDriveWorld(tileGrid, goalGrid, pos.z);
+        const glm::vec2 toRoadCenter(targetPos.x - pos.x, targetPos.y - pos.y);
+        if (currentGrid == goalGrid &&
+            glm::length(toRoadCenter) <= tileGrid->getTileSize() * kRoadCenterToleranceScale) {
+            alignForTraffic(vehicle, tileGrid, goalGrid, deltaTime);
+            return;
+        }
+    } else {
+        if (!m_playerPositionCallback) {
+            return;
+        }
+        targetPos = m_playerPositionCallback();
+        goalGrid = worldToDriveGrid(tileGrid, targetPos);
+        goalGrid.z = currentGrid.z;
+
+        if (!tileGrid->isValidPosition(goalGrid)) {
+            const glm::ivec3 size = tileGrid->getGridSize();
+            goalGrid.x = std::clamp(goalGrid.x, 0, size.x - 1);
+            goalGrid.y = std::clamp(goalGrid.y, 0, size.y - 1);
+            goalGrid.z = std::clamp(goalGrid.z, 0, size.z - 1);
+        }
     }
 
     m_repathCooldown = std::max(0.0f, m_repathCooldown - deltaTime);
@@ -412,20 +629,23 @@ void PolicePilot::update(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime) 
     }
 
     if (needRepath) {
-        const SearchResult strict = findPath(tileGrid, currentGrid, goalGrid, RouteMode::StrictLane);
         const SearchResult flexible = findPath(tileGrid, currentGrid, goalGrid, RouteMode::Flexible);
-
-        bool useFlexible = false;
-        if (!strict.reachedGoal && flexible.reachedGoal) {
-            useFlexible = true;
-        } else if (strict.reachedGoal && flexible.reachedGoal && strict.totalCost > flexible.totalCost * kRoadFirstRatio) {
-            useFlexible = true;
-        } else if (!strict.reachedGoal && !strict.path.empty() && !flexible.path.empty() &&
-                   strict.totalCost > flexible.totalCost * kRoadFirstRatio) {
-            useFlexible = true;
+        if (m_mode == Mode::RejoinTraffic) {
+            m_cachedPath = flexible.path;
+        } else {
+            const SearchResult strict = findPath(tileGrid, currentGrid, goalGrid, RouteMode::StrictLane);
+            bool useFlexible = false;
+            if (!strict.reachedGoal && flexible.reachedGoal) {
+                useFlexible = true;
+            } else if (strict.reachedGoal && flexible.reachedGoal &&
+                       strict.totalCost > flexible.totalCost * kRoadFirstRatio) {
+                useFlexible = true;
+            } else if (!strict.reachedGoal && !strict.path.empty() && !flexible.path.empty() &&
+                       strict.totalCost > flexible.totalCost * kRoadFirstRatio) {
+                useFlexible = true;
+            }
+            m_cachedPath = useFlexible ? flexible.path : strict.path;
         }
-
-        m_cachedPath = useFlexible ? flexible.path : strict.path;
         if (m_cachedPath.empty()) {
             m_cachedPath.push_back(currentGrid);
         }
@@ -471,6 +691,12 @@ void PolicePilot::update(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime) 
     if (!canMoveTo(tileGrid, pos, desiredProbe) || wouldCollideAt(vehicle, desiredProbe, desiredHeading)) {
         movementHeading = chooseDetourHeading(vehicle, tileGrid, pos, desiredHeading, travelDistance, foundDetour);
         if (!foundDetour) {
+            if (m_mode == Mode::RejoinTraffic) {
+                m_rejoinGoal = glm::ivec3(-1, -1, -1);
+                m_cachedPath.clear();
+                vehicle->setSpeed(0.0f);
+                return;
+            }
             beginRecovery(vehicle, desiredHeading);
             return;
         }
@@ -515,5 +741,11 @@ void PolicePilot::update(Vehicle* vehicle, TileGrid* tileGrid, float deltaTime) 
         return;
     }
 
+    if (m_mode == Mode::RejoinTraffic) {
+        m_rejoinGoal = glm::ivec3(-1, -1, -1);
+        m_cachedPath.clear();
+        vehicle->setSpeed(0.0f);
+        return;
+    }
     beginRecovery(vehicle, desiredHeading);
 }

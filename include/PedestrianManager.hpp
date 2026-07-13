@@ -13,6 +13,7 @@
 
 class Renderer;
 class Vehicle;
+class CharacterPhysics;
 
 // Callback type for getting all vehicles in the scene
 using VehicleCallback = std::function<std::vector<Vehicle*>()>;
@@ -33,7 +34,7 @@ public:
     PedestrianManager();
     ~PedestrianManager() = default;
 
-    void initialize(TileGrid* tileGrid, Camera* camera);
+    void initialize(TileGrid* tileGrid, Camera* camera, CharacterPhysics* characterPhysics);
     void update(float deltaTime);
     void render(Renderer* renderer);
     void reset();
@@ -71,6 +72,7 @@ public:
 private:
     TileGrid* m_tileGrid;
     Camera* m_camera;
+    CharacterPhysics* m_characterPhysics;
     
     // Shared animation for all pedestrians (loaded once)
     std::unique_ptr<SpriteAnimation> m_sharedAnimation;
@@ -111,8 +113,4 @@ private:
     float getRotationFromDirection(SidewalkDirection dir);
     // Check if position is too close to existing pedestrians
     bool isTooCloseToOthers(const glm::vec3& position) const;
-    // Check if a position is blocked by any vehicle (for pedestrian avoidance)
-    bool isPositionBlockedByVehicle(const glm::vec3& position, float pedRadius) const;
-    // Set the vehicle block check callback on a pedestrian
-    void setupVehicleBlockCheck(Pedestrian* pedestrian);
 };
