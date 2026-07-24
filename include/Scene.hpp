@@ -111,6 +111,8 @@ private:
     void createTestScene();
     void toggleEditMode();
     void rebuildVehiclesFromSpawns();
+    void placePlayerAtSpawn();
+    void handlePlayerFatalFall(int fallTiles);
     void onLevelChanged();
     void setupCollisionCallbacks();
     std::vector<const Collider*> getCharacterPhysicsObstacles() const;

@@ -185,7 +185,15 @@ void Vehicle::update(float deltaTime) {
             // heading to orient the sampled footprint so angled entry/exit on
             // ramps tracks the actual car body rather than just the last delta.
             const glm::vec2 forward2D = Heading::forwardFromHeadingDeg(m_rotation.z);
+            const int fallTiles = m_tileGrid->getFallHeightTiles(newPosition, m_position.z);
             newPosition.z = m_tileGrid->getSurfaceHeightForFootprint(newPosition, m_size, forward2D, m_position.z);
+
+            // Only damage once the body has actually dropped: the footprint can
+            // still rest on the ledge while the center hangs over the void.
+            const float drop = m_position.z - newPosition.z;
+            if (fallTiles > 0 && drop >= m_tileGrid->getTileSize() * 0.5f) {
+                applyHit(fallTiles);  // One point of damage per tile fallen
+            }
 
             setPosition(newPosition);
         } else {

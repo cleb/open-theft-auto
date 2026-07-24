@@ -162,9 +162,18 @@ add_executable(test_character_physics
 target_link_libraries(test_character_physics glm::glm)
 target_include_directories(test_character_physics PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
+add_executable(test_tile_fall
+    tests/test_tile_fall.cpp
+    src/TileGrid.cpp
+    src/Tile.cpp
+)
+target_link_libraries(test_tile_fall glm::glm GLEW::GLEW OpenGL::GL)
+target_include_directories(test_tile_fall PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
 # Register tests with CTest
 enable_testing()
 add_test(NAME heading_conventions COMMAND test_heading_conventions)
 add_test(NAME curve_math COMMAND test_curve_math)
 add_test(NAME phone_booth_job_sequence COMMAND test_phone_booth_job_sequence)
 add_test(NAME character_physics COMMAND test_character_physics)
+add_test(NAME tile_fall COMMAND test_tile_fall)

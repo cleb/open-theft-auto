@@ -6,6 +6,7 @@
 #include "Weapon.hpp"
 #include "PickupTypes.hpp"
 #include <array>
+#include <functional>
 #include <memory>
 #include <optional>
 
@@ -22,9 +23,14 @@ private:
     std::size_t m_equippedSlot;  // Index into m_weaponSlots; pickupTypeCount() == no weapon
     int m_money;
     
+    std::function<void(int fallTiles)> m_fatalFallCallback;
+
     void applyMovement(const glm::vec3& delta);
 
 public:
+    // Falls of more than this many tile levels kill the player.
+    static constexpr int SurvivableFallTiles = 1;
+
     explicit Player(CharacterPhysics& physics);
     ~Player() = default;
     
@@ -57,6 +63,10 @@ public:
     bool canShoot() const;
     void recordShot();
     
+    void setFatalFallCallback(std::function<void(int fallTiles)> callback) {
+        m_fatalFallCallback = std::move(callback);
+    }
+
     float getSpeed() const { return m_speed; }
     void setSpeed(float speed) { m_speed = speed; }
 };

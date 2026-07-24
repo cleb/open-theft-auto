@@ -90,7 +90,17 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
             return m_tileGrid->getSurfaceHeightForFootprint(
                 position, footprintSize, movement, referenceZ);
         },
-        [this]() { return getCharacterPhysicsObstacles(); });
+        [this]() { return getCharacterPhysicsObstacles(); },
+        [this](const glm::vec3& position, float referenceZ, float landedZ) {
+            if (!m_tileGrid) {
+                return 0;
+            }
+            const int fallTiles = m_tileGrid->getFallHeightTiles(position, referenceZ);
+            // Only count it once the entity has actually dropped: its footprint
+            // can still rest on the ledge while its center hangs over the void.
+            const float drop = referenceZ - landedZ;
+            return (fallTiles > 0 && drop >= m_tileGrid->getTileSize() * 0.5f) ? fallTiles : 0;
+        });
 
     m_tileGridEditor = std::make_unique<TileGridEditor>();
     m_tileGridEditor->initialize(m_tileGrid.get(), &m_levelData);
@@ -104,6 +114,7 @@ bool Scene::initialize(GameLogic* gameLogic, Window* window, Renderer* renderer)
         std::cerr << "Failed to initialize player" << std::endl;
         return false;
     }
+    m_player->setFatalFallCallback([this](int fallTiles) { handlePlayerFatalFall(fallTiles); });
     // Initialize traffic manager
     m_trafficManager = std::make_unique<TrafficManager>();
     m_trafficManager->initialize(m_tileGrid.get(), renderer->getCamera(), &m_vehicles);
@@ -946,33 +957,7 @@ void Scene::rebuildVehiclesFromSpawns() {
         addVehicle(std::move(vehicle));
     }
 
-    // Set player position from spawn point
-    if (m_player) {
-        if (m_levelData.playerSpawn.isSet) {
-            const float tileSize = m_tileGrid->getTileSize();
-            glm::vec3 playerPos(
-                m_levelData.playerSpawn.gridPosition.x * tileSize,
-                m_levelData.playerSpawn.gridPosition.y * tileSize,
-                m_levelData.playerSpawn.gridPosition.z * tileSize);
-            playerPos.z += 0.1f;  // Slightly above the tile surface
-            m_player->setPosition(playerPos);
-            // rotationDegrees is a heading in degrees where 0°=+X (East), 90°=+Y (North), CCW positive.
-            m_player->setRotation(glm::vec3(0.0f, 0.0f, m_levelData.playerSpawn.rotationDegrees));
-            std::cout << "Set player position to spawn: (" << playerPos.x << ", " << playerPos.y << ", " << playerPos.z 
-                      << ") rotation=" << m_levelData.playerSpawn.rotationDegrees << std::endl;
-        } else {
-            // Default spawn at center of bottom layer
-            const glm::ivec3& gridSize = m_tileGrid->getGridSize();
-            const float tileSize = m_tileGrid->getTileSize();
-            glm::vec3 defaultPos(
-                (gridSize.x / 2) * tileSize,
-                (gridSize.y / 2) * tileSize,
-                0.1f);
-            m_player->setPosition(defaultPos);
-            m_player->setRotation(glm::vec3(0.0f));
-        }
-        m_player->setActive(true);
-    }
+    placePlayerAtSpawn();
 
     // Set up collision and explode callbacks for all vehicles and player
     setupCollisionCallbacks();
@@ -1172,6 +1157,50 @@ void Scene::handleVehicleExploded(Vehicle* vehicle) {
     const bool playerInside = m_gameLogic && m_gameLogic->getActiveVehicle() == vehicle;
     if (playerInside && !m_debugInvincible) {
         restartLevel();
+    }
+}
+
+void Scene::placePlayerAtSpawn() {
+    if (!m_player || !m_tileGrid) {
+        return;
+    }
+
+    const float tileSize = m_tileGrid->getTileSize();
+    if (m_levelData.playerSpawn.isSet) {
+        glm::vec3 playerPos(
+            m_levelData.playerSpawn.gridPosition.x * tileSize,
+            m_levelData.playerSpawn.gridPosition.y * tileSize,
+            m_levelData.playerSpawn.gridPosition.z * tileSize);
+        playerPos.z += 0.1f;  // Slightly above the tile surface
+        m_player->setPosition(playerPos);
+        // rotationDegrees is a heading in degrees where 0°=+X (East), 90°=+Y (North), CCW positive.
+        m_player->setRotation(glm::vec3(0.0f, 0.0f, m_levelData.playerSpawn.rotationDegrees));
+        std::cout << "Set player position to spawn: (" << playerPos.x << ", " << playerPos.y << ", " << playerPos.z
+                  << ") rotation=" << m_levelData.playerSpawn.rotationDegrees << std::endl;
+    } else {
+        // Default spawn at center of bottom layer
+        const glm::ivec3& gridSize = m_tileGrid->getGridSize();
+        glm::vec3 defaultPos(
+            (gridSize.x / 2) * tileSize,
+            (gridSize.y / 2) * tileSize,
+            0.1f);
+        m_player->setPosition(defaultPos);
+        m_player->setRotation(glm::vec3(0.0f));
+    }
+    m_player->setActive(true);
+}
+
+void Scene::handlePlayerFatalFall(int fallTiles) {
+    std::cout << "Player died falling " << fallTiles << " tiles" << std::endl;
+
+    if (m_gameLogic && m_gameLogic->isPlayerInVehicle()) {
+        m_gameLogic->leaveVehicle();
+    }
+
+    placePlayerAtSpawn();
+
+    if (m_policeChaseManager) {
+        m_policeChaseManager->setWantedLevel(0);
     }
 }
 

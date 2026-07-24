@@ -75,6 +75,11 @@ public:
                                        const glm::vec2& forwardDirection,
                                        float referenceZ) const;
 
+    // Number of whole tile levels an entity standing at `referenceZ` would
+    // drop at (worldPos.x, worldPos.y). Returns 0 when the column supports the
+    // entity at its current level (slopes included).
+    int getFallHeightTiles(const glm::vec3& worldPos, float referenceZ) const;
+
 private:
     struct SurfaceSample {
         float height = 0.0f;
@@ -83,6 +88,9 @@ private:
 
     int getIndex(int x, int y, int z) const;
     bool hasGroundSupport(const glm::ivec3& tilePos) const;
+    // First grid layer at or below `tilePos` whose column has a solid top to
+    // land on. Returns -1 when nothing below can catch a falling entity.
+    int findLandingLayer(const glm::ivec3& tilePos) const;
     SurfaceSample sampleSurface(float worldX, float worldY, float referenceZ) const;
     bool rebuildTiles();
 

@@ -216,7 +216,10 @@ void Player::applyMovement(const glm::vec3& delta) {
     if (delta.x == 0.0f && delta.y == 0.0f) {
         return;
     }
-    tryMove(delta, CharacterMoveMode::Slide);
+    const CharacterMoveResult result = tryMove(delta, CharacterMoveMode::Slide);
+    if (result.fallTiles > SurvivableFallTiles && m_fatalFallCallback) {
+        m_fatalFallCallback(result.fallTiles);
+    }
 }
 
 void Player::turnRight(float deltaTime) {

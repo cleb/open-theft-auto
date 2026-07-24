@@ -249,6 +249,29 @@ bool TileGrid::hasGroundSupport(const glm::ivec3& tilePos) const {
     return false;
 }
 
+int TileGrid::findLandingLayer(const glm::ivec3& tilePos) const {
+    for (int z = tilePos.z - 1; z >= 0; --z) {
+        const Tile* tile = getTile(tilePos.x, tilePos.y, z);
+        if (tile && tile->isTopSolid()) {
+            return z + 1;
+        }
+    }
+    return -1;
+}
+
+int TileGrid::getFallHeightTiles(const glm::vec3& worldPos, float referenceZ) const {
+    glm::ivec3 tilePos = worldToGrid(glm::vec3(worldPos.x, worldPos.y, referenceZ));
+    if (!isValidPosition(tilePos) || hasGroundSupport(tilePos)) {
+        return 0;
+    }
+
+    const int landingLayer = findLandingLayer(tilePos);
+    if (landingLayer < 0) {
+        return tilePos.z;
+    }
+    return std::max(0, tilePos.z - landingLayer);
+}
+
 glm::vec3 TileGrid::gridToWorld(const glm::ivec3& gridPos) const {
     return glm::vec3(
         gridPos.x * m_tileSize,
@@ -278,8 +301,14 @@ bool TileGrid::canOccupy(const glm::vec3& startPos, const glm::vec3& endPos) con
         return false;
     }
 
+    // Standing on a ledge and stepping into thin air is allowed as long as
+    // something below can catch the entity: the move turns into a fall.
+    auto canEnter = [this](const glm::ivec3& tilePos) {
+        return hasGroundSupport(tilePos) || findLandingLayer(tilePos) >= 0;
+    };
+
     if (startTile == endTile) {
-        return hasGroundSupport(endTile);
+        return canEnter(endTile);
     }
 
     glm::ivec3 diff = endTile - startTile;
@@ -308,7 +337,7 @@ bool TileGrid::canOccupy(const glm::vec3& startPos, const glm::vec3& endPos) con
         fromDir = WallDirection::South;
         toDir = WallDirection::North;
     } else {
-        return hasGroundSupport(endTile);
+        return canEnter(endTile);
     }
 
     const Tile* fromTile = getTile(startTile);
@@ -322,7 +351,7 @@ bool TileGrid::canOccupy(const glm::vec3& startPos, const glm::vec3& endPos) con
         return false;
     }
 
-    return hasGroundSupport(endTile);
+    return canEnter(endTile);
 }
 
 bool TileGrid::isRoadTile(const glm::vec3& worldPos) const {

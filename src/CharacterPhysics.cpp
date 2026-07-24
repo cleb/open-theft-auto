@@ -6,10 +6,12 @@
 
 void CharacterPhysics::configure(TerrainTransitionCheck terrainCheck,
                                  SurfaceHeightQuery surfaceHeightQuery,
-                                 ColliderCallback obstacleCallback) {
+                                 ColliderCallback obstacleCallback,
+                                 FallHeightQuery fallHeightQuery) {
     m_terrainCheck = std::move(terrainCheck);
     m_surfaceHeightQuery = std::move(surfaceHeightQuery);
     m_obstacleCallback = std::move(obstacleCallback);
+    m_fallHeightQuery = std::move(fallHeightQuery);
 }
 
 bool CharacterPhysics::isConfigured() const {
@@ -129,6 +131,11 @@ CharacterMoveResult CharacterPhysics::move(const Collider* self,
         if (glm::dot(movement, movement) > 0.0000001f) {
             result.position.z =
                 m_surfaceHeightQuery(result.position, surfaceSize, movement, stepStart.z);
+            if (m_fallHeightQuery) {
+                result.fallTiles = std::max(
+                    result.fallTiles,
+                    m_fallHeightQuery(result.position, stepStart.z, result.position.z));
+            }
             result.moved = true;
         }
     }
