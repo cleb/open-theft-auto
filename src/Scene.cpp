@@ -334,15 +334,17 @@ void Scene::render(Renderer* renderer) {
         const bool editorMode = m_tileGridEditor && m_tileGridEditor->isEnabled();
         if (!editorMode) {
             glm::vec3 target(0.0f);
+            float followSpeed = 0.0f;
             if (m_gameLogic && m_gameLogic->isPlayerInVehicle()) {
                 Vehicle* activeVehicle = m_gameLogic->getActiveVehicle();
                 if (activeVehicle) {
                     target = activeVehicle->getPosition();
+                    followSpeed = activeVehicle->getSpeed();
                 }
             } else if (m_player) {
                 target = m_player->getPosition();
             }
-            renderer->getCamera()->followTarget(target);
+            renderer->getCamera()->followTarget(target, followSpeed);
         }
     }
     

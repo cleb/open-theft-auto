@@ -1,9 +1,14 @@
 #include "Camera.hpp"
 
+#include <algorithm>
+#include <cmath>
+
 Camera::Camera() 
     : m_position(0.0f, 0.0f, DefaultHeight)
     , m_target(0.0f, 0.0f, 0.0f)
-    , m_up(0.0f, 1.0f, 0.0f) {  // Y-axis is up
+    , m_up(0.0f, 1.0f, 0.0f)   // Y-axis is up
+    , m_followHeight(DefaultHeight)
+    , m_desiredFollowHeight(DefaultHeight) {
     updateViewMatrix();
 }
 
@@ -27,8 +32,13 @@ void Camera::move(const glm::vec3& offset) {
     updateViewMatrix();
 }
 
-void Camera::followTarget(const glm::vec3& targetPos) {
-    glm::vec3 offset(0.0f, 0.0f, DefaultHeight);
+void Camera::followTarget(const glm::vec3& targetPos, float speed) {
+    const float absSpeed = std::abs(speed);
+    float zoomFactor = (absSpeed - ZoomStartSpeed) / (ZoomFullSpeed - ZoomStartSpeed);
+    zoomFactor = std::clamp(zoomFactor, 0.0f, 1.0f);
+    m_desiredFollowHeight = DefaultHeight + (MaxFollowHeight - DefaultHeight) * zoomFactor;
+
+    glm::vec3 offset(0.0f, 0.0f, m_followHeight);
     glm::vec3 desiredPosition = targetPos + offset;
 
     setPosition(desiredPosition);
@@ -36,8 +46,9 @@ void Camera::followTarget(const glm::vec3& targetPos) {
 }
 
 void Camera::update(float deltaTime) {
-    // Camera can be updated here if needed (e.g., for animations)
-    (void)deltaTime; // Suppress unused parameter warning
+    // Smoothly ease the follow height toward the speed-driven zoom level.
+    const float blend = 1.0f - std::exp(-ZoomSmoothing * std::max(deltaTime, 0.0f));
+    m_followHeight += (m_desiredFollowHeight - m_followHeight) * blend;
 }
 
 void Camera::updateViewMatrix() {

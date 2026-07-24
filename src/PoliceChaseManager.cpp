@@ -366,20 +366,18 @@ void PoliceChaseManager::dumpDebugState(std::ostream& out) const {
 }
 
 bool PoliceChaseManager::debugSpawnOfficerAt(const glm::vec3& position, float headingDeg) {
-    if (!m_policeOfficerAnimation || m_policeOfficerAnimation->getTexture() == nullptr) {
+    if (!m_policeOfficerAnimation || m_policeOfficerAnimation->getTexture() == nullptr ||
+        !m_characterPhysics) {
         return false;
     }
 
     auto officer = std::make_unique<CombatPedestrian>();
-    officer->spawn(m_policeOfficerAnimation.get(), m_tileGrid, position, headingDeg);
+    officer->spawn(m_policeOfficerAnimation.get(), m_tileGrid, *m_characterPhysics, position, headingDeg);
     officer->setShootCallback(m_officerShootCallback);
     officer->setSpeed(m_officerSpeed);
     officer->setFireDistance(m_officerFireDistance);
     officer->setChaseDistance(5.0f);
     officer->setShootCooldown(0.55f);
-    officer->setVehicleBlockCheck([this](const glm::vec3& testPosition, float officerRadius) {
-        return isOfficerPositionBlockedByVehicle(testPosition, officerRadius);
-    });
     officer->setMovementTargetAdjustCallback([this](const glm::vec3& from, const glm::vec3& target,
                                                     float officerRadius) {
         return adjustOfficerMovementTargetAroundVehicles(from, target, officerRadius);
@@ -402,7 +400,7 @@ bool PoliceChaseManager::debugSpawnOfficerAt(const glm::vec3& position, float he
 void PoliceChaseManager::setWantedLevel(int wantedLevel) {
     wantedLevel = std::max(0, wantedLevel);
     if (wantedLevel == 0) {
-        reset();
+        resetForWorldRestart();
         return;
     }
 

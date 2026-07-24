@@ -5,7 +5,7 @@ A top-down 2.5D game engine inspired by GTA 1 & 2, featuring 2D sprites for cars
 ## Features
 
 - **2.5D Rendering**: Combines 2D sprites for characters/vehicles with 3D tile-based world
-- **Top-down Camera**: Follows the player with smooth movement
+- **Top-down Camera**: Follows the player with smooth movement and zooms out as driving speed increases
 - **Cross-platform**: Runs on Linux and Windows
 - **Modern OpenGL**: Uses OpenGL 3.3 core profile with shaders
 - **Modular Architecture**: Clean separation between engine components
